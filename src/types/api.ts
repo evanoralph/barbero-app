@@ -1,0 +1,332 @@
+export type ApiErrorBody = {
+  code: string;
+  message: string;
+  details?: unknown;
+};
+
+export type ApiSuccess<T> = { ok: true; data: T };
+export type ApiFailure = { ok: false; error: ApiErrorBody };
+
+export type LoginResponse = {
+  token: string;
+  userId: string;
+  expiresAt: string;
+  email: string;
+  roles: string[];
+};
+
+export type AuthMe = {
+  userId: string;
+  email: string;
+  roles: string[];
+  expiresAt: string;
+};
+
+export type ServiceCategory = {
+  slug: string;
+  name: string;
+  sortOrder: number;
+};
+
+export type ProviderLocation = {
+  address: string;
+  city: string;
+  lat: number;
+  lng: number;
+};
+
+export type ProviderService = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  durationMinutes: number;
+  category: string;
+};
+
+export type ProviderListItem = {
+  _id: string;
+  slug: string;
+  name: string;
+  categorySlug: string;
+  avatar: string;
+  coverImage: string;
+  bio: string;
+  location: ProviderLocation;
+  rating: number;
+  reviewCount: number;
+  isPremium: boolean;
+  isFeatured: boolean;
+  responseTime: string;
+  startingPrice: number;
+  serviceCount: number;
+};
+
+export type PortfolioItem = {
+  id: string;
+  image: string;
+  title: string;
+  description?: string;
+  likes: number;
+  createdAt: string;
+};
+
+export type ProviderPromotion = {
+  id: string;
+  title: string;
+  description: string;
+  discountPercent: number;
+  validUntil: string;
+  code: string;
+};
+
+export type ProviderProfile = ProviderListItem & {
+  userId?: string;
+  joinedAt: string;
+  completedBookings: number;
+  services: ProviderService[];
+  portfolio: PortfolioItem[];
+  availability: Array<{ day: string; slots: Array<{ time: string; available: boolean }> }>;
+  promotions?: ProviderPromotion[];
+};
+
+/** PATCH /providers/me body (matches Meteor updateProviderProfileInputSchema). */
+export type UpdateProviderProfileInput = {
+  bio?: string;
+  responseTime?: string;
+  avatar?: string;
+  coverImage?: string;
+  location?: {
+    address?: string;
+    city?: string;
+    lat?: number;
+    lng?: number;
+  };
+  addService?: {
+    name: string;
+    description: string;
+    price: number;
+    durationMinutes: number;
+    category: string;
+  };
+  updateService?: {
+    id: string;
+    name?: string;
+    description?: string;
+    price?: number;
+    durationMinutes?: number;
+    category?: string;
+  };
+  removeServiceId?: string;
+  addPortfolioItem?: {
+    image: string;
+    title: string;
+    description?: string;
+  };
+  updatePortfolioItem?: {
+    id: string;
+    image?: string;
+    title?: string;
+    description?: string;
+  };
+  removePortfolioItemId?: string;
+  addPromotion?: {
+    title: string;
+    description: string;
+    discountPercent: number;
+    validUntil: string;
+    code: string;
+  };
+  removePromotionId?: string;
+};
+
+export type Review = {
+  _id: string;
+  providerId: string;
+  customerId: string;
+  userName: string;
+  userAvatar: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  images?: string[];
+  bookingId?: string;
+  providerSlug?: string;
+  providerName?: string;
+};
+
+export type ProviderMapMarker = {
+  _id: string;
+  slug: string;
+  name: string;
+  categorySlug: string;
+  lat: number;
+  lng: number;
+  rating: number;
+  avatar: string;
+  isPremium: boolean;
+};
+
+export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
+
+export type Booking = {
+  _id: string;
+  customerId: string;
+  providerId: string;
+  serviceName: string;
+  status: BookingStatus;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+  updatedAt: string;
+  customer?: { userId: string; name: string; avatar?: string };
+};
+
+export type ConversationListItem = {
+  threadId: string;
+  bookingId: string;
+  participantUserId: string;
+  participantName: string;
+  participantAvatar?: string;
+  providerId?: string;
+  providerSlug?: string;
+  categorySlug?: string;
+  serviceName?: string;
+  startsAt?: string;
+  bookingStatus?: string;
+  lastMessage: string;
+  lastMessageAt: string;
+  unreadCount: number;
+};
+
+export type Message = {
+  _id: string;
+  threadId: string;
+  senderId: string;
+  body: string;
+  createdAt: string;
+};
+
+export type AccountProfile = {
+  userId: string;
+  email: string;
+  name: string;
+  phone?: string;
+  avatar?: string;
+  address?: string;
+  city?: string;
+  bio?: string;
+  notificationPreferences: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+    promotions: boolean;
+  };
+  createdAt: string;
+};
+
+export type AvailabilityTimeRange = {
+  id: string;
+  start: string;
+  end: string;
+};
+
+export type AvailabilityOverrideStatus = "weekly" | "unavailable" | "custom";
+
+export type ProviderAvailability = {
+  providerId: string;
+  weekly: Record<string, { enabled: boolean; ranges: AvailabilityTimeRange[] }>;
+  overrides: Record<
+    string,
+    { status: AvailabilityOverrideStatus; ranges: AvailabilityTimeRange[] }
+  >;
+  updatedAt: string;
+};
+
+export type ProviderAnalyticsRange = "7days" | "30days" | "3months" | "12months" | "ytd";
+
+export type ProviderAnalytics = {
+  totalBookings: number;
+  bookingsThisMonth: number;
+  upcomingBookings: number;
+  completedBookings: number;
+  cancelledBookings: number;
+  revenueThisMonth: number;
+  revenueTotal: number;
+  averageRating: number;
+  reviewCount: number;
+  upcoming: Array<{
+    _id: string;
+    customerId: string;
+    customerName?: string;
+    serviceName: string;
+    startsAt: string;
+    status: string;
+  }>;
+  revenueByMonth: Array<{ month: string; revenue: number }>;
+  bookingsByMonth: Array<{ month: string; count: number }>;
+  serviceCategoryBreakdown: Array<{
+    name: string;
+    value: number;
+    revenue: number;
+    bookings: number;
+  }>;
+  topServices: Array<{ service: string; bookings: number; revenue: number }>;
+  customerGrowthByMonth: Array<{ month: string; new: number; returning: number }>;
+  recentActivity: Array<{
+    id: string;
+    customerId: string;
+    service: string;
+    date: string;
+    amount: number;
+    status: string;
+  }>;
+  customerInsights: {
+    newCustomers: number;
+    returningCustomers: number;
+    repeatRate: number;
+    customerGrowthPercent: number;
+  };
+  bookingPerformance: {
+    completedBookings: number;
+    cancelledBookings: number;
+    upcomingBookings: number;
+    completionRate: number;
+    promotionCount: number;
+    isPremium: boolean;
+    isFeatured: boolean;
+  };
+};
+
+export type SubscriptionPlansResponse = {
+  plans: Array<{
+    id: "free" | "pro" | "premium";
+    name: string;
+    price: number;
+    billingPeriod: "monthly" | "yearly";
+    isPopular?: boolean;
+    features: string[];
+  }>;
+  current: {
+    planId: "free" | "pro" | "premium";
+    status: "active" | "cancelled" | "none";
+    billingPeriod: "monthly" | "yearly";
+    startedAt: string | null;
+    expiresAt: string | null;
+    isPremium: boolean;
+    isFeatured: boolean;
+  };
+};
+
+const BOOKING_THREAD_PREFIX = "booking:";
+
+/** Stable thread id for a single booking (no open personal DMs). */
+export function threadIdForBooking(bookingId: string): string {
+  return `${BOOKING_THREAD_PREFIX}${bookingId}`;
+}
+
+export function bookingIdFromThreadId(threadId: string): string | null {
+  if (!threadId.startsWith(BOOKING_THREAD_PREFIX)) return null;
+  const bookingId = threadId.slice(BOOKING_THREAD_PREFIX.length).trim();
+  return bookingId.length > 0 ? bookingId : null;
+}

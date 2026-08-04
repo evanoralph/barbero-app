@@ -1,56 +1,87 @@
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import {
+  DMMono_400Regular,
+  DMMono_500Medium,
+} from "@expo-google-fonts/dm-mono";
+import {
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_500Medium,
+  PlayfairDisplay_700Bold,
+} from "@expo-google-fonts/playfair-display";
+import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { useFonts } from "expo-font";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect } from "react";
+import { StatusBar } from "expo-status-bar";
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { AuthProvider } from "@/src/auth/session";
+import { colors } from "@/src/theme/colors";
+import { logger } from "@/src/utils/logger";
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+export { ErrorBoundary } from "expo-router";
 
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+SplashScreen.preventAutoHideAsync().catch((error) => {
+  logger.warn("root", "SplashScreen.preventAutoHideAsync failed", error);
+});
+
+const navTheme = {
+  ...(DefaultTheme ?? {}),
+  colors: {
+    ...(DefaultTheme?.colors ?? {}),
+    background: colors.bg,
+    card: colors.surface,
+    primary: colors.accent,
+    text: colors.text,
+    border: colors.border,
+  },
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
-
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+  const [fontsLoaded, fontError] = useFonts({
+    PlayfairDisplay_400Regular,
+    PlayfairDisplay_500Medium,
+    PlayfairDisplay_700Bold,
+    DMMono_400Regular,
+    DMMono_500Medium,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+    logger.info("root", "RootLayout mount");
+  }, []);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    if (fontError) {
+      logger.warn("root", "font load failed — falling back to system fonts", fontError);
+      logger.debug("theme", "light gold palette active");
+      SplashScreen.hideAsync().catch(() => undefined);
+      return;
     }
-  }, [loaded]);
+    if (fontsLoaded) {
+      logger.debug("root", "fonts loaded", {
+        serif: "PlayfairDisplay",
+        mono: "DMMono",
+      });
+      logger.debug("theme", "light gold palette active");
+      SplashScreen.hideAsync().catch((error) => {
+        logger.warn("root", "SplashScreen.hideAsync failed", error);
+      });
+    }
+  }, [fontsLoaded, fontError]);
 
-  if (!loaded) {
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider value={navTheme}>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(customer)" />
+          <Stack.Screen name="(provider)" />
+        </Stack>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
