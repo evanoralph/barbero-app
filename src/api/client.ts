@@ -1,7 +1,10 @@
+import { Platform } from "react-native";
 import { logger } from "@/src/utils/logger";
 import type { ApiFailure, ApiSuccess } from "@/src/types/api";
 
 const DEFAULT_API = "http://localhost:4000/api/v1";
+/** Android emulator loopback to the host machine (localhost on device is the emulator itself). */
+const ANDROID_EMULATOR_HOST = "10.0.2.2";
 
 export class ApiError extends Error {
   code: string;
@@ -18,14 +21,50 @@ export class ApiError extends Error {
 }
 
 let tokenGetter: (() => string | null) | null = null;
+let loggedBaseUrl = false;
 
 export function setApiTokenGetter(getter: () => string | null) {
   tokenGetter = getter;
 }
 
+/** Rewrite localhost → 10.0.2.2 on Android so emulator can reach the host API over HTTP. */
+function resolveApiBaseUrl(raw: string): string {
+  const trimmed = raw.replace(/\/$/, "");
+  if (Platform.OS !== "android") return trimmed;
+
+  try {
+    const url = new URL(trimmed);
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      const previous = url.hostname;
+      url.hostname = ANDROID_EMULATOR_HOST;
+      const resolved = url.toString().replace(/\/$/, "");
+      logger.info("api", "android cleartext host rewrite", {
+        from: previous,
+        to: ANDROID_EMULATOR_HOST,
+        baseUrl: resolved,
+      });
+      return resolved;
+    }
+  } catch (error) {
+    logger.warn("api", "failed to parse API base URL for android rewrite", { raw: trimmed, error });
+  }
+
+  return trimmed;
+}
+
 export function getApiBaseUrl(): string {
   const raw = process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API;
-  return raw.replace(/\/$/, "");
+  const base = resolveApiBaseUrl(raw);
+  if (!loggedBaseUrl) {
+    loggedBaseUrl = true;
+    logger.info("api", "API base URL ready", {
+      platform: Platform.OS,
+      configured: raw,
+      resolved: base,
+      cleartextHttp: base.startsWith("http://"),
+    });
+  }
+  return base;
 }
 
 type RequestOptions = {

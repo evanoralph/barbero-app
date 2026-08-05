@@ -7,10 +7,12 @@ import {
   PlayfairDisplay_500Medium,
   PlayfairDisplay_700Bold,
 } from "@expo-google-fonts/playfair-display";
+import Constants from "expo-constants";
 import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider } from "@/src/auth/session";
@@ -45,7 +47,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    logger.info("root", "RootLayout mount");
+    logger.info("root", "RootLayout mount", {
+      platform: Platform.OS,
+      executionEnvironment: Constants.executionEnvironment,
+      appOwnership: Constants.appOwnership,
+      isDevice: Constants.isDevice,
+    });
   }, []);
 
   useEffect(() => {

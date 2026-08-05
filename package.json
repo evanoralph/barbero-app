@@ -10,12 +10,14 @@
     "@expo-google-fonts/playfair-display": "^0.4.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
-    "expo": "~57.0.9",
+    "expo": "~57.0.10",
+    "expo-build-properties": "^57.0.8",
     "expo-constants": "~57.0.8",
+    "expo-dev-client": "~57.0.10",
     "expo-font": "~57.0.1",
-    "expo-linear-gradient": "~15.0.7",
-    "expo-linking": "~57.0.4",
-    "expo-router": "~57.0.9",
+    "expo-linear-gradient": "~57.0.1",
+    "expo-linking": "~57.0.5",
+    "expo-router": "~57.0.10",
     "expo-secure-store": "^57.0.1",
     "expo-splash-screen": "~57.0.5",
     "expo-status-bar": "~57.0.1",
@@ -39,10 +41,16 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "start:dev-client": "expo start --dev-client",
+    "android": "expo run:android",
+    "android:run": "expo run:android",
+    "android:prebuild": "expo prebuild --platform android --clean",
+    "android:build:eas": "eas build --profile development --platform android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "eas:ci": "eas workflow:run .eas/workflows/ci.yml",
+    "eas:preview": "eas workflow:run .eas/workflows/preview.yml"
   },
   "private": true
 }

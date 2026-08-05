@@ -67,14 +67,63 @@ export MONGO_URL=mongodb://127.0.0.1:27017/meteor
 pnpm dev:api
 ```
 
-### Start the mobile app
+### Start the mobile app (Expo Go)
 
 ```bash
 cd barbero-app
+nvm use   # Node 22.22.3 — Node 21 is not supported
 npx expo start
 ```
 
 Then press `i` (iOS), `a` (Android), or scan the QR code with Expo Go.
+
+> **Note:** Native modules like `react-native-maps`, `expo-secure-store`, and cleartext HTTP config need a **development build** on Android (Expo Go is limited). Prefer the Android steps below for day-to-day work.
+
+---
+
+## Android development build
+
+Use a custom Expo **dev client** (`expo-dev-client`) instead of Expo Go.
+
+### Option A — Local build (recommended on this Mac)
+
+Requires Android Studio SDK + an emulator or USB device (`adb` available).
+
+```bash
+cd barbero-app
+nvm use
+npm install
+cp -n .env.example .env   # if needed
+
+# Generate native android/ + compile & install debug app
+npm run android:run
+```
+
+In another terminal (API already running on `:4000`):
+
+```bash
+npm run start:dev-client
+```
+
+Emulator: keep `EXPO_PUBLIC_API_URL=http://localhost:4000/api/v1` (rewritten to `10.0.2.2` in app).  
+Physical device: set your LAN IP in `.env`, then restart Metro.
+
+### Option B — EAS cloud build (APK)
+
+```bash
+npm install -g eas-cli   # once
+eas login
+eas init                 # once — writes extra.eas.projectId into app.json
+npm run android:build:eas
+```
+
+Install the APK from the EAS link, then:
+
+```bash
+npm run start:dev-client
+```
+
+Profiles: `development` (dev client APK), `preview` (internal APK), `production`.
 
 ---
 
@@ -133,6 +182,8 @@ From `../barbero/apps/api-meteor/settings.development.json` (dev only):
 | Issue | Fix |
 | --- | --- |
 | Device cannot reach API | Use LAN IP in `EXPO_PUBLIC_API_URL`, not `localhost` |
+| Android HTTP / cleartext blocked | `expo-build-properties` sets `usesCleartextTraffic: true` — rebuild the native app after changing it |
+| Android emulator + `localhost` | App rewrites to `10.0.2.2` automatically; physical devices still need your LAN IP |
 | 401 on authenticated calls | Token missing/expired — log in again; check Bearer header logs |
 | CORS | Meteor REST allows Authorization; if blocked, confirm you hit Meteor `:4000`, not Next.js |
 | Admin login | Mobile v1 does not support admin — use web `/admin` |
@@ -141,5 +192,38 @@ From `../barbero/apps/api-meteor/settings.development.json` (dev only):
 
 ## EAS builds
 
-Profiles live in `eas.json` (`development`, `preview`, `production`).  
-Install EAS CLI and run `eas build --profile preview` when ready.
+Profiles live in `eas.json`:
+
+| Profile | Purpose |
+| --- | --- |
+| `development` | Dev client APK (`developmentClient: true`) |
+| `development-simulator` | iOS simulator dev client |
+| `preview` | Internal APK (no dev client) |
+| `production` | Store / release |
+
+```bash
+eas build --profile development --platform android
+eas build --profile preview --platform android
+```
+
+---
+
+## EAS Workflows (CI)
+
+Workflows live in [`.eas/workflows/`](.eas/workflows/). They run on EAS when the GitHub repo is connected:
+
+[Project → GitHub settings](https://expo.dev/accounts/evanoralph/projects/barbero-app/github)
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| [`ci.yml`](.eas/workflows/ci.yml) | Push / PR → `main` | `npm run typecheck`, then native fingerprint |
+| [`preview.yml`](.eas/workflows/preview.yml) | PR labeled `eas-preview` | Typecheck, then Android `preview` APK |
+
+Manual run (no GitHub trigger required):
+
+```bash
+npm run eas:ci        # typecheck + fingerprint
+npm run eas:preview   # typecheck + Android preview build
+```
+
+Skip an automatic run by including `[eas skip]`, `[skip eas]`, or `[no eas]` in the commit message.

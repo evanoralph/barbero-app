@@ -1,0 +1,44 @@
+# Internal Android preview APK when a PR is labeled `eas-preview`.
+# Avoids burning build minutes on every PR; add the label when you need a shareable build.
+#
+# Requires GitHub ↔ EAS connection + Android credentials for the `preview` profile.
+name: Preview build
+
+on:
+  pull_request_labeled:
+    labels: ['eas-preview']
+
+concurrency:
+  cancel_in_progress: true
+  group: ${{ workflow.filename }}-${{ github.ref }}
+
+jobs:
+  typecheck:
+    name: Typecheck
+    steps:
+      - name: Checkout
+        uses: eas/checkout
+
+      - name: Install dependencies
+        uses: eas/install_node_modules
+
+      - name: Log preview CI start
+        run: |
+          echo "[ci] preview workflow start"
+          echo "[ci] label=eas-preview"
+          echo "[ci] ref=${{ github.ref_name }}"
+          echo "[ci] sha=${{ github.sha }}"
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Log typecheck done
+        run: echo "[ci] typecheck passed; starting preview Android build"
+
+  build_android_preview:
+    name: Build Android preview
+    needs: [typecheck]
+    type: build
+    params:
+      platform: android
+      profile: preview

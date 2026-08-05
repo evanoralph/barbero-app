@@ -192,6 +192,19 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
     return [formatCategory(provider.categorySlug)];
   }, [provider]);
 
+  // Back button must sit on the screen root (not inside coverWrap).
+  // coverWrap uses marginTop: -insets.top for an edge-to-edge hero; putting
+  // top: insets.top on a child of that wrap cancels out and lands under the notch.
+  const backTop = insets.top + 8;
+
+  useEffect(() => {
+    logger.debug(scope, "safe area back button", {
+      mode,
+      insetsTop: insets.top,
+      backTop,
+    });
+  }, [backTop, insets.top, mode, scope]);
+
   if (loading) {
     return (
       <View style={[styles.screenRoot, styles.centerState, { paddingTop: insets.top }]}>
@@ -238,6 +251,14 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
   return (
     <View style={styles.screenRoot}>
       <StatusBar style="dark" />
+      <Pressable
+        style={[styles.backBtn, { top: backTop }]}
+        onPress={handleBack}
+        hitSlop={10}
+        accessibilityLabel="Go back"
+      >
+        <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2} />
+      </Pressable>
       <Screen
         scroll
         style={styles.screenRoot}
@@ -245,7 +266,12 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
         refreshing={false}
         onRefresh={load}
       >
-        <View style={[styles.coverWrap, { marginTop: -insets.top }]}>
+        <View
+          style={[
+            styles.coverWrap,
+            { marginTop: -insets.top, height: 260 + insets.top },
+          ]}
+        >
           {coverUri ? (
             <Image source={{ uri: coverUri }} style={styles.cover} resizeMode="cover" />
           ) : (
@@ -259,14 +285,6 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
             end={{ x: 0.5, y: 1 }}
             style={styles.coverFade}
           />
-          <Pressable
-            style={[styles.backBtn, { top: insets.top + 8 }]}
-            onPress={handleBack}
-            hitSlop={10}
-            accessibilityLabel="Go back"
-          >
-            <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2} />
-          </Pressable>
         </View>
 
         <View style={styles.identity}>
@@ -462,6 +480,7 @@ const styles = StyleSheet.create({
     marginHorizontal: -20,
     height: 260,
     backgroundColor: theme.surface,
+    overflow: "hidden",
   },
   cover: { width: "100%", height: "100%" },
   coverFade: {
@@ -474,6 +493,7 @@ const styles = StyleSheet.create({
   backBtn: {
     position: "absolute",
     left: 16,
+    zIndex: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
