@@ -532,7 +532,8 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    // RN 0.86 types: absoluteFillObject removed; absoluteFill is the same style object
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
   modalSheet: {
