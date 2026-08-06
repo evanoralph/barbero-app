@@ -13,8 +13,8 @@ export default function CustomerMessagesLayout() {
         contentStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Messages" }} />
-      <Stack.Screen name="[threadId]" options={{ title: "Chat" }} />
+      <Stack.Screen name="index" options={{ headerShown: false, title: "Messages" }} />
+      <Stack.Screen name="[threadId]" options={{ headerShown: false, title: "Chat" }} />
     </Stack>
   );
 }

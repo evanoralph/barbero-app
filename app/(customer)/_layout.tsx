@@ -113,7 +113,13 @@ export default function CustomerLayout() {
       />
       <Tabs.Screen
         name="book/[slug]"
-        options={{ href: null, ...headerOptions, title: "Book" }}
+        options={{
+          href: null,
+          headerShown: false,
+          title: "Book",
+          // Sticky "Request booking" bar owns the bottom chrome on this screen.
+          tabBarStyle: { display: "none" },
+        }}
       />
     </Tabs>
   );

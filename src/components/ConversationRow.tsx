@@ -2,6 +2,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { ConversationListItem } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
+import { formatConversationBookingLine } from "@/src/utils/conversations";
 import { formatRelativeTime } from "@/src/utils/relativeTime";
 import { logger } from "@/src/utils/logger";
 
@@ -16,25 +17,30 @@ export function ConversationRow({
   conversation,
   onPress,
   logScope = "messages",
+  variant = "grouped",
+  emphasizeMeta = false,
 }: {
   conversation: ConversationListItem;
   onPress: () => void;
   logScope?: string;
+  /** Flat hairline rows (6d). */
+  variant?: "grouped" | "card";
+  /** Gold booking meta (upcoming section). */
+  emphasizeMeta?: boolean;
 }) {
   const unread = Math.max(0, conversation.unreadCount || 0);
   const avatar = (conversation.participantAvatar || "").trim();
-  const subtitle = conversation.serviceName
-    ? `${conversation.serviceName}${
-        conversation.startsAt
-          ? ` · ${new Date(conversation.startsAt).toLocaleDateString()}`
-          : ""
-      }`
-    : "Booking chat";
+  const bookingLine = formatConversationBookingLine(conversation);
   const relative = formatRelativeTime(conversation.lastMessageAt);
 
   return (
     <Pressable
       onPress={() => {
+        console.log(`[${logScope}] open booking thread`, {
+          threadId: conversation.threadId,
+          bookingId: conversation.bookingId,
+          unread,
+        });
         logger.debug(logScope, "open booking thread", {
           threadId: conversation.threadId,
           bookingId: conversation.bookingId,
@@ -42,7 +48,10 @@ export function ConversationRow({
         });
         onPress();
       }}
-      style={({ pressed }) => [styles.row, pressed && { opacity: 0.9 }]}
+      style={({ pressed }) => [
+        variant === "grouped" ? styles.rowGrouped : styles.rowCard,
+        pressed && { opacity: 0.9 },
+      ]}
     >
       <View style={styles.avatarWrap}>
         {avatar ? (
@@ -52,25 +61,25 @@ export function ConversationRow({
             <Text style={styles.initials}>{initials(conversation.participantName)}</Text>
           </View>
         )}
-        {unread > 0 ? (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{unread > 99 ? "99+" : String(unread)}</Text>
-          </View>
-        ) : null}
+        {unread > 0 ? <View style={styles.unreadDot} /> : null}
       </View>
       <View style={styles.body}>
         <View style={styles.topLine}>
-          <Text
-            style={[styles.name, unread > 0 && styles.nameUnread]}
-            numberOfLines={1}
-          >
+          <Text style={styles.name} numberOfLines={1}>
             {conversation.participantName}
           </Text>
-          {relative ? <Text style={styles.time}>{relative}</Text> : null}
+          {relative ? (
+            <Text style={[styles.time, emphasizeMeta && styles.timeAccent]}>{relative}</Text>
+          ) : null}
         </View>
-        <Text style={styles.meta} numberOfLines={1}>
-          {subtitle}
-        </Text>
+        {bookingLine ? (
+          <Text
+            style={[styles.meta, emphasizeMeta ? styles.metaAccent : styles.metaMuted]}
+            numberOfLines={1}
+          >
+            {bookingLine}
+          </Text>
+        ) : null}
         <Text
           style={[styles.preview, unread > 0 && styles.previewUnread]}
           numberOfLines={1}
@@ -83,7 +92,17 @@ export function ConversationRow({
 }
 
 const styles = StyleSheet.create({
-  row: {
+  rowGrouped: {
+    flexDirection: "row",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  rowCard: {
     flexDirection: "row",
     gap: 12,
     backgroundColor: colors.surface,
@@ -95,10 +114,12 @@ const styles = StyleSheet.create({
   },
   avatarWrap: { position: "relative" },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   avatarFallback: {
     alignItems: "center",
@@ -108,50 +129,53 @@ const styles = StyleSheet.create({
   initials: {
     color: colors.text,
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: fonts.monoMedium,
   },
-  badge: {
+  unreadDot: {
     position: "absolute",
-    right: -2,
-    top: -2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    backgroundColor: colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
+    right: -1,
+    bottom: 0,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    backgroundColor: colors.success,
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: colors.bg,
   },
-  badgeText: {
-    color: colors.text,
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  body: { flex: 1, gap: 2 },
+  body: { flex: 1, minWidth: 0 },
   topLine: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "baseline",
     gap: 8,
   },
   name: {
     color: colors.text,
-    fontWeight: "600",
-    fontSize: 15,
+    fontFamily: fonts.serifMedium,
+    fontSize: 16,
     flex: 1,
   },
-  nameUnread: { fontWeight: "800" },
   time: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 10,
     fontFamily: fonts.mono,
   },
+  timeAccent: {
+    color: colors.accentDark,
+  },
   meta: {
+    fontSize: 9,
+    fontFamily: fonts.mono,
+    letterSpacing: 1,
+    marginTop: 3,
+    marginBottom: 2,
+  },
+  metaAccent: {
+    color: colors.accentDark,
+  },
+  metaMuted: {
     color: colors.textMuted,
-    fontSize: 12,
   },
   preview: {
     color: colors.textMuted,
@@ -159,6 +183,6 @@ const styles = StyleSheet.create({
   },
   previewUnread: {
     color: colors.text,
-    fontWeight: "600",
+    fontWeight: "500",
   },
 });

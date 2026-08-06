@@ -1,18 +1,9 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Text } from "react-native";
 import { listConversations } from "@/src/api/conversations";
-import { ConversationRow } from "@/src/components/ConversationRow";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingState,
-  Muted,
-  Screen,
-  Title,
-} from "@/src/components/ui";
+import { MessagesInbox } from "@/src/components/MessagesInbox";
+import { ErrorState, LoadingState } from "@/src/components/ui";
 import type { ConversationListItem } from "@/src/types/api";
-import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
 
 export default function ProviderMessagesScreen() {
@@ -23,11 +14,13 @@ export default function ProviderMessagesScreen() {
 
   const load = useCallback(async () => {
     setError(null);
+    console.log("[provider-messages] list conversations");
     logger.debug("provider-messages", "list conversations");
     try {
       const list = await listConversations();
       setItems(list);
       const unreadTotal = list.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+      console.log("[provider-messages] list ok", { count: list.length, unreadTotal });
       logger.debug("provider-messages", "list ok", {
         count: list.length,
         unreadTotal,
@@ -50,40 +43,22 @@ export default function ProviderMessagesScreen() {
   if (loading && items.length === 0) return <LoadingState />;
   if (error && items.length === 0) return <ErrorState message={error} onRetry={load} />;
 
-  const unreadTotal = items.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
-
   return (
-    <Screen
-      scroll
+    <MessagesInbox
+      title="Inbox"
+      items={items}
+      logScope="provider-messages"
       refreshing={refreshing}
       onRefresh={() => {
         setRefreshing(true);
         load();
       }}
-    >
-      <Title>Inbox</Title>
-      <Muted>
-        {items.length} conversation{items.length === 1 ? "" : "s"}
-        {unreadTotal > 0 ? ` · ${unreadTotal} unread` : ""}
-      </Muted>
-      {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
-      {items.length === 0 ? (
-        <EmptyState
-          title="No conversations"
-          body="Chats open when a customer books you — one thread per booking."
-        />
-      ) : (
-        items.map((c) => (
-          <ConversationRow
-            key={c.threadId}
-            conversation={c}
-            logScope="provider-messages"
-            onPress={() =>
-              router.push(`/(provider)/messages/${encodeURIComponent(c.threadId)}`)
-            }
-          />
-        ))
-      )}
-    </Screen>
+      error={error}
+      emptyTitle="No conversations"
+      emptyBody="Chats open when a customer books you — one thread per booking."
+      onOpenThread={(c) =>
+        router.push(`/(provider)/messages/${encodeURIComponent(c.threadId)}`)
+      }
+    />
   );
 }

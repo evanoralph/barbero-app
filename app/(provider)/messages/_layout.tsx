@@ -10,8 +10,8 @@ export default function ProviderMessagesLayout() {
         contentStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Inbox" }} />
-      <Stack.Screen name="[threadId]" options={{ title: "Chat" }} />
+      <Stack.Screen name="index" options={{ headerShown: false, title: "Inbox" }} />
+      <Stack.Screen name="[threadId]" options={{ headerShown: false, title: "Chat" }} />
     </Stack>
   );
 }

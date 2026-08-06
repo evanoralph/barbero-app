@@ -9,6 +9,7 @@ import {
   bookingStatusColor,
   bookingStatusLabel,
   formatBookingDate,
+  formatBookingTime,
   formatBookingTimeRange,
 } from "@/src/utils/bookingDisplay";
 
@@ -30,6 +31,8 @@ type Props = {
   /** Provider view: customer display name. */
   peerLabel?: string;
   peerAvatar?: string;
+  /** Optional price override when provider services are loaded separately. */
+  servicePrice?: number | null;
   error?: string | null;
   actions?: ReactNode;
 };
@@ -39,9 +42,11 @@ export function BookingDetailView({
   provider,
   peerLabel,
   peerAvatar,
+  servicePrice,
   error,
   actions,
 }: Props) {
+  const isProviderView = !provider && Boolean(peerLabel || peerAvatar !== undefined);
   const service = matchService(booking, provider);
   const duration = bookingDurationMinutes(booking, service?.durationMinutes);
   const statusColor = bookingStatusColor(booking.status);
@@ -51,38 +56,56 @@ export function BookingDetailView({
     provider?.location
       ? `${provider.location.address}, ${provider.location.city}`
       : null;
+  const price =
+    typeof servicePrice === "number"
+      ? servicePrice
+      : typeof service?.price === "number"
+        ? service.price
+        : null;
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.header}>
-        <Title style={styles.title}>{booking.serviceName || "Booking"}</Title>
-        {booking.status ? (
-          <View style={[styles.badge, { borderColor: statusColor }]}>
-            <Text style={[styles.badgeText, { color: statusColor }]}>
-              {bookingStatusLabel(booking.status)}
-            </Text>
-          </View>
-        ) : null}
+      <View style={[styles.hero, { borderColor: statusColor }]}>
+        <View style={styles.heroTop}>
+          <MonoLabel style={{ color: statusColor }}>
+            {bookingStatusLabel(booking.status).toUpperCase()}
+          </MonoLabel>
+          <Text style={styles.heroDate}>{formatBookingDate(booking.startsAt)}</Text>
+        </View>
+        <Text style={styles.heroTime}>
+          {formatBookingTime(booking.startsAt)}
+          {booking.endsAt ? ` – ${formatBookingTime(booking.endsAt)}` : ""}
+        </Text>
+        <Title style={styles.heroService}>{booking.serviceName || "Booking"}</Title>
+        <View style={styles.heroMeta}>
+          {duration > 0 ? (
+            <Text style={styles.heroMetaText}>{duration} min</Text>
+          ) : null}
+          {price != null ? (
+            <Text style={styles.heroPrice}>${price}</Text>
+          ) : null}
+        </View>
       </View>
 
       <Card>
-        <MonoLabel>{provider ? "Provider" : "Customer"}</MonoLabel>
+        <MonoLabel>{isProviderView ? "Customer" : "Provider"}</MonoLabel>
         <View style={styles.personRow}>
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarFallback]}>
-              <Text style={styles.avatarLetter}>{displayName.charAt(0).toUpperCase() || "?"}</Text>
+              <Text style={styles.avatarLetter}>
+                {displayName.charAt(0).toUpperCase() || "?"}
+              </Text>
             </View>
           )}
           <View style={styles.personText}>
             <Text style={styles.personName}>{displayName}</Text>
             {location ? <Muted>{location}</Muted> : null}
-            {!provider && booking.customerId ? (
-              <Muted>Customer id: {booking.customerId}</Muted>
-            ) : null}
-            {provider && booking.providerId ? (
-              <Muted>Provider id: {booking.providerId}</Muted>
+            {isProviderView ? (
+              <Muted>Tap Message to chat about this visit</Muted>
+            ) : provider?.slug ? (
+              <Muted>@{provider.slug}</Muted>
             ) : null}
           </View>
         </View>
@@ -90,25 +113,21 @@ export function BookingDetailView({
 
       <Card>
         <MonoLabel>Appointment</MonoLabel>
-        <Text style={styles.rowLabel}>Date</Text>
-        <Text style={styles.rowValue}>{formatBookingDate(booking.startsAt)}</Text>
-        <Text style={styles.rowLabel}>Time</Text>
+        <Text style={styles.rowLabel}>When</Text>
         <Text style={styles.rowValue}>
+          {formatBookingDate(booking.startsAt)} ·{" "}
           {formatBookingTimeRange(booking.startsAt, booking.endsAt)}
         </Text>
         <Text style={styles.rowLabel}>Duration</Text>
         <Text style={styles.rowValue}>
           {duration > 0 ? `${duration} minutes` : "—"}
         </Text>
-      </Card>
-
-      <Card>
-        <MonoLabel>Service</MonoLabel>
-        <Text style={styles.rowValue}>{booking.serviceName || "—"}</Text>
-        {service?.description ? <Muted>{service.description}</Muted> : null}
-        <Text style={styles.price}>
-          {typeof service?.price === "number" ? `$${service.price}` : "Price unavailable"}
-        </Text>
+        {service?.description ? (
+          <>
+            <Text style={styles.rowLabel}>Notes</Text>
+            <Muted>{service.description}</Muted>
+          </>
+        ) : null}
       </Card>
 
       <Card>
@@ -128,23 +147,50 @@ export function BookingDetailView({
 
 const styles = StyleSheet.create({
   wrap: { gap: 14 },
-  header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  title: { flex: 1 },
-  badge: {
+  hero: {
     borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginTop: 6,
+    borderLeftWidth: 4,
+    borderRadius: 16,
+    padding: 16,
+    gap: 6,
+    backgroundColor: colors.bg,
   },
-  badgeText: {
+  heroTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  heroDate: {
+    color: colors.textMuted,
     fontSize: 12,
-    fontFamily: fonts.monoMedium,
+    fontFamily: fonts.mono,
+  },
+  heroTime: {
+    color: colors.text,
+    fontSize: 28,
+    fontFamily: fonts.serifMedium,
+    marginTop: 2,
+  },
+  heroService: {
+    fontSize: 20,
+    marginTop: 4,
+  },
+  heroMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 4,
+  },
+  heroMetaText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontFamily: fonts.mono,
+  },
+  heroPrice: {
+    color: colors.accentDark,
+    fontSize: 16,
+    fontFamily: fonts.serifMedium,
   },
   personRow: { flexDirection: "row", gap: 12, alignItems: "center", marginTop: 8 },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surfaceAlt },
@@ -179,13 +225,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.mono,
   },
-  price: {
-    marginTop: 8,
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: "700",
-    fontFamily: fonts.serifMedium,
-  },
   error: { color: colors.danger, fontSize: 14 },
-  actions: { gap: 8 },
+  actions: { gap: 8, marginTop: 4 },
 });

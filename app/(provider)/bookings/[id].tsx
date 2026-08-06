@@ -1,7 +1,9 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { View } from "react-native";
 import { getBooking, listBookings, updateBookingStatus } from "@/src/api/bookings";
-import type { Booking, BookingStatus } from "@/src/types/api";
+import { getMyProvider } from "@/src/api/providers";
+import type { Booking, BookingStatus, ProviderProfile } from "@/src/types/api";
 import { threadIdForBooking } from "@/src/types/api";
 import { BookingDetailView } from "@/src/components/BookingDetailView";
 import {
@@ -18,6 +20,7 @@ export default function ProviderBookingDetail() {
     customerName?: string;
   }>();
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [provider, setProvider] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
@@ -27,7 +30,15 @@ export default function ProviderBookingDetail() {
     if (!id) return;
     setError(null);
     try {
-      const detail = await getBooking(id);
+      const [detail, me] = await Promise.all([
+        getBooking(id),
+        getMyProvider().catch((e) => {
+          logger.warn("provider-bookings", "detail provider soft-fail", e);
+          return null;
+        }),
+      ]);
+      if (me) setProvider(me);
+
       let enriched = detail;
       if (!detail.customer) {
         logger.debug("provider-bookings", "detail missing customer; enriching from list", {
@@ -67,9 +78,11 @@ export default function ProviderBookingDetail() {
         serviceName: enriched.serviceName,
         hasCustomer: Boolean(enriched.customer),
       });
+      console.log("[provider-bookings] detail loaded", enriched._id, enriched.status);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
       logger.error("provider-bookings", "detail load failed", e);
+      console.log("[provider-bookings] detail failed", e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -81,10 +94,20 @@ export default function ProviderBookingDetail() {
     void load();
   }, [load]);
 
+  const servicePrice = useMemo(() => {
+    if (!booking || !provider) return null;
+    const match = provider.services.find(
+      (s) => s.name.toLowerCase() === booking.serviceName.trim().toLowerCase(),
+    );
+    return typeof match?.price === "number" ? match.price : null;
+  }, [booking, provider]);
+
   const setStatus = async (status: BookingStatus) => {
     if (!booking) return;
     setActing(true);
     setError(null);
+    logger.debug("provider-bookings", "detail status", { id: booking._id, status });
+    console.log("[provider-bookings] detail status", booking._id, status);
     try {
       const updated = await updateBookingStatus(booking._id, { status });
       setBooking({
@@ -92,9 +115,11 @@ export default function ProviderBookingDetail() {
         customer: updated.customer ?? booking.customer,
       });
       logger.info("provider-bookings", "status updated", { id: booking._id, status });
+      console.log("[provider-bookings] detail status ok", status);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
       logger.error("provider-bookings", "status update failed", e);
+      console.log("[provider-bookings] detail status failed", e);
     } finally {
       setActing(false);
     }
@@ -110,10 +135,11 @@ export default function ProviderBookingDetail() {
       bookingId: booking._id,
       threadId,
     });
+    console.log("[provider-bookings] detail chat", booking._id);
     router.push(`/(provider)/messages/${encodeURIComponent(threadId)}`);
   };
 
-  const customerLabel = booking.customer?.name || booking.customerId;
+  const customerLabel = booking.customer?.name || "Customer";
 
   return (
     <Screen
@@ -121,6 +147,7 @@ export default function ProviderBookingDetail() {
       refreshing={refreshing}
       onRefresh={() => {
         setRefreshing(true);
+        console.log("[provider-bookings] detail refresh");
         void load();
       }}
     >
@@ -128,18 +155,24 @@ export default function ProviderBookingDetail() {
         booking={booking}
         peerLabel={customerLabel}
         peerAvatar={booking.customer?.avatar}
+        servicePrice={servicePrice}
         error={error}
         actions={
-          <>
-            {booking.status !== "cancelled" ? (
-              <Button label="Message about this booking" onPress={openChat} />
-            ) : null}
+          <View style={{ gap: 8 }}>
             {booking.status === "pending" ? (
-              <Button
-                label="Confirm"
-                onPress={() => void setStatus("confirmed")}
-                loading={acting}
-              />
+              <>
+                <Button
+                  label="Accept booking"
+                  onPress={() => void setStatus("confirmed")}
+                  loading={acting}
+                />
+                <Button
+                  label="Decline"
+                  variant="secondary"
+                  onPress={() => void setStatus("cancelled")}
+                  loading={acting}
+                />
+              </>
             ) : null}
             {booking.status === "confirmed" ? (
               <Button
@@ -148,15 +181,22 @@ export default function ProviderBookingDetail() {
                 loading={acting}
               />
             ) : null}
-            {booking.status === "pending" || booking.status === "confirmed" ? (
+            {booking.status !== "cancelled" ? (
               <Button
-                label="Cancel"
+                label="Message customer"
+                variant="secondary"
+                onPress={openChat}
+              />
+            ) : null}
+            {booking.status === "confirmed" ? (
+              <Button
+                label="Cancel booking"
                 variant="danger"
                 onPress={() => void setStatus("cancelled")}
                 loading={acting}
               />
             ) : null}
-          </>
+          </View>
         }
       />
     </Screen>
