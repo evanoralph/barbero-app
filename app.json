@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Barbero",
+    "name": "Beru",
     "slug": "barbero-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,18 +9,23 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.barbero.app"
+      "bundleIdentifier": "com.barbero.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Beru uses your location to show nearby artists on the map."
+      }
     },
     "android": {
+      "icon": "./assets/images/icon.png",
       "adaptiveIcon": {
-        "backgroundColor": "#FFFFFF",
+        "backgroundColor": "#000000",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "package": "com.barbero.app",
       "predictiveBackGestureEnabled": false,
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro",
@@ -32,11 +37,18 @@
       "expo-router",
       "expo-secure-store",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Beru uses your location to show nearby artists on the map."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
+          "backgroundColor": "#000000",
+          "imageWidth": 240
         }
       ],
       [

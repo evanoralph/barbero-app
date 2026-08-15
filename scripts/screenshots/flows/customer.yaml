@@ -1,0 +1,87 @@
+# Screens: (customer)/index.tsx, search.tsx, bookings/index.tsx,
+# bookings/[id].tsx, messages/index.tsx, messages/[threadId].tsx,
+# account/index.tsx, account/settings.tsx, account/saved.tsx,
+# account/payments.tsx, provider/[slug].tsx, book/[slug].tsx, map.tsx
+#
+# See provider.yaml for notes on the ".*<Label>, tab.*" tab-bar selector and
+# the launchApp-to-reset-nav-stack pattern used throughout.
+appId: com.barbero.app
+---
+- runFlow: lib/ensure_logged_out.yaml
+- tapOn: "Customer"
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    notVisible: "Dev quick fill"
+    timeout: 15000
+
+# Home
+- takeScreenshot: 01_home
+
+# Explore (route file: search.tsx, tab label: Explore)
+- tapOn: ".*Explore, tab.*"
+- takeScreenshot: 02_explore
+
+# Provider profile + booking flow (pushed from Explore)
+- tapOn:
+    point: "50%,55%"
+    optional: true
+- takeScreenshot: 03_provider_profile
+- scrollUntilVisible:
+    element: ".*Book with.*"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: ".*Book with.*"
+    optional: true
+- takeScreenshot: 04_book_flow
+- launchApp:
+    clearState: false
+
+# Bookings — list, then best-effort into a detail
+- tapOn: ".*Bookings, tab.*"
+- takeScreenshot: 05_bookings_list
+- tapOn:
+    point: "50%,32%"
+    optional: true
+- takeScreenshot: 06_booking_detail
+- launchApp:
+    clearState: false
+
+# Messages — list, then best-effort into a thread
+- tapOn: ".*Messages, tab.*"
+- takeScreenshot: 07_messages_list
+- tapOn:
+    point: "50%,25%"
+    optional: true
+- takeScreenshot: 08_message_thread
+- launchApp:
+    clearState: false
+
+# Account
+- tapOn: ".*Account, tab.*"
+- takeScreenshot: 09_account
+
+- tapOn: "Settings"
+- takeScreenshot: 10_settings
+- tapOn:
+    point: "7%,8%"
+
+- tapOn: "Saved providers"
+- takeScreenshot: 11_saved
+- tapOn:
+    point: "7%,8%"
+
+- tapOn: ".*Payments.*"
+- takeScreenshot: 12_payments
+- launchApp:
+    clearState: false
+
+# Map (pushed from Home via the map-pin icon)
+- tapOn: ".*Home, tab.*"
+- tapOn: "Open map"
+- takeScreenshot: 13_map

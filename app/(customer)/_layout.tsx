@@ -56,7 +56,7 @@ export default function CustomerLayout() {
         options={{
           title: "Home",
           ...headerOptions,
-          headerTitle: "Barbero",
+          headerTitle: "Beru",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Home} color={color} focused={focused} name="customer.home" />
           ),

@@ -1,7 +1,8 @@
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getBooking } from "@/src/api/bookings";
-import { listConversations } from "@/src/api/conversations";
+import { ApiError } from "@/src/api/client";
+import { listConversations, markThreadRead } from "@/src/api/conversations";
 import { listMessages, sendMessage } from "@/src/api/messages";
 import { useSession } from "@/src/auth/session";
 import {
@@ -9,8 +10,13 @@ import {
   type ThreadBookingCard,
 } from "@/src/components/MessageThreadView";
 import { ErrorState, LoadingState } from "@/src/components/ui";
+import { mergeMessages } from "@/src/meteor/merge-messages";
+import { applyConversationPatches } from "@/src/meteor/apply-conversation-patches";
+import { useConversationsLive } from "@/src/meteor/use-conversations-live";
+import { useMessagesThreadLive } from "@/src/meteor/use-messages-thread-live";
+import { useTypingIndicator } from "@/src/meteor/use-typing-indicator";
 import type { ConversationListItem, Message } from "@/src/types/api";
-import { bookingIdFromThreadId } from "@/src/types/api";
+import { bookingIdFromThreadId, normalizeThreadIdParam } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
 
@@ -27,18 +33,24 @@ const TAB_BAR_VISIBLE = {
 };
 
 export default function CustomerThreadScreen() {
-  const { threadId: raw } = useLocalSearchParams<{ threadId: string }>();
-  const threadId = decodeURIComponent(raw ?? "");
+  const { threadId: raw } = useLocalSearchParams<{ threadId: string | string[] }>();
+  const threadId = normalizeThreadIdParam(raw);
   const { user } = useSession();
   const navigation = useNavigation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [conversation, setConversation] = useState<ConversationListItem | null>(null);
   const [bookingCard, setBookingCard] = useState<ThreadBookingCard | null>(null);
   const pollBusy = useRef(false);
+
+  useEffect(() => {
+    console.log("[messages] threadId param", { raw, threadId });
+    logger.debug("messages", "threadId param", { raw, threadId });
+  }, [raw, threadId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,17 +69,21 @@ export default function CustomerThreadScreen() {
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
       if (!threadId) return;
-      if (!opts?.silent) setError(null);
+      if (!opts?.silent) {
+        setLoadError(null);
+        setError(null);
+      }
       try {
         const next = await listMessages(threadId);
-        setMessages(next);
+        setMessages((prev) => mergeMessages(next, prev));
+        setLoadError(null);
         if (!opts?.silent) {
           console.log("[messages] thread loaded", { threadId, count: next.length });
           logger.debug("messages", "thread loaded", { threadId, count: next.length });
         }
       } catch (e) {
         if (!opts?.silent) {
-          setError(e instanceof Error ? e.message : "Failed to load thread");
+          setLoadError(e instanceof Error ? e.message : "Failed to load thread");
           logger.error("messages", "thread load failed", e);
         }
       } finally {
@@ -80,6 +96,46 @@ export default function CustomerThreadScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useConversationsLive(
+    (rows) => {
+      setConversation((prev) => {
+        const next = applyConversationPatches(prev ? [prev] : [], rows);
+        return next.find((c) => c.threadId === threadId) ?? prev;
+      });
+    },
+    { enabled: Boolean(user && threadId) },
+  );
+
+  const lastIncomingId = [...messages]
+    .reverse()
+    .find((m) => m.senderId !== user?.userId)?._id;
+  useEffect(() => {
+    if (!threadId) return;
+    console.log("[messages] mark thread read", { threadId, lastIncomingId });
+    logger.debug("messages", "mark thread read", { threadId, lastIncomingId });
+    void markThreadRead(threadId).catch((e) => {
+      console.log("[messages] mark thread read soft-fail", e);
+      logger.warn("messages", "mark thread read soft-fail", e);
+    });
+  }, [threadId, lastIncomingId]);
+
+  const { liveMessages, liveReady } = useMessagesThreadLive(threadId, {
+    enabled: Boolean(threadId && user),
+  });
+  const { peerTyping, reportLocalTyping, clearLocalTyping } = useTypingIndicator(threadId, {
+    enabled: Boolean(threadId && user),
+  });
+
+  useEffect(() => {
+    if (!liveReady) return;
+    console.log("[messages] merging live thread", { threadId, liveCount: liveMessages.length });
+    logger.debug("messages", "merging live thread", {
+      threadId,
+      liveCount: liveMessages.length,
+    });
+    setMessages((prev) => mergeMessages(prev, liveMessages));
+  }, [liveReady, liveMessages, threadId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -154,7 +210,13 @@ export default function CustomerThreadScreen() {
   }, [threadId]);
 
   useEffect(() => {
-    if (!threadId) return;
+    if (!threadId || liveReady) {
+      if (liveReady) {
+        console.log("[messages] poll skipped — live DDP ready", { threadId });
+        logger.debug("messages", "poll skipped — live DDP ready", { threadId });
+      }
+      return;
+    }
     const id = setInterval(async () => {
       if (pollBusy.current || sending) return;
       pollBusy.current = true;
@@ -169,24 +231,36 @@ export default function CustomerThreadScreen() {
       clearInterval(id);
       logger.debug("messages", "poll stop", { threadId });
     };
-  }, [threadId, load, sending]);
+  }, [threadId, load, sending, liveReady]);
 
   const onSend = async (text?: string) => {
-    if (!user) return;
+    if (!user) {
+      console.log("[messages] send skipped — no session user", { threadId });
+      logger.warn("messages", "send skipped — no session user", { threadId });
+      return;
+    }
     const content = (text ?? body).trim();
     if (!content) return;
+    clearLocalTyping();
     setSending(true);
+    setError(null);
     try {
       const msg = await sendMessage({
         threadId,
         senderId: user.userId,
         body: content,
       });
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => mergeMessages(prev, [msg]));
       if (!text) setBody("");
       console.log("[messages] sent", { threadId, quick: Boolean(text) });
       logger.info("messages", "sent", { threadId, quick: Boolean(text) });
     } catch (e) {
+      const extra =
+        e instanceof ApiError
+          ? { threadId, status: e.status, code: e.code, message: e.message, details: e.details }
+          : { threadId, message: e instanceof Error ? e.message : String(e) };
+      console.log("[messages] send failed", extra);
+      logger.error("messages", "send failed", extra);
       setError(e instanceof Error ? e.message : "Send failed");
     } finally {
       setSending(false);
@@ -194,7 +268,9 @@ export default function CustomerThreadScreen() {
   };
 
   if (loading) return <LoadingState />;
-  if (error && messages.length === 0) return <ErrorState message={error} onRetry={load} />;
+  if (loadError && messages.length === 0) {
+    return <ErrorState message={loadError} onRetry={load} />;
+  }
 
   const bookingId = bookingCard?.bookingId || bookingIdFromThreadId(threadId);
 
@@ -204,13 +280,18 @@ export default function CustomerThreadScreen() {
       messages={messages}
       userId={user?.userId}
       body={body}
-      onChangeBody={setBody}
+      onChangeBody={(text) => {
+        setBody(text);
+        reportLocalTyping(text.trim().length > 0);
+      }}
       onSend={onSend}
       sending={sending}
       error={error}
       participantName={conversation?.participantName}
       participantAvatar={conversation?.participantAvatar}
       booking={bookingCard}
+      peerTyping={peerTyping}
+      peerLastReadAt={conversation?.peerLastReadAt}
       onBack={() => router.back()}
       onOpenBooking={() => {
         if (!bookingId) return;

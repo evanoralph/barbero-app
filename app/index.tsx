@@ -6,7 +6,10 @@ import { logger } from "@/src/utils/logger";
 export default function Index() {
   const { ready, user, role } = useSession();
 
-  if (!ready) return <LoadingState label="Starting Barbero…" />;
+  if (!ready) {
+    console.log("[nav] boot loading", { brand: "Beru" });
+    return <LoadingState label="Starting Beru…" />;
+  }
 
   if (!user) {
     logger.debug("nav", "no session → auth");

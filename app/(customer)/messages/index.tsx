@@ -1,12 +1,16 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { listConversations } from "@/src/api/conversations";
+import { useSession } from "@/src/auth/session";
 import { MessagesInbox } from "@/src/components/MessagesInbox";
 import { ErrorState, LoadingState } from "@/src/components/ui";
+import { applyConversationPatches } from "@/src/meteor/apply-conversation-patches";
+import { useConversationsLive } from "@/src/meteor/use-conversations-live";
 import type { ConversationListItem } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
 
 export default function CustomerMessagesScreen() {
+  const { user } = useSession();
   const [items, setItems] = useState<ConversationListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +41,13 @@ export default function CustomerMessagesScreen() {
     }, [load]),
   );
 
+  useConversationsLive(
+    (rows) => {
+      setItems((prev) => applyConversationPatches(prev, rows));
+    },
+    { enabled: Boolean(user) },
+  );
+
   if (loading && items.length === 0) return <LoadingState />;
   if (error && items.length === 0) return <ErrorState message={error} onRetry={load} />;
 
@@ -53,9 +64,14 @@ export default function CustomerMessagesScreen() {
       error={error}
       emptyTitle="No conversations"
       emptyBody="Open a booking and tap Message to chat about that appointment."
-      onOpenThread={(c) =>
-        router.push(`/(customer)/messages/${encodeURIComponent(c.threadId)}`)
-      }
+      onOpenThread={(c) => {
+        console.log("[messages] open thread via params", { threadId: c.threadId });
+        logger.debug("messages", "open thread via params", { threadId: c.threadId });
+        router.push({
+          pathname: "/(customer)/messages/[threadId]",
+          params: { threadId: c.threadId },
+        });
+      }}
     />
   );
 }

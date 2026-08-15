@@ -1,0 +1,111 @@
+# Screens: (provider)/index.tsx, bookings/index.tsx, bookings/[id].tsx,
+# availability.tsx, messages/index.tsx, messages/[threadId].tsx, profile.tsx,
+# services.tsx, portfolio.tsx, subscription.tsx, public-profile.tsx
+#
+# Uses the "Dev quick fill" button (__DEV__ only, see app/(auth)/login.tsx) to
+# log in, so this only works against a dev build, not a production build.
+#
+# Note on tab-bar taps: React Navigation's tab bar exposes each tab's
+# accessibility text as "<Label>, tab, N of M" — a plain tapOn: "Bookings" can
+# match a same-named Quick Action button elsewhere on screen instead, so every
+# tab tap here uses a ".*<Label>, tab.*" regex to target the tab bar specifically.
+#
+# Note on nav-stack resets: relaunching the app (launchApp) resets React
+# Navigation's in-memory stack to its initial route without logging the user
+# out (clearState: false only clears app process state, not the persisted
+# auth token) — used here to back out of a pushed detail screen instead of
+# relying on a back button, since some detail headers don't render one.
+appId: com.barbero.app
+---
+- runFlow: lib/ensure_logged_out.yaml
+- tapOn: "Provider"
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    notVisible: "Dev quick fill"
+    timeout: 15000
+
+# Dashboard
+- takeScreenshot: 01_dashboard
+
+# Bookings — list, then best-effort into a detail
+- tapOn: ".*Bookings, tab.*"
+- takeScreenshot: 02_bookings_list
+- tapOn: ".*Pending.*"
+- tapOn:
+    point: "50%,30%"
+    optional: true
+- takeScreenshot: 03_booking_detail
+- launchApp:
+    clearState: false
+
+# Hours
+- tapOn: ".*Hours, tab.*"
+- takeScreenshot: 04_hours
+
+# Inbox — list, then best-effort into a thread
+- tapOn: ".*Inbox, tab.*"
+- takeScreenshot: 05_inbox_list
+- tapOn:
+    point: "50%,25%"
+    optional: true
+- takeScreenshot: 06_message_thread
+- launchApp:
+    clearState: false
+
+# Profile
+- tapOn: ".*Profile, tab.*"
+- takeScreenshot: 07_profile
+
+# Public profile preview (pushed from Profile)
+- tapOn: "View public profile"
+- takeScreenshot: 11_public_profile
+- launchApp:
+    clearState: false
+
+# Services (pushed from Profile, below the fold)
+- tapOn: ".*Profile, tab.*"
+- scrollUntilVisible:
+    element: "Manage services"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: "Manage services"
+    optional: true
+- takeScreenshot: 08_services
+- launchApp:
+    clearState: false
+
+# Portfolio (pushed from Profile, below the fold)
+- tapOn: ".*Profile, tab.*"
+- scrollUntilVisible:
+    element: "Manage portfolio"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: "Manage portfolio"
+    optional: true
+- takeScreenshot: 09_portfolio
+- launchApp:
+    clearState: false
+
+# Subscription plan (pushed from Profile, below the fold)
+- tapOn: ".*Profile, tab.*"
+- scrollUntilVisible:
+    element: "Subscription plan"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: "Subscription plan"
+    optional: true
+- takeScreenshot: 10_subscription

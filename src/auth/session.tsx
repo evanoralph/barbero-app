@@ -9,6 +9,7 @@ import React, {
 import { authMe, login as apiLogin, logout as apiLogout } from "@/src/api/auth";
 import { checkHealth, setApiTokenGetter } from "@/src/api/client";
 import { clearToken, loadToken, saveToken } from "@/src/auth/token";
+import { resumeMobileDdp, signOutMobileDdp } from "@/src/meteor/session";
 import type { AuthMe, LoginResponse } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
 import { registerPushTokenPlaceholder } from "@/src/utils/pushPlaceholder";
@@ -41,6 +42,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setApiTokenGetter(() => token);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      void signOutMobileDdp();
+      return;
+    }
+    logger.info("session", "resuming DDP for live chat");
+    void resumeMobileDdp(token);
   }, [token]);
 
   const refresh = useCallback(async () => {
@@ -123,6 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await clearToken();
     setToken(null);
     setUser(null);
+    await signOutMobileDdp();
     logger.info("session", "signed out");
   }, [token]);
 

@@ -136,7 +136,10 @@ export default function ProviderBookingDetail() {
       threadId,
     });
     console.log("[provider-bookings] detail chat", booking._id);
-    router.push(`/(provider)/messages/${encodeURIComponent(threadId)}`);
+    router.push({
+      pathname: "/(provider)/messages/[threadId]",
+      params: { threadId },
+    });
   };
 
   const customerLabel = booking.customer?.name || "Customer";

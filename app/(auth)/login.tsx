@@ -3,6 +3,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { ApiError } from "@/src/api/client";
 import { useSession } from "@/src/auth/session";
+import { BrandLogo } from "@/src/components/BrandLogo";
 import { Button, Field, Muted, Screen, Title } from "@/src/components/ui";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
@@ -70,7 +71,7 @@ export default function LoginScreen() {
   return (
     <Screen scroll>
       <View style={styles.hero}>
-        <Text style={styles.brand}>Barbero</Text>
+        <BrandLogo variant="gold" size="xl" style={styles.brandLogo} />
         <Muted>Book beauty & grooming professionals</Muted>
       </View>
       <Title>Sign in</Title>
@@ -112,8 +113,8 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: 48, marginBottom: 12, gap: 4 },
-  brand: { color: colors.accent, fontSize: 40, fontWeight: "800", letterSpacing: -1 },
+  hero: { marginTop: 48, marginBottom: 12, gap: 8 },
+  brandLogo: { height: 72, width: 160, alignSelf: "flex-start" },
   error: { color: colors.danger, fontSize: 14 },
   link: { color: colors.accent, fontWeight: "600", marginTop: 4 },
   devFill: { marginTop: 16, gap: 8 },

@@ -1,12 +1,16 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { listConversations } from "@/src/api/conversations";
+import { useSession } from "@/src/auth/session";
 import { MessagesInbox } from "@/src/components/MessagesInbox";
 import { ErrorState, LoadingState } from "@/src/components/ui";
+import { applyConversationPatches } from "@/src/meteor/apply-conversation-patches";
+import { useConversationsLive } from "@/src/meteor/use-conversations-live";
 import type { ConversationListItem } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
 
 export default function ProviderMessagesScreen() {
+  const { user } = useSession();
   const [items, setItems] = useState<ConversationListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +44,13 @@ export default function ProviderMessagesScreen() {
     }, [load]),
   );
 
+  useConversationsLive(
+    (rows) => {
+      setItems((prev) => applyConversationPatches(prev, rows));
+    },
+    { enabled: Boolean(user) },
+  );
+
   if (loading && items.length === 0) return <LoadingState />;
   if (error && items.length === 0) return <ErrorState message={error} onRetry={load} />;
 
@@ -56,9 +67,18 @@ export default function ProviderMessagesScreen() {
       error={error}
       emptyTitle="No conversations"
       emptyBody="Chats open when a customer books you — one thread per booking."
-      onOpenThread={(c) =>
-        router.push(`/(provider)/messages/${encodeURIComponent(c.threadId)}`)
-      }
+      onOpenThread={(c) => {
+        console.log("[provider-messages] open thread via params", {
+          threadId: c.threadId,
+        });
+        logger.debug("provider-messages", "open thread via params", {
+          threadId: c.threadId,
+        });
+        router.push({
+          pathname: "/(provider)/messages/[threadId]",
+          params: { threadId: c.threadId },
+        });
+      }}
     />
   );
 }

@@ -1,0 +1,33 @@
+# Shared sub-flow: relaunch and make sure we land on the login screen.
+#
+# This is a dev-client build, so `launchApp: { clearState: true }` is NOT
+# safe to use here — it wipes the dev-client's own stored bundler URL along
+# with app storage, which drops the simulator into the native Expo launcher
+# screen ("Development Build" / server picker) instead of the app itself.
+# Relaunching without clearing state keeps the app talking to the same
+# bundler; if that leaves us logged in (persisted auth token), we sign out
+# by hand instead.
+appId: com.barbero.app
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 6000
+- runFlow:
+    when:
+      notVisible: "Dev quick fill"
+    commands:
+      - tapOn:
+          text: ".*Profile, tab.*"
+          optional: true
+      - tapOn:
+          text: ".*Account, tab.*"
+          optional: true
+      - scrollUntilVisible:
+          element: "Sign out"
+          direction: DOWN
+          centerElement: true
+      - tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Dev quick fill"
+    timeout: 10000

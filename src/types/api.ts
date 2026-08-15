@@ -197,6 +197,7 @@ export type ConversationListItem = {
   lastMessage: string;
   lastMessageAt: string;
   unreadCount: number;
+  peerLastReadAt?: string;
 };
 
 export type Message = {
@@ -329,4 +330,24 @@ export function bookingIdFromThreadId(threadId: string): string | null {
   if (!threadId.startsWith(BOOKING_THREAD_PREFIX)) return null;
   const bookingId = threadId.slice(BOOKING_THREAD_PREFIX.length).trim();
   return bookingId.length > 0 ? bookingId : null;
+}
+
+/** Expo Router may pass `string | string[]`; params are often already decoded. */
+export function normalizeThreadIdParam(raw: string | string[] | undefined): string {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) return "";
+  let decoded = value;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    decoded = value;
+  }
+  if (decoded.includes("%3A") || decoded.includes("%3a")) {
+    try {
+      decoded = decodeURIComponent(decoded);
+    } catch {
+      /* keep first decode */
+    }
+  }
+  return decoded;
 }

@@ -22,6 +22,7 @@ import type { ProviderMapMarker } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { formatRating } from "@/src/utils/format";
+import { bboxAround, type UserCoords } from "@/src/utils/location";
 import { logger } from "@/src/utils/logger";
 
 const CATEGORIES = ["", "barber", "tattoo", "nails", "salon"] as const;
@@ -33,7 +34,19 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 0.2,
 };
 
+const NEARBY_DELTA = 0.06;
+
 const FIT_PADDING = { top: 100, right: 48, bottom: 160, left: 48 };
+const EMBEDDED_FIT_PADDING = { top: 48, right: 36, bottom: 100, left: 36 };
+
+function regionForUser(coords: UserCoords): Region {
+  return {
+    latitude: coords.lat,
+    longitude: coords.lng,
+    latitudeDelta: NEARBY_DELTA * 2,
+    longitudeDelta: NEARBY_DELTA * 2,
+  };
+}
 
 function MapMarkerPin({
   marker,
@@ -115,6 +128,10 @@ export function ProvidersMapView({
   category: controlledCategory,
   onCategoryChange,
   showCategoryChips = true,
+  embedded = false,
+  userCoordinate = null,
+  showsUserLocation = false,
+  centerOnUser = false,
 }: {
   /** Used when uncontrolled, or as first value before parent syncs. */
   initialCategory?: string;
@@ -122,6 +139,13 @@ export function ProvidersMapView({
   category?: string;
   onCategoryChange?: (category: string) => void;
   showCategoryChips?: boolean;
+  /** Home embed: fixed parent height, tighter overlays. */
+  embedded?: boolean;
+  /** User GPS coords for nearby centering / bbox. */
+  userCoordinate?: UserCoords | null;
+  showsUserLocation?: boolean;
+  /** Prefer centering on user instead of fitting all markers. */
+  centerOnUser?: boolean;
 }) {
   const mapRef = useRef<MapView | null>(null);
   const [internalCategory, setInternalCategory] = useState(initialCategory);
@@ -132,6 +156,11 @@ export function ProvidersMapView({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const useUserCenter = Boolean(centerOnUser && userCoordinate);
+  const initialRegion = useUserCenter
+    ? regionForUser(userCoordinate!)
+    : DEFAULT_REGION;
+
   const setCategory = useCallback(
     (next: string) => {
       logger.debug("ProvidersMapView", "category change", { next });
@@ -141,49 +170,99 @@ export function ProvidersMapView({
     [controlledCategory, onCategoryChange],
   );
 
-  const fitMarkers = useCallback((items: ProviderMapMarker[]) => {
-    if (items.length === 0 || !mapRef.current) return;
-    const coords = items.map((m) => ({
-      latitude: m.lat,
-      longitude: m.lng,
-    }));
-    logger.debug("ProvidersMapView", "fitToCoordinates", { count: coords.length });
-    mapRef.current.fitToCoordinates(coords, {
-      edgePadding: FIT_PADDING,
-      animated: true,
-    });
-  }, []);
+  const applyCamera = useCallback(
+    (items: ProviderMapMarker[]) => {
+      if (!mapRef.current) return;
+      if (useUserCenter && userCoordinate) {
+        const region = regionForUser(userCoordinate);
+        logger.debug("ProvidersMapView", "centerOnUser", {
+          lat: userCoordinate.lat,
+          lng: userCoordinate.lng,
+          markerCount: items.length,
+        });
+        console.log("[ProvidersMapView] centerOnUser", userCoordinate.lat, userCoordinate.lng);
+        mapRef.current.animateToRegion(region, 400);
+        return;
+      }
+      if (items.length === 0) return;
+      const coords = items.map((m) => ({
+        latitude: m.lat,
+        longitude: m.lng,
+      }));
+      logger.debug("ProvidersMapView", "fitToCoordinates", { count: coords.length });
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: embedded ? EMBEDDED_FIT_PADDING : FIT_PADDING,
+        animated: true,
+      });
+    },
+    [embedded, useUserCenter, userCoordinate],
+  );
 
   const load = useCallback(async () => {
     setError(null);
     setLoading(true);
-    logger.debug("ProvidersMapView", "load markers", { category: category || undefined });
+    const bbox =
+      centerOnUser && userCoordinate
+        ? bboxAround(userCoordinate, NEARBY_DELTA)
+        : undefined;
+    logger.debug("ProvidersMapView", "load markers", {
+      category: category || undefined,
+      centerOnUser,
+      hasUser: Boolean(userCoordinate),
+      bbox,
+    });
+    console.log("[ProvidersMapView] load markers", {
+      category: category || "all",
+      centerOnUser,
+      bbox: Boolean(bbox),
+    });
     try {
       const next = await listProvidersMap({
         category: category || undefined,
+        swLat: bbox?.swLat,
+        swLng: bbox?.swLng,
+        neLat: bbox?.neLat,
+        neLng: bbox?.neLng,
       });
-      setMarkers(next);
-      setSelected(null);
-      logger.debug("ProvidersMapView", "markers loaded", { count: next.length });
+      // If nearby bbox returns nothing, fall back to all markers so Home still shows providers.
+      if (bbox && next.length === 0) {
+        logger.warn("ProvidersMapView", "nearby empty — falling back to all markers");
+        console.log("[ProvidersMapView] nearby empty, fallback all");
+        const all = await listProvidersMap({
+          category: category || undefined,
+        });
+        setMarkers(all);
+        setSelected(null);
+        logger.debug("ProvidersMapView", "markers loaded (fallback)", {
+          count: all.length,
+        });
+      } else {
+        setMarkers(next);
+        setSelected(null);
+        logger.debug("ProvidersMapView", "markers loaded", { count: next.length });
+        console.log("[ProvidersMapView] markers loaded", next.length);
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Map failed";
       logger.error("ProvidersMapView", "load failed", message);
+      console.log("[ProvidersMapView] load failed", message);
       setError(message);
       setMarkers([]);
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, [category, centerOnUser, userCoordinate]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
-    if (loading || error || markers.length === 0) return;
-    const id = requestAnimationFrame(() => fitMarkers(markers));
+    if (loading || error) return;
+    if (!useUserCenter && markers.length === 0) return;
+    const id = requestAnimationFrame(() => applyCamera(markers));
     return () => cancelAnimationFrame(id);
-  }, [loading, error, markers, fitMarkers]);
+  }, [loading, error, markers, applyCamera, useUserCenter]);
 
   const selectMarker = useCallback((marker: ProviderMapMarker) => {
     logger.debug("ProvidersMapView", "select marker", {
@@ -204,19 +283,22 @@ export function ProvidersMapView({
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, embedded && styles.containerEmbedded]}>
       <MapView
         ref={mapRef}
         style={styles.map}
-        initialRegion={DEFAULT_REGION}
-        showsCompass
-        showsUserLocation={false}
+        initialRegion={initialRegion}
+        showsCompass={!embedded}
+        showsUserLocation={showsUserLocation}
         onMapReady={() => {
           logger.debug("ProvidersMapView", "map ready", {
             markerCount: markers.length,
+            embedded,
+            showsUserLocation,
           });
+          console.log("[ProvidersMapView] map ready", markers.length);
           // Empty Google Maps keys in app.json may break Android Google Maps builds.
-          fitMarkers(markers);
+          applyCamera(markers);
         }}
         onPress={() => {
           if (selected) {
@@ -255,7 +337,10 @@ export function ProvidersMapView({
         </View>
       ) : null}
 
-      <View style={styles.countBadge} pointerEvents="none">
+      <View
+        style={[styles.countBadge, embedded && styles.countBadgeEmbedded]}
+        pointerEvents="none"
+      >
         <Text style={styles.countText}>
           <Text style={styles.countBold}>{markers.length}</Text>
           {" providers in this area"}
@@ -282,7 +367,7 @@ export function ProvidersMapView({
       ) : null}
 
       {selected ? (
-        <View style={styles.selectionCard}>
+        <View style={[styles.selectionCard, embedded && styles.selectionCardEmbedded]}>
           <View style={styles.selectionHeader}>
             <View style={styles.selectionIdentity}>
               {(selected.avatar || "").trim() ? (
@@ -347,6 +432,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.bg,
   },
+  containerEmbedded: {
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   map: {
     ...StyleSheet.absoluteFill,
   },
@@ -382,6 +473,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     maxWidth: "60%",
+  },
+  countBadgeEmbedded: {
+    bottom: 10,
+    left: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    maxWidth: "70%",
   },
   countText: {
     color: colors.textMuted,
@@ -495,6 +593,13 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+  },
+  selectionCardEmbedded: {
+    bottom: 48,
+    left: 8,
+    right: 8,
+    padding: 10,
+    gap: 8,
   },
   selectionHeader: {
     flexDirection: "row",

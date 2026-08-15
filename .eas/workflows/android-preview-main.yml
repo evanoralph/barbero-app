@@ -1,0 +1,53 @@
+# Internal Android preview APK on every push to main.
+# Requires GitHub ↔ EAS connection + Android credentials for the `preview` profile:
+# https://expo.dev/accounts/evanoralph/projects/barbero-app/github
+#
+# Skip a run with [eas skip], [skip eas], or [no eas] in the commit message.
+name: Android preview (main)
+
+on:
+  push:
+    branches: ['main']
+
+concurrency:
+  cancel_in_progress: true
+  group: ${{ workflow.filename }}-${{ github.ref }}
+
+defaults:
+  tools:
+    node: '22.22.3'
+
+jobs:
+  typecheck:
+    name: Typecheck
+    steps:
+      - name: Checkout
+        uses: eas/checkout
+
+      - name: Install dependencies
+        uses: eas/install_node_modules
+
+      - name: Log Android preview (main) start
+        run: |
+          echo "[ci] android-preview-main start"
+          echo "[ci] profile=preview"
+          echo "[ci] platform=android"
+          echo "[ci] ref=${{ github.ref_name }}"
+          echo "[ci] sha=${{ github.sha }}"
+          echo "[ci] event=${{ github.event_name }}"
+          node --version
+          npm --version
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Log typecheck done
+        run: echo "[ci] typecheck passed; starting preview Android build"
+
+  build_android_preview:
+    name: Build Android preview
+    needs: [typecheck]
+    type: build
+    params:
+      platform: android
+      profile: preview

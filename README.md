@@ -198,13 +198,21 @@ Profiles live in `eas.json`:
 | --- | --- |
 | `development` | Dev client APK (`developmentClient: true`) |
 | `development-simulator` | iOS simulator dev client |
-| `preview` | Internal APK (no dev client) |
+| `preview` | Internal APK (no dev client); uses EAS env `preview` |
 | `production` | Store / release |
 
 ```bash
 eas build --profile development --platform android
 eas build --profile preview --platform android
 ```
+
+One-time setup for automated preview APKs:
+
+1. Connect GitHub: [Project → GitHub settings](https://expo.dev/accounts/evanoralph/projects/barbero-app/github)
+2. Android signing: `eas credentials:configure-build -p android -e preview`
+3. Set EAS **preview** env vars (plaintext, not `localhost`): `EXPO_PUBLIC_API_URL`, optional `EXPO_PUBLIC_API_DDP_URL` and Maps keys — [environment variables](https://expo.dev/accounts/evanoralph/projects/barbero-app/environment-variables)
+
+Do not commit `.env` or keystores. Testers install from the EAS build URL, or locally with `eas build:run -p android --latest`.
 
 ---
 
@@ -218,12 +226,14 @@ Workflows live in [`.eas/workflows/`](.eas/workflows/). They run on EAS when the
 | --- | --- | --- |
 | [`ci.yml`](.eas/workflows/ci.yml) | Push / PR → `main` | `npm run typecheck`, then native fingerprint |
 | [`preview.yml`](.eas/workflows/preview.yml) | PR labeled `eas-preview` | Typecheck, then Android `preview` APK |
+| [`android-preview-main.yml`](.eas/workflows/android-preview-main.yml) | Push → `main` | Typecheck, then Android `preview` APK (shareable; no Play Store) |
 
 Manual run (no GitHub trigger required):
 
 ```bash
-npm run eas:ci        # typecheck + fingerprint
-npm run eas:preview   # typecheck + Android preview build
+npm run eas:ci            # typecheck + fingerprint
+npm run eas:preview       # typecheck + Android preview build (PR-style)
+npm run eas:preview:main  # typecheck + Android preview APK (main pipeline)
 ```
 
-Skip an automatic run by including `[eas skip]`, `[skip eas]`, or `[no eas]` in the commit message.
+Skip an automatic run by including `[eas skip]`, `[skip eas]`, or `[no eas]` in the commit message. Docs-only commits on `main` should skip so they do not consume Android build minutes.

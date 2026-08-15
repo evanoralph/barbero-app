@@ -88,7 +88,11 @@ export default function CustomerBookingDetail() {
   const openChat = () => {
     const threadId = threadIdForBooking(booking._id);
     logger.info("bookings", "open booking chat", { bookingId: booking._id, threadId });
-    router.push(`/(customer)/messages/${encodeURIComponent(threadId)}`);
+    console.log("[bookings] open booking chat via params", { threadId });
+    router.push({
+      pathname: "/(customer)/messages/[threadId]",
+      params: { threadId },
+    });
   };
 
   return (

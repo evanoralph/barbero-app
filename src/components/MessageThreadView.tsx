@@ -1,5 +1,5 @@
 import { CheckCheck, ChevronLeft, ChevronRight, ImagePlus, Phone, Send } from "lucide-react-native";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -19,6 +19,7 @@ import type { Message } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { logger } from "@/src/utils/logger";
+import { isOwnMessageSeen, lastSeenOwnMessageId } from "@/src/utils/messagesSeen";
 
 export type ThreadBookingCard = {
   bookingId: string;
@@ -45,6 +46,8 @@ type Props = {
   onBack?: () => void;
   onOpenBooking?: () => void;
   onPhonePress?: () => void;
+  peerTyping?: boolean;
+  peerLastReadAt?: string;
 };
 
 const QUICK_CHIPS = ["On my way", "Running late", "Reschedule"] as const;
@@ -103,9 +106,17 @@ export function MessageThreadView({
   onBack,
   onOpenBooking,
   onPhonePress,
+  peerTyping = false,
+  peerLastReadAt,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList<ListRow>>(null);
   const keyboardVerticalOffset = Platform.OS === "ios" ? insets.top : 0;
+
+  const seenOwnId = useMemo(
+    () => lastSeenOwnMessageId(messages, userId, peerLastReadAt),
+    [messages, userId, peerLastReadAt],
+  );
 
   const rows = useMemo(() => {
     const out: ListRow[] = [];
@@ -120,6 +131,25 @@ export function MessageThreadView({
     }
     return out;
   }, [messages]);
+
+  useEffect(() => {
+    if (peerTyping) {
+      console.log("[MessageThreadView] peer typing", { threadId, participantName });
+      logger.debug("MessageThreadView", "peer typing", { threadId, participantName });
+    }
+  }, [peerTyping, threadId, participantName]);
+
+  useEffect(() => {
+    if (rows.length === 0) return;
+    const id = requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+      logger.debug("MessageThreadView", "scrollToEnd", {
+        threadId,
+        rowCount: rows.length,
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [rows.length, threadId]);
 
   useEffect(() => {
     console.log("[MessageThreadView] mount", {
@@ -247,6 +277,7 @@ export function MessageThreadView({
       ) : null}
 
       <FlatList
+        ref={listRef}
         data={rows}
         keyExtractor={(item) => item.id}
         style={styles.list}
@@ -261,6 +292,8 @@ export function MessageThreadView({
             return <Text style={styles.daySep}>{item.label}</Text>;
           }
           const mine = item.message.senderId === userId;
+          const seen = isOwnMessageSeen(item.message, userId, peerLastReadAt);
+          const showSeenTag = mine && item.message._id === seenOwnId;
           const time = new Date(item.message.createdAt).toLocaleTimeString(undefined, {
             hour: "numeric",
             minute: "2-digit",
@@ -274,14 +307,26 @@ export function MessageThreadView({
               </View>
               <View style={[styles.metaRow, mine && styles.metaRowMine]}>
                 <Text style={styles.metaTime}>{time}</Text>
-                {mine ? <CheckCheck size={12} color={colors.accentDark} /> : null}
+                {mine ? (
+                  <CheckCheck
+                    size={12}
+                    color={seen ? colors.accent : colors.textMuted}
+                  />
+                ) : null}
               </View>
+              {showSeenTag ? <Text style={styles.seenTag}>Seen</Text> : null}
             </View>
           );
         }}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {peerTyping ? (
+        <Text style={styles.typing}>
+          {participantName ? `${participantName} is typing…` : "Typing…"}
+        </Text>
+      ) : null}
 
       <View style={styles.chips}>
         {QUICK_CHIPS.map((chip) => (
@@ -502,11 +547,25 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.textMuted,
   },
+  seenTag: {
+    fontFamily: fonts.mono,
+    fontSize: 9,
+    color: colors.textMuted,
+    marginTop: 2,
+    marginRight: 4,
+  },
   error: {
     color: colors.danger,
     paddingHorizontal: 16,
     marginBottom: 4,
     fontSize: 13,
+  },
+  typing: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    color: colors.textMuted,
+    paddingHorizontal: 16,
+    marginBottom: 4,
   },
   chips: {
     flexDirection: "row",

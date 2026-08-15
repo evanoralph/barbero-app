@@ -20,6 +20,8 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
+      "node": "22.22.3",
       "android": {
         "buildType": "apk"
       }

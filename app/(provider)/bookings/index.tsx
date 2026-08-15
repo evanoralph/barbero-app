@@ -343,7 +343,10 @@ export default function ProviderBookingsScreen() {
       threadId,
     });
     console.log("[provider-bookings] open chat", b._id);
-    router.push(`/(provider)/messages/${encodeURIComponent(threadId)}`);
+    router.push({
+      pathname: "/(provider)/messages/[threadId]",
+      params: { threadId },
+    });
   };
 
   if (loading) return <LoadingState />;

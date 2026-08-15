@@ -1,13 +1,13 @@
 import { router } from "expo-router";
 import { Bell, ChevronRight, MapPin, Search, Star } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { getAccountMe } from "@/src/api/account";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { listBookings } from "@/src/api/bookings";
 import { listCategories } from "@/src/api/categories";
 import { listProviders } from "@/src/api/providers";
-import { useSession } from "@/src/auth/session";
+import { BrandLogo } from "@/src/components/BrandLogo";
 import { PortfolioGrid, type PortfolioTile } from "@/src/components/PortfolioGrid";
+import { ProvidersMapView } from "@/src/components/ProvidersMapView";
 import {
   EmptyState,
   ErrorState,
@@ -21,22 +21,12 @@ import type { Booking, ProviderListItem, ServiceCategory } from "@/src/types/api
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { formatBookingTime } from "@/src/utils/bookingDisplay";
+import {
+  distanceKm,
+  requestUserCoords,
+  type UserCoords,
+} from "@/src/utils/location";
 import { logger } from "@/src/utils/logger";
-
-function greetingForNow() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
-}
-
-function firstNameFrom(name?: string | null, email?: string | null): string {
-  const fromName = (name ?? "").trim().split(/\s+/)[0];
-  if (fromName) return fromName;
-  const local = (email ?? "").split("@")[0]?.trim();
-  if (local) return local;
-  return "there";
-}
 
 function formatNextApptDate(iso: string): { month: string; day: string } {
   const d = new Date(iso);
@@ -74,29 +64,46 @@ function pickBookAgainProviderIds(bookings: Booking[]): string[] {
   return ids;
 }
 
+function sortProvidersByDistance(
+  items: ProviderListItem[],
+  coords: UserCoords,
+): ProviderListItem[] {
+  return [...items].sort((a, b) => {
+    const aHas =
+      Number.isFinite(a.location?.lat) && Number.isFinite(a.location?.lng);
+    const bHas =
+      Number.isFinite(b.location?.lat) && Number.isFinite(b.location?.lng);
+    if (!aHas && !bHas) return 0;
+    if (!aHas) return 1;
+    if (!bHas) return -1;
+    return (
+      distanceKm(coords, { lat: a.location.lat, lng: a.location.lng }) -
+      distanceKm(coords, { lat: b.location.lat, lng: b.location.lng })
+    );
+  });
+}
+
 export default function CustomerHome() {
-  const { user } = useSession();
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [allProviders, setAllProviders] = useState<ProviderListItem[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [displayName, setDisplayName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     logger.debug("home", "load");
     console.log("[home] load start");
     try {
-      const [catsResult, featuredResult, allResult, bookingsResult, accountResult] =
+      const [catsResult, featuredResult, allResult, bookingsResult] =
         await Promise.allSettled([
           listCategories(),
           listProviders({ featured: true, sort: "rating" }),
           listProviders({ sort: "rating" }),
           listBookings(),
-          getAccountMe(),
         ]);
 
       if (catsResult.status === "rejected" && featuredResult.status === "rejected") {
@@ -139,13 +146,6 @@ export default function CustomerHome() {
         setBookings([]);
       }
 
-      if (accountResult.status === "fulfilled") {
-        setDisplayName(accountResult.value.name ?? null);
-      } else {
-        logger.warn("home", "account failed — greeting fallback", accountResult.reason);
-        setDisplayName(null);
-      }
-
       logger.debug("home", "loaded", {
         categories:
           catsResult.status === "fulfilled" ? catsResult.value.length : 0,
@@ -165,9 +165,30 @@ export default function CustomerHome() {
     }
   }, []);
 
+  const loadLocation = useCallback(async () => {
+    logger.debug("home", "loadLocation");
+    console.log("[home] loadLocation start");
+    const coords = await requestUserCoords();
+    setUserCoords(coords);
+    logger.debug("home", "loadLocation done", {
+      hasCoords: Boolean(coords),
+      lat: coords?.lat,
+      lng: coords?.lng,
+    });
+    console.log("[home] loadLocation done", coords ? "ok" : "none");
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadLocation();
+  }, [load, loadLocation]);
+
+  useEffect(() => {
+    logger.debug("home", "map mount/coords", {
+      hasCoords: Boolean(userCoords),
+    });
+    console.log("[home] map coords", userCoords ? "ready" : "waiting/denied");
+  }, [userCoords]);
 
   const providerById = useMemo(() => {
     const map = new Map<string, ProviderListItem>();
@@ -189,11 +210,22 @@ export default function CustomerHome() {
 
   const discoveryProviders = useMemo(() => {
     if (bookAgainProviders.length > 0) return bookAgainProviders;
-    return providers.slice(0, 6);
-  }, [bookAgainProviders, providers]);
+    const pool = providers.slice(0, 12);
+    if (!userCoords) {
+      logger.debug("home", "discover without GPS sort", { count: pool.length });
+      return pool.slice(0, 6);
+    }
+    const sorted = sortProvidersByDistance(pool, userCoords).slice(0, 6);
+    logger.debug("home", "discover near-you sort", {
+      count: sorted.length,
+      first: sorted[0]?.slug,
+    });
+    console.log("[home] near-you sort", sorted.length);
+    return sorted;
+  }, [bookAgainProviders, providers, userCoords]);
 
   const showBookAgain = bookAgainProviders.length > 0;
-  const firstName = firstNameFrom(displayName, user?.email);
+  const showNearYou = !showBookAgain && Boolean(userCoords);
 
   const categoryCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -232,15 +264,16 @@ export default function CustomerHome() {
         setRefreshing(true);
         console.log("[home] pull-to-refresh");
         load();
+        loadLocation();
       }}
       contentStyle={styles.content}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.brand}>BARBERO</Text>
+        <BrandLogo variant="gold" size="md" style={styles.brandLogo} />
         <View style={styles.headerActions}>
           <Pressable
             hitSlop={10}
-            accessibilityLabel="Open map"
+            accessibilityLabel="Open full map"
             onPress={() => {
               logger.debug("home", "header map");
               console.log("[home] tap map pin");
@@ -263,10 +296,14 @@ export default function CustomerHome() {
         </View>
       </View>
 
-      <View style={styles.greetingBlock}>
-        <MonoLabel>
-          {greetingForNow().toUpperCase()} {firstName}
-        </MonoLabel>
+      <View style={styles.mapWrap}>
+        <ProvidersMapView
+          embedded
+          centerOnUser
+          showsUserLocation={Boolean(userCoords)}
+          userCoordinate={userCoords}
+          showCategoryChips={false}
+        />
       </View>
 
       <Pressable
@@ -348,7 +385,7 @@ export default function CustomerHome() {
       <View style={styles.sectionBlock}>
         <View style={styles.sectionHead}>
           <Title style={styles.sectionTitle}>
-            {showBookAgain ? "Book again" : "Discover artists"}
+            {showBookAgain ? "Book again" : showNearYou ? "Near you" : "Discover artists"}
           </Title>
           <Pressable
             onPress={() => {
@@ -448,14 +485,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  brand: {
-    fontSize: 28,
-    letterSpacing: 1,
-    color: colors.text,
-    fontFamily: fonts.serifBold,
-  },
+  brandLogo: { height: 32, width: 72 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-  greetingBlock: { gap: 2, marginTop: -4 },
+  mapWrap: {
+    height: 280,
+    width: "100%",
+  },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
