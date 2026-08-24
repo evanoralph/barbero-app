@@ -1,0 +1,64 @@
+# Internal TestFlight only (iOS production profile → App Store Connect).
+# Manual / on-demand — does not wait for a version tag.
+#
+# Requires production EAS env (HTTPS API) + Apple credentials + ascAppId in eas.json.
+# Manual: npm run eas:testflight
+name: TestFlight
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  cancel_in_progress: false
+  group: ${{ workflow.filename }}-${{ github.ref }}
+
+defaults:
+  tools:
+    node: '22.22.3'
+
+jobs:
+  typecheck:
+    name: Typecheck
+    steps:
+      - name: Checkout
+        uses: eas/checkout
+
+      - name: Install dependencies
+        uses: eas/install_node_modules
+
+      - name: Log TestFlight workflow start
+        run: |
+          echo "[ci] testflight workflow start"
+          echo "[ci] profile=production"
+          echo "[ci] platform=ios"
+          echo "[ci] ref=${{ github.ref_name }}"
+          echo "[ci] sha=${{ github.sha }}"
+          echo "[ci] api_host=https://api.beru.digital (set via EAS production env)"
+          node --version
+          npm --version
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Log typecheck done
+        run: echo "[ci] typecheck passed; starting iOS production build for TestFlight"
+
+  build_ios:
+    name: Build iOS
+    needs: [typecheck]
+    type: build
+    params:
+      platform: ios
+      profile: production
+
+  testflight:
+    name: Distribute to TestFlight
+    needs: [build_ios]
+    type: testflight
+    params:
+      profile: production
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      internal_groups: ['Team']
+      changelog: |
+        TestFlight build from ${{ github.ref_name }} (${{ github.sha }})
+        API: https://api.beru.digital/api/v1

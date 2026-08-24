@@ -4,23 +4,35 @@ import { StatusBar } from "expo-status-bar";
 import { ArrowLeft, ChevronRight, Clock, Star } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import spinnerGold from "@/assets/lottie/spinner-gold.json";
 import { addFavorite, listFavoriteIds, removeFavorite } from "@/src/api/favorites";
 import { getProvider, getProviderReviews } from "@/src/api/providers";
+import { AnimatedHeroScroll } from "@/src/components/animated/AnimatedHeroScroll";
+import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
+import { LottieView } from "@/src/components/animated/LottieView";
+import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { PortfolioGrid, type PortfolioTile } from "@/src/components/PortfolioGrid";
 import { PortfolioLightbox } from "@/src/components/PortfolioLightbox";
-import { Screen } from "@/src/components/ui";
 import type { ProviderProfile, Review } from "@/src/types/api";
 import { fonts } from "@/src/theme/fonts";
 import { formatRating } from "@/src/utils/format";
 import { logger } from "@/src/utils/logger";
+
+const AnimatedImage = Animated.createAnimatedComponent(Image);
+const COVER_HEIGHT = 260;
 
 /** Profile-local light palette (aligned with app white/gold theme). */
 const theme = {
@@ -205,11 +217,28 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
     });
   }, [backTop, insets.top, mode, scope]);
 
+  // Lifted here (not created inside AnimatedHeroScroll) so the back button, which
+  // renders as a sibling of the scroll content, can animate off the same offset.
+  const scrollY = useSharedValue(0);
+  const coverHeight = COVER_HEIGHT + insets.top;
+
+  const coverAnimatedStyle = useAnimatedStyle(() => {
+    const stretch = interpolate(scrollY.value, [-150, 0], [1.6, 1], Extrapolation.CLAMP);
+    const parallax = interpolate(scrollY.value, [0, coverHeight], [0, coverHeight * 0.35], Extrapolation.CLAMP);
+    return {
+      transform: [{ translateY: parallax }, { scale: stretch }],
+    };
+  });
+
+  const backBtnAnimatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: `rgba(0, 0, 0, ${interpolate(scrollY.value, [0, coverHeight - 40, coverHeight], [0.4, 0.4, 0.85], Extrapolation.CLAMP)})`,
+  }));
+
   if (loading) {
     return (
       <View style={[styles.screenRoot, styles.centerState, { paddingTop: insets.top }]}>
         <StatusBar style="dark" />
-        <ActivityIndicator color={theme.gold} size="large" />
+        <LottieView source={spinnerGold} style={styles.loadingLottie} />
         <Text style={styles.emptyHint}>Loading…</Text>
       </View>
     );
@@ -251,16 +280,16 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
   return (
     <View style={styles.screenRoot}>
       <StatusBar style="dark" />
-      <Pressable
-        style={[styles.backBtn, { top: backTop }]}
+      <AnimatedPressable
+        style={[styles.backBtn, { top: backTop }, backBtnAnimatedStyle]}
         onPress={handleBack}
         hitSlop={10}
         accessibilityLabel="Go back"
       >
         <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2} />
-      </Pressable>
-      <Screen
-        scroll
+      </AnimatedPressable>
+      <AnimatedHeroScroll
+        scrollY={scrollY}
         style={styles.screenRoot}
         contentStyle={{ ...styles.content, paddingBottom: 32 + insets.bottom }}
         refreshing={false}
@@ -273,7 +302,11 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
           ]}
         >
           {coverUri ? (
-            <Image source={{ uri: coverUri }} style={styles.cover} resizeMode="cover" />
+            <AnimatedImage
+              source={{ uri: coverUri }}
+              style={[styles.cover, coverAnimatedStyle]}
+              resizeMode="cover"
+            />
           ) : (
             <View style={[styles.cover, { backgroundColor: theme.surfaceAlt }]} />
           )}
@@ -326,29 +359,28 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
         {provider.bio ? <Text style={styles.bio}>{provider.bio}</Text> : null}
 
         <View style={styles.chips}>
-          {specialtyChips.map((chip) => (
-            <View key={chip} style={styles.chip}>
+          {specialtyChips.map((chip, index) => (
+            <Animated.View key={chip} style={styles.chip} entering={staggeredEntering(index)}>
               <Text style={styles.chipText}>{chip}</Text>
-            </View>
+            </Animated.View>
           ))}
           {provider.isPremium ? (
-            <View style={[styles.chip, styles.chipGold]}>
+            <Animated.View
+              style={[styles.chip, styles.chipGold]}
+              entering={staggeredEntering(specialtyChips.length)}
+            >
               <Text style={[styles.chipText, { color: theme.gold }]}>Premium</Text>
-            </View>
+            </Animated.View>
           ) : null}
         </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.bookCta,
-            isPreview && styles.bookCtaPreview,
-            pressed && !isPreview && { opacity: 0.9 },
-          ]}
+        <AnimatedPressable
+          style={[styles.bookCta, isPreview && styles.bookCtaPreview]}
           onPress={() => goBook()}
           accessibilityState={{ disabled: isPreview }}
         >
           <Text style={styles.bookCtaText}>Book with {firstName}</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <View style={styles.secondaryActions}>
           <Pressable onPress={toggleFavorite} hitSlop={8}>
@@ -377,26 +409,26 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
           <Text style={styles.emptyHint}>No services listed</Text>
         ) : (
           <View style={styles.serviceList}>
-            {provider.services.map((s) => (
-              <Pressable
+            {provider.services.map((s, index) => (
+              <AnimatedPressable
                 key={s.id}
-                style={({ pressed }) => [
-                  styles.serviceRow,
-                  isPreview && styles.serviceRowPreview,
-                  pressed && !isPreview && { opacity: 0.88 },
-                ]}
+                style={[styles.serviceRow, isPreview && styles.serviceRowPreview]}
+                entering={staggeredEntering(index)}
                 onPress={() => goBook(s.id)}
                 accessibilityState={{ disabled: isPreview }}
               >
-                {avatarUri ? (
-                  <Image source={{ uri: avatarUri }} style={styles.serviceAvatar} />
-                ) : (
-                  <View style={[styles.serviceAvatar, styles.avatarFallback]}>
-                    <Text style={styles.serviceAvatarLetter}>
-                      {provider.name.slice(0, 1).toUpperCase()}
-                    </Text>
-                  </View>
-                )}
+                {(() => {
+                  const serviceImageUri = (s.image || avatarUri || "").trim();
+                  return serviceImageUri ? (
+                    <Image source={{ uri: serviceImageUri }} style={styles.serviceAvatar} />
+                  ) : (
+                    <View style={[styles.serviceAvatar, styles.avatarFallback]}>
+                      <Text style={styles.serviceAvatarLetter}>
+                        {provider.name.slice(0, 1).toUpperCase()}
+                      </Text>
+                    </View>
+                  );
+                })()}
                 <View style={styles.serviceBody}>
                   <Text style={styles.serviceName} numberOfLines={1}>
                     {s.name}
@@ -408,7 +440,7 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
                 </View>
                 <Text style={styles.servicePrice}>${s.price}</Text>
                 <ChevronRight color={theme.textMuted} size={18} />
-              </Pressable>
+              </AnimatedPressable>
             ))}
           </View>
         )}
@@ -426,7 +458,7 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
             </View>
           ))
         )}
-      </Screen>
+      </AnimatedHeroScroll>
 
       <PortfolioLightbox
         items={portfolioTiles}
@@ -452,6 +484,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 24,
   },
+  loadingLottie: { width: 64, height: 64 },
   errorText: {
     color: theme.text,
     fontSize: 15,

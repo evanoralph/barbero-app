@@ -179,6 +179,8 @@ done
 
 echo
 echo "Done. Screenshots in $OUT_DIR"
+echo "For App Store Connect 6.5\" Display (1284x2778), run:"
+echo "  $SCRIPT_DIR/export-app-store-6.5.sh --from \"$OUT_DIR\""
 if [ -n "$failed_flows" ]; then
   echo "⚠️  These flows hit a step they couldn't recover from:$failed_flows"
   echo "  Whatever they captured before that point is still in $OUT_DIR; full debug output is under $OUT_DIR/_debug/"

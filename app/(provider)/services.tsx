@@ -12,7 +12,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listCategories } from "@/src/api/categories";
-import { getMyProvider, updateMyProvider } from "@/src/api/providers";
+import { getMyProvider, listMyServices, updateMyProvider } from "@/src/api/providers";
+import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
+import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
+import { EmptyServicesIllustration } from "@/src/components/illustrations/EmptyServicesIllustration";
 import {
   Button,
   Chip,
@@ -23,12 +26,14 @@ import {
   Screen,
   Title,
 } from "@/src/components/ui";
+import { ImageUploadField } from "@/src/components/ImageUploadField";
 import type { ProviderProfile, ProviderService, ServiceCategory } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { logger } from "@/src/utils/logger";
 
 type FormMode = "closed" | "add" | "edit";
+const PAGE_SIZE = 10;
 
 export default function ProviderServicesScreen() {
   const insets = useSafeAreaInsets();
@@ -40,8 +45,12 @@ export default function ProviderServicesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [services, setServices] = useState<ProviderService[]>([]);
 
   const [formMode, setFormMode] = useState<FormMode>("closed");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,6 +59,7 @@ export default function ProviderServicesScreen() {
   const [price, setPrice] = useState("");
   const [duration, setDuration] = useState("45");
   const [category, setCategory] = useState("");
+  const [image, setImage] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
   const seedCategory = useCallback(() => {
@@ -64,6 +74,7 @@ export default function ProviderServicesScreen() {
     setPrice("");
     setDuration("45");
     setCategory(seedCategory());
+    setImage("");
     setFormError(null);
     logger.debug("provider-services", "form close");
   }, [seedCategory]);
@@ -75,6 +86,7 @@ export default function ProviderServicesScreen() {
     setPrice("");
     setDuration("45");
     setCategory(seedCategory());
+    setImage("");
     setFormError(null);
     setOk(null);
     setFormMode("add");
@@ -88,28 +100,41 @@ export default function ProviderServicesScreen() {
     setPrice(String(s.price));
     setDuration(String(s.durationMinutes));
     setCategory(s.category);
+    setImage(s.image ?? "");
     setFormError(null);
     setOk(null);
     setFormMode("edit");
     logger.info("provider-services", "form open edit", { id: s.id });
   };
 
-  const load = useCallback(async (opts?: { refresh?: boolean }) => {
+  const load = useCallback(async (opts?: { refresh?: boolean; keepPage?: boolean }) => {
     if (opts?.refresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      const [me, cats] = await Promise.all([
+      const targetPage = opts?.keepPage ? page : 1;
+      const [me, paged, cats] = await Promise.all([
         getMyProvider(),
+        listMyServices({
+          page: targetPage,
+          limit: PAGE_SIZE,
+          q: query,
+          category: filterCategory,
+        }),
         listCategories().catch((e) => {
           logger.warn("provider-services", "categories load failed", e);
           return [] as ServiceCategory[];
         }),
       ]);
       setProfile(me);
+      setServices(paged.items);
+      setTotal(paged.total);
+      setPage(paged.page);
       setCategories(cats);
       logger.info("provider-services", "loaded", {
-        services: me.services?.length ?? 0,
+        services: paged.items.length,
+        total: paged.total,
+        page: paged.page,
         categories: cats.length,
       });
     } catch (e) {
@@ -120,13 +145,20 @@ export default function ProviderServicesScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [filterCategory, page, query]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const services = profile?.services ?? [];
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(queryInput);
+      setPage(1);
+      logger.debug("provider-services", "search debounced", { q: queryInput });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [queryInput]);
 
   const filterOptions = useMemo(() => {
     const fromServices = new Set(services.map((s) => s.category).filter(Boolean));
@@ -134,16 +166,6 @@ export default function ProviderServicesScreen() {
     const merged = Array.from(new Set([...fromApi, ...fromServices])).sort();
     return merged;
   }, [services, categories]);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return services.filter((s) => {
-      if (filterCategory !== "all" && s.category !== filterCategory) return false;
-      if (!q) return true;
-      const hay = `${s.name} ${s.description} ${s.category} ${s.price}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [services, query, filterCategory]);
 
   const save = async () => {
     const trimmedName = name.trim();
@@ -177,6 +199,7 @@ export default function ProviderServicesScreen() {
               price: priceNum,
               durationMinutes,
               category: trimmedCategory,
+              ...(image.trim() ? { image: image.trim() } : {}),
             },
           }
         : {
@@ -186,6 +209,7 @@ export default function ProviderServicesScreen() {
               price: priceNum,
               durationMinutes,
               category: trimmedCategory,
+              ...(image.trim() ? { image: image.trim() } : {}),
             },
           };
       logger.info("provider-services", editingId ? "update" : "add", {
@@ -196,6 +220,8 @@ export default function ProviderServicesScreen() {
       const updated = await updateMyProvider(body);
       setProfile(updated);
       setOk(editingId ? "Service updated" : "Service added");
+      logger.info("provider-services", "refresh after save");
+      await load({ keepPage: true });
       closeForm();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Save failed";
@@ -221,6 +247,8 @@ export default function ProviderServicesScreen() {
             const updated = await updateMyProvider({ removeServiceId: s.id });
             setProfile(updated);
             setOk("Service removed");
+            logger.info("provider-services", "refresh after remove", { id: s.id });
+            await load({ keepPage: true });
             if (editingId === s.id) closeForm();
           } catch (e) {
             const msg = e instanceof Error ? e.message : "Remove failed";
@@ -241,12 +269,12 @@ export default function ProviderServicesScreen() {
 
   return (
     <>
-      <Screen scroll refreshing={refreshing} onRefresh={() => load({ refresh: true })}>
+      <Screen scroll refreshing={refreshing} onRefresh={() => load({ refresh: true, keepPage: true })}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Title>Services</Title>
             <Muted>
-              {filtered.length} of {services.length} shown
+              {services.length} of {total} shown
             </Muted>
           </View>
           <Button label="Add" onPress={openAdd} />
@@ -254,9 +282,9 @@ export default function ProviderServicesScreen() {
 
         <Field
           label="Search"
-          value={query}
+          value={queryInput}
           onChangeText={(v) => {
-            setQuery(v);
+            setQueryInput(v);
             logger.debug("provider-services", "search", { q: v });
           }}
           placeholder="Name, description, category"
@@ -271,6 +299,7 @@ export default function ProviderServicesScreen() {
               active={filterCategory === "all"}
               onPress={() => {
                 setFilterCategory("all");
+                setPage(1);
                 logger.debug("provider-services", "filter", { category: "all" });
               }}
             />
@@ -281,6 +310,7 @@ export default function ProviderServicesScreen() {
                 active={filterCategory === cat}
                 onPress={() => {
                   setFilterCategory(cat);
+                  setPage(1);
                   logger.debug("provider-services", "filter", { category: cat });
                 }}
               />
@@ -291,12 +321,13 @@ export default function ProviderServicesScreen() {
         {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
         {ok ? <Text style={{ color: colors.success }}>{ok}</Text> : null}
 
-        {services.length === 0 ? (
+        {total === 0 ? (
           <View style={styles.emptyBox}>
+            <EmptyServicesIllustration />
             <Muted>No services yet.</Muted>
             <Button label="Add your first service" onPress={openAdd} />
           </View>
-        ) : filtered.length === 0 ? (
+        ) : services.length === 0 ? (
           <View style={styles.emptyBox}>
             <Muted>No services match your search or filter.</Muted>
             <Button
@@ -304,22 +335,21 @@ export default function ProviderServicesScreen() {
               variant="secondary"
               onPress={() => {
                 setQuery("");
+                setQueryInput("");
                 setFilterCategory("all");
+                setPage(1);
                 logger.debug("provider-services", "clear filters");
               }}
             />
           </View>
         ) : (
           <View style={styles.list}>
-            {filtered.map((s, index) => (
-              <Pressable
+            {services.map((s, index) => (
+              <AnimatedPressable
                 key={s.id}
                 onPress={() => openEdit(s)}
-                style={({ pressed }) => [
-                  styles.row,
-                  index < filtered.length - 1 && styles.rowBorder,
-                  pressed && { opacity: 0.85 },
-                ]}
+                style={[styles.row, index < services.length - 1 && styles.rowBorder]}
+                entering={staggeredEntering(index)}
               >
                 <View style={styles.rowMain}>
                   <Text style={styles.rowTitle} numberOfLines={1}>
@@ -351,10 +381,35 @@ export default function ProviderServicesScreen() {
                     <Text style={styles.actionRemove}>Remove</Text>
                   </Pressable>
                 </View>
-              </Pressable>
+              </AnimatedPressable>
             ))}
           </View>
         )}
+        {total > PAGE_SIZE ? (
+          <View style={styles.pageRow}>
+            <Button
+              label="Previous"
+              variant="secondary"
+              disabled={page <= 1 || loading}
+              onPress={() => {
+                setPage((p) => Math.max(1, p - 1));
+                logger.debug("provider-services", "page prev", { from: page });
+              }}
+            />
+            <Muted>
+              Page {page} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            </Muted>
+            <Button
+              label="Next"
+              variant="secondary"
+              disabled={page >= Math.max(1, Math.ceil(total / PAGE_SIZE)) || loading}
+              onPress={() => {
+                setPage((p) => p + 1);
+                logger.debug("provider-services", "page next", { from: page });
+              }}
+            />
+          </View>
+        ) : null}
       </Screen>
 
       <Modal
@@ -403,6 +458,19 @@ export default function ProviderServicesScreen() {
                 keyboardType="number-pad"
               />
               <Field label="Category" value={category} onChangeText={setCategory} />
+              <ImageUploadField
+                label="Service image URL (optional)"
+                value={image}
+                onChange={setImage}
+                kind="provider-service"
+                serviceId={editingId ?? undefined}
+                previewStyle={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: 12,
+                  alignSelf: "flex-start",
+                }}
+              />
               {categories.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.chipRow}>
@@ -455,6 +523,13 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 24,
     alignItems: "flex-start",
+  },
+  pageRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
   },
   list: {
     backgroundColor: colors.surface,

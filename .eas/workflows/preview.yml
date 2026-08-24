@@ -12,6 +12,10 @@ concurrency:
   cancel_in_progress: true
   group: ${{ workflow.filename }}-${{ github.ref }}
 
+defaults:
+  tools:
+    node: '22.22.3'
+
 jobs:
   typecheck:
     name: Typecheck
@@ -26,8 +30,11 @@ jobs:
         run: |
           echo "[ci] preview workflow start"
           echo "[ci] label=eas-preview"
+          echo "[ci] profile=preview"
           echo "[ci] ref=${{ github.ref_name }}"
           echo "[ci] sha=${{ github.sha }}"
+          node --version
+          npm --version
 
       - name: Typecheck
         run: npm run typecheck

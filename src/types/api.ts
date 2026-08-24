@@ -42,6 +42,7 @@ export type ProviderService = {
   price: number;
   durationMinutes: number;
   category: string;
+  image?: string;
 };
 
 export type ProviderListItem = {
@@ -90,6 +91,34 @@ export type ProviderProfile = ProviderListItem & {
   promotions?: ProviderPromotion[];
 };
 
+export type MyProviderPortfolioQuery = {
+  limit?: number;
+  page?: number;
+  q?: string;
+  filter?: "all" | "with-desc" | "no-desc";
+};
+
+export type MyProviderPortfolioPage = {
+  items: PortfolioItem[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
+export type MyProviderServicesQuery = {
+  limit?: number;
+  page?: number;
+  q?: string;
+  category?: string;
+};
+
+export type MyProviderServicesPage = {
+  items: ProviderService[];
+  total: number;
+  page: number;
+  limit: number;
+};
+
 /** PATCH /providers/me body (matches Meteor updateProviderProfileInputSchema). */
 export type UpdateProviderProfileInput = {
   bio?: string;
@@ -108,6 +137,7 @@ export type UpdateProviderProfileInput = {
     price: number;
     durationMinutes: number;
     category: string;
+    image?: string;
   };
   updateService?: {
     id: string;
@@ -116,6 +146,7 @@ export type UpdateProviderProfileInput = {
     price?: number;
     durationMinutes?: number;
     category?: string;
+    image?: string;
   };
   removeServiceId?: string;
   addPortfolioItem?: {

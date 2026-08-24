@@ -1,12 +1,13 @@
 import {
   Dimensions,
   Image,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
+import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { logger } from "@/src/utils/logger";
@@ -42,9 +43,10 @@ export function PortfolioGrid({
   const renderTile = (item: PortfolioTile, index: number, carousel: boolean) => {
     const uri = item.image?.trim();
     return (
-      <Pressable
+      <AnimatedPressable
         key={item.id}
         style={carousel ? styles.carouselTile : styles.tile}
+        entering={staggeredEntering(index)}
         onPress={() => {
           logger.debug("portfolio", "tile press", { id: item.id, index, variant });
           onPressItem?.(item, index);
@@ -69,7 +71,7 @@ export function PortfolioGrid({
             </Text>
           ) : null}
         </View>
-      </Pressable>
+      </AnimatedPressable>
     );
   };
 

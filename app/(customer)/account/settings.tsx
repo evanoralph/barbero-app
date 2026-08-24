@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Text } from "react-native";
 import { getAccountMe, updateAccountMe } from "@/src/api/account";
 import { Button, ErrorState, Field, LoadingState, Screen, Title } from "@/src/components/ui";
+import { LegalLinks } from "@/src/components/LegalLinks";
 import type { AccountProfile } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
@@ -63,6 +64,7 @@ export default function SettingsScreen() {
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
       {ok ? <Text style={{ color: colors.success }}>{ok}</Text> : null}
       <Button label="Save" onPress={save} loading={saving} />
+      <LegalLinks />
     </Screen>
   );
 }

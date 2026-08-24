@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { logger } from "@/src/utils/logger";
+import { assertProductionApiUrl } from "@/src/utils/production";
 import type { ApiFailure, ApiSuccess } from "@/src/types/api";
 
 const DEFAULT_API = "http://localhost:4000/api/v1";
@@ -54,6 +55,7 @@ function resolveApiBaseUrl(raw: string): string {
 
 export function getApiBaseUrl(): string {
   const raw = process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API;
+  assertProductionApiUrl(raw);
   const base = resolveApiBaseUrl(raw);
   if (!loggedBaseUrl) {
     loggedBaseUrl = true;

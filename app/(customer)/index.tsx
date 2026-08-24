@@ -1,11 +1,24 @@
 import { router } from "expo-router";
 import { Bell, ChevronRight, MapPin, Search, Star } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, {
+  Extrapolation,
+  FadeInDown,
+  interpolate,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listBookings } from "@/src/api/bookings";
 import { listCategories } from "@/src/api/categories";
 import { listProviders } from "@/src/api/providers";
+import { AnimatedHeroScroll } from "@/src/components/animated/AnimatedHeroScroll";
+import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
+import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { BrandLogo } from "@/src/components/BrandLogo";
+import { EmptyDiscoverIllustration } from "@/src/components/illustrations/EmptyDiscoverIllustration";
 import { PortfolioGrid, type PortfolioTile } from "@/src/components/PortfolioGrid";
 import { ProvidersMapView } from "@/src/components/ProvidersMapView";
 import {
@@ -14,7 +27,6 @@ import {
   LoadingState,
   MonoLabel,
   Muted,
-  Screen,
   Title,
 } from "@/src/components/ui";
 import type { Booking, ProviderListItem, ServiceCategory } from "@/src/types/api";
@@ -27,6 +39,10 @@ import {
   type UserCoords,
 } from "@/src/utils/location";
 import { logger } from "@/src/utils/logger";
+
+/** Swap this URL for a real hero photo asset once available. */
+const HERO_IMAGE_URI =
+  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=900&q=80";
 
 function formatNextApptDate(iso: string): { month: string; day: string } {
   const d = new Date(iso);
@@ -83,7 +99,97 @@ function sortProvidersByDistance(
   });
 }
 
+const AnimatedImageBackground = Animated.createAnimatedComponent(ImageBackground);
+
+function HeroBanner({ scrollY }: { scrollY: SharedValue<number> }) {
+  console.log("[home] hero banner render");
+  const animatedStyle = useAnimatedStyle(() => {
+    const scale = interpolate(scrollY.value, [-120, 0], [1.15, 1], Extrapolation.CLAMP);
+    const opacity = interpolate(scrollY.value, [0, 160], [1, 0.85], Extrapolation.CLAMP);
+    const translateY = interpolate(scrollY.value, [0, 160], [0, 24], Extrapolation.CLAMP);
+    return { transform: [{ scale }, { translateY }], opacity };
+  });
+  return (
+    <AnimatedImageBackground
+      source={{ uri: HERO_IMAGE_URI }}
+      style={[styles.heroBanner, animatedStyle]}
+      imageStyle={styles.heroImage}
+      resizeMode="cover"
+      accessibilityLabel="Hero banner"
+    >
+      <View style={styles.heroOverlay}>
+        <Text style={styles.heroEyebrow}>BARBERO</Text>
+        <Text style={styles.heroHeadline}>Look sharp,{"\n"}feel confident.</Text>
+        <Pressable
+          style={styles.heroCta}
+          onPress={() => {
+            console.log("[home] tap hero cta");
+            router.push("/(customer)/search");
+          }}
+          accessibilityLabel="Book now"
+        >
+          <Text style={styles.heroCtaText}>Book now</Text>
+        </Pressable>
+      </View>
+    </AnimatedImageBackground>
+  );
+}
+
+function FeaturedProviderCard({
+  provider,
+  index,
+}: {
+  provider: ProviderListItem;
+  index: number;
+}) {
+  const imageUri = (provider.coverImage || provider.avatar || "").trim();
+  return (
+    <AnimatedPressable
+      style={styles.featCard}
+      entering={staggeredEntering(index)}
+      onPress={() => {
+        console.log("[home] featured card press", provider.slug);
+        router.push(`/(customer)/provider/${provider.slug}`);
+      }}
+      accessibilityLabel={`View ${provider.name}`}
+    >
+      {imageUri ? (
+        <Image source={{ uri: imageUri }} style={styles.featImage} />
+      ) : (
+        <View style={[styles.featImage, styles.featImageFallback]}>
+          <Text style={styles.featImageLetter}>
+            {provider.name.slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <View style={styles.featCardBody}>
+        <Text style={styles.featName} numberOfLines={1}>
+          {provider.name}
+        </Text>
+        <View style={styles.featRatingRow}>
+          <Star color={colors.accent} size={11} fill={colors.accent} />
+          <Text style={styles.featRating}>{provider.rating.toFixed(1)}</Text>
+          <Text style={styles.featCategory} numberOfLines={1}>
+            · {(provider.categorySlug || "artist").replace(/-/g, " ")}
+          </Text>
+        </View>
+        <Pressable
+          style={styles.featBookBtn}
+          onPress={() => {
+            console.log("[home] featured book press", provider.slug);
+            router.push(`/(customer)/book/${provider.slug}`);
+          }}
+          accessibilityLabel={`Book ${provider.name}`}
+        >
+          <Text style={styles.featBookText}>Book</Text>
+        </Pressable>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 export default function CustomerHome() {
+  const insets = useSafeAreaInsets();
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [allProviders, setAllProviders] = useState<ProviderListItem[]>([]);
@@ -190,6 +296,11 @@ export default function CustomerHome() {
     console.log("[home] map coords", userCoords ? "ready" : "waiting/denied");
   }, [userCoords]);
 
+  useEffect(() => {
+    logger.debug("home", "header brand size", { logoSize: "hero" });
+    console.log("[home] header brand size hero");
+  }, []);
+
   const providerById = useMemo(() => {
     const map = new Map<string, ProviderListItem>();
     for (const p of allProviders) map.set(p._id, p);
@@ -246,7 +357,22 @@ export default function CustomerHome() {
     }));
   }, [providers]);
 
-  if (loading) return <LoadingState label="Loading home…" />;
+  const topInsetPadding = Math.max(insets.top, 10);
+
+  useEffect(() => {
+    logger.debug("home", "safe area top inset", {
+      topInset: insets.top,
+      appliedPaddingTop: topInsetPadding,
+    });
+    console.log("[home] safe area top inset", {
+      topInset: insets.top,
+      appliedPaddingTop: topInsetPadding,
+    });
+  }, [insets.top, topInsetPadding]);
+
+  const scrollY = useSharedValue(0);
+
+  if (loading) return <LoadingState label="Loading home…" lottie />;
   if (error) return <ErrorState message={error} onRetry={load} />;
 
   const nextProvider = nextAppointment
@@ -257,8 +383,8 @@ export default function CustomerHome() {
     : null;
 
   return (
-    <Screen
-      scroll
+    <AnimatedHeroScroll
+      scrollY={scrollY}
       refreshing={refreshing}
       onRefresh={() => {
         setRefreshing(true);
@@ -266,10 +392,10 @@ export default function CustomerHome() {
         load();
         loadLocation();
       }}
-      contentStyle={styles.content}
+      contentStyle={{ ...styles.content, paddingTop: topInsetPadding }}
     >
-      <View style={styles.headerRow}>
-        <BrandLogo variant="gold" size="md" style={styles.brandLogo} />
+      <Animated.View style={styles.headerRow} entering={FadeInDown.duration(400)}>
+        <BrandLogo variant="gold" size="hero" style={styles.brandLogo} />
         <View style={styles.headerActions}>
           <Pressable
             hitSlop={10}
@@ -294,7 +420,9 @@ export default function CustomerHome() {
             <Bell color={colors.text} size={22} strokeWidth={1.75} />
           </Pressable>
         </View>
-      </View>
+      </Animated.View>
+
+      <HeroBanner scrollY={scrollY} />
 
       <View style={styles.mapWrap}>
         <ProvidersMapView
@@ -317,6 +445,31 @@ export default function CustomerHome() {
         <Search color={colors.textMuted} size={18} strokeWidth={1.75} />
         <Text style={styles.searchPlaceholder}>Artists, shops, or services</Text>
       </Pressable>
+
+      {providers.length > 0 && (
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.featSectionTitle}>Featured</Text>
+            <Pressable
+              onPress={() => {
+                console.log("[home] featured see all");
+                router.push("/(customer)/search");
+              }}
+            >
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featScroll}
+          >
+            {providers.slice(0, 8).map((p, index) => (
+              <FeaturedProviderCard key={p._id} provider={p} index={index} />
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {nextAppointment && nextDate ? (
         <Pressable
@@ -354,9 +507,10 @@ export default function CustomerHome() {
               const count = categoryCounts.get(c.slug.toLowerCase()) ?? 0;
               const num = String(index + 1).padStart(2, "0");
               return (
-                <Pressable
+                <AnimatedPressable
                   key={c.slug}
                   style={styles.browseRow}
+                  entering={staggeredEntering(index)}
                   onPress={() => {
                     logger.debug("home", "browse category", { slug: c.slug });
                     console.log("[home] tap browse", c.slug);
@@ -375,7 +529,7 @@ export default function CustomerHome() {
                   ) : (
                     <ChevronRight color={colors.textMuted} size={18} strokeWidth={1.75} />
                   )}
-                </Pressable>
+                </AnimatedPressable>
               );
             })}
           </View>
@@ -402,14 +556,15 @@ export default function CustomerHome() {
           <EmptyState
             title="No artists yet"
             body="Browse search to find someone near you."
+            illustration={<EmptyDiscoverIllustration />}
           />
         ) : (
           <View style={styles.providerList}>
-            {discoveryProviders.map((p) => {
+            {discoveryProviders.map((p, index) => {
               const avatarUri = (p.avatar || "").trim();
               return (
-                <View key={p._id} style={styles.providerRow}>
-                  <Pressable
+                <Animated.View key={p._id} style={styles.providerRow} entering={staggeredEntering(index)}>
+                  <AnimatedPressable
                     style={styles.providerMain}
                     onPress={() => {
                       logger.debug("home", "open provider", { slug: p.slug });
@@ -440,10 +595,10 @@ export default function CustomerHome() {
                         </Text>
                       </View>
                     </View>
-                  </Pressable>
+                  </AnimatedPressable>
                   <View style={styles.providerActions}>
                     <Text style={styles.fromPrice}>FROM ${p.startingPrice}</Text>
-                    <Pressable
+                    <AnimatedPressable
                       style={styles.bookBtn}
                       onPress={() => {
                         logger.debug("home", "book again", { slug: p.slug });
@@ -452,9 +607,9 @@ export default function CustomerHome() {
                       }}
                     >
                       <Text style={styles.bookBtnText}>Book</Text>
-                    </Pressable>
+                    </AnimatedPressable>
                   </View>
-                </View>
+                </Animated.View>
               );
             })}
           </View>
@@ -474,18 +629,19 @@ export default function CustomerHome() {
           }}
         />
       </View>
-    </Screen>
+    </AnimatedHeroScroll>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { paddingTop: 8, gap: 18, paddingBottom: 28 },
+  content: { paddingTop: 10, gap: 18, paddingBottom: 28 },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    minHeight: 52,
   },
-  brandLogo: { height: 32, width: 72 },
+  brandLogo: { alignSelf: "center" },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   mapWrap: {
     height: 280,
@@ -650,6 +806,119 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   bookBtnText: {
+    color: colors.text,
+    fontSize: 12,
+    fontFamily: fonts.monoMedium,
+  },
+  // ── Hero banner ──────────────────────────────────────────────────────────
+  heroBanner: {
+    height: 180,
+    marginHorizontal: -20,
+    overflow: "hidden",
+  },
+  heroImage: {
+    borderRadius: 0,
+  },
+  heroOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(10,10,10,0.52)",
+    justifyContent: "flex-end",
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 6,
+  },
+  heroEyebrow: {
+    color: colors.accent,
+    fontSize: 11,
+    fontFamily: fonts.monoMedium,
+    letterSpacing: 2,
+  },
+  heroHeadline: {
+    color: colors.onImage,
+    fontSize: 26,
+    fontFamily: fonts.serifBold,
+    lineHeight: 32,
+  },
+  heroCta: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+  },
+  heroCtaText: {
+    color: colors.onImage,
+    fontSize: 13,
+    fontFamily: fonts.monoMedium,
+  },
+  // ── Featured providers row ────────────────────────────────────────────────
+  featSectionTitle: {
+    color: colors.text,
+    fontSize: 22,
+    fontFamily: fonts.serifBold,
+  },
+  featScroll: {
+    gap: 12,
+    paddingRight: 4,
+  },
+  featCard: {
+    width: 150,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  featImage: {
+    width: "100%",
+    height: 110,
+    backgroundColor: colors.surfaceAlt,
+  },
+  featImageFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featImageLetter: {
+    color: colors.text,
+    fontSize: 28,
+    fontFamily: fonts.serifBold,
+  },
+  featCardBody: {
+    padding: 10,
+    gap: 4,
+  },
+  featName: {
+    color: colors.text,
+    fontSize: 14,
+    fontFamily: fonts.serifMedium,
+  },
+  featRatingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  featRating: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: fonts.mono,
+  },
+  featCategory: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: fonts.mono,
+    textTransform: "capitalize",
+    flex: 1,
+  },
+  featBookBtn: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 999,
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  featBookText: {
     color: colors.text,
     fontSize: 12,
     fontFamily: fonts.monoMedium,

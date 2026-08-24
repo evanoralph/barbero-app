@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConversationRow } from "@/src/components/ConversationRow";
+import { EmptyMessagesIllustration } from "@/src/components/illustrations/EmptyMessagesIllustration";
 import { EmptyState, Screen } from "@/src/components/ui";
 import type { ConversationListItem } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
@@ -121,7 +122,7 @@ export function MessagesInbox({
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {items.length === 0 ? (
-        <EmptyState title={emptyTitle} body={emptyBody} />
+        <EmptyState title={emptyTitle} body={emptyBody} illustration={<EmptyMessagesIllustration />} />
       ) : filtered.length === 0 ? (
         <EmptyState
           title="No matches"

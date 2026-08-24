@@ -12,7 +12,7 @@ import { clearToken, loadToken, saveToken } from "@/src/auth/token";
 import { resumeMobileDdp, signOutMobileDdp } from "@/src/meteor/session";
 import type { AuthMe, LoginResponse } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
-import { registerPushTokenPlaceholder } from "@/src/utils/pushPlaceholder";
+import { registerPushToken } from "@/src/utils/push";
 
 export type AppRole = "customer" | "provider" | "admin" | "unknown";
 
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (!cancelled) {
               setUser(me);
               logger.info("session", "boot restore ok", { roles: me.roles });
-              void registerPushTokenPlaceholder(me.userId);
+              void registerPushToken(me.userId);
             }
           } catch (error) {
             logger.warn("session", "boot restore failed", error);
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       expiresAt: result.expiresAt,
     });
     logger.info("session", "signed in", { roles: result.roles });
-    void registerPushTokenPlaceholder(result.userId);
+    void registerPushToken(result.userId);
     return result;
   }, []);
 

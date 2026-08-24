@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -12,7 +12,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getMyProvider, updateMyProvider } from "@/src/api/providers";
+import { getMyProvider, listMyPortfolio, updateMyProvider } from "@/src/api/providers";
+import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
+import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
+import { EmptyPortfolioIllustration } from "@/src/components/illustrations/EmptyPortfolioIllustration";
 import { PortfolioLightbox } from "@/src/components/PortfolioLightbox";
 import type { PortfolioTile } from "@/src/components/PortfolioGrid";
 import {
@@ -25,6 +28,7 @@ import {
   Screen,
   Title,
 } from "@/src/components/ui";
+import { ImageUploadField, type ImageUploadFieldHandle } from "@/src/components/ImageUploadField";
 import type { PortfolioItem, ProviderProfile } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
@@ -32,6 +36,7 @@ import { logger } from "@/src/utils/logger";
 
 type FormMode = "closed" | "add" | "edit";
 type FilterId = "all" | "with-desc" | "no-desc";
+const PAGE_SIZE = 10;
 
 export default function ProviderPortfolioScreen() {
   const insets = useSafeAreaInsets();
@@ -42,8 +47,12 @@ export default function ProviderPortfolioScreen() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterId>("all");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [items, setItems] = useState<PortfolioItem[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const [formMode, setFormMode] = useState<FormMode>("closed");
@@ -52,6 +61,7 @@ export default function ProviderPortfolioScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const imageUploadRef = useRef<ImageUploadFieldHandle>(null);
 
   const closeForm = useCallback(() => {
     setFormMode("closed");
@@ -85,15 +95,31 @@ export default function ProviderPortfolioScreen() {
     logger.info("provider-portfolio", "form open edit", { id: item.id });
   };
 
-  const load = useCallback(async (opts?: { refresh?: boolean }) => {
+  const load = useCallback(async (opts?: { refresh?: boolean; keepPage?: boolean }) => {
     if (opts?.refresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      const me = await getMyProvider();
+      const targetPage = opts?.keepPage ? page : 1;
+      const [me, paged] = await Promise.all([
+        getMyProvider(),
+        listMyPortfolio({
+          page: targetPage,
+          limit: PAGE_SIZE,
+          q: query,
+          filter,
+        }),
+      ]);
       setProfile(me);
+      setItems(paged.items);
+      setTotal(paged.total);
+      setPage(paged.page);
       logger.info("provider-portfolio", "loaded", {
         portfolio: me.portfolio?.length ?? 0,
+        page: paged.page,
+        total: paged.total,
+        filter,
+        q: query,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load portfolio";
@@ -103,51 +129,66 @@ export default function ProviderPortfolioScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [filter, page, query]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const items = profile?.portfolio ?? [];
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return items.filter((item) => {
-      const hasDesc = Boolean(item.description?.trim());
-      if (filter === "with-desc" && !hasDesc) return false;
-      if (filter === "no-desc" && hasDesc) return false;
-      if (!q) return true;
-      const hay = `${item.title} ${item.description ?? ""} ${item.image}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [items, query, filter]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQuery(queryInput);
+      setPage(1);
+      logger.debug("provider-portfolio", "search debounced", { q: queryInput });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [queryInput]);
 
   const tiles: PortfolioTile[] = useMemo(
     () =>
-      filtered.map((p) => ({
+      items.map((p) => ({
         id: p.id,
         image: p.image,
         title: p.title,
         description: p.description,
         likes: p.likes,
       })),
-    [filtered],
+    [items],
   );
 
   const save = async () => {
-    const imageUrl = image.trim();
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
 
-    if (!imageUrl || !trimmedTitle) {
-      setFormError("Image URL and title are required");
+    if (!trimmedTitle) {
+      setFormError("Title is required");
       return;
     }
+
+    // For portfolio items, we defer local photo uploads until the user taps "Add item".
+    // This prevents uploading an image the user selected but never saved.
+    logger.debug("provider-portfolio", "save start (upload step)", {
+      editingId,
+      hasUrl: Boolean(image.trim()),
+    });
 
     setSaving(true);
     setFormError(null);
     try {
+      let imageUrl = image.trim();
+      const uploaded = await imageUploadRef.current?.uploadNow();
+      if (uploaded?.trim()) imageUrl = uploaded.trim();
+
+      logger.debug("provider-portfolio", "save image upload result", {
+        editingId,
+        hasImageUrl: Boolean(imageUrl),
+      });
+
+      if (!imageUrl) {
+        setFormError("Image is required");
+        return;
+      }
+
       const body = editingId
         ? {
             updatePortfolioItem: {
@@ -171,6 +212,8 @@ export default function ProviderPortfolioScreen() {
       const updated = await updateMyProvider(body);
       setProfile(updated);
       setOk(editingId ? "Portfolio item updated" : "Portfolio item added");
+      logger.info("provider-portfolio", "refresh after save");
+      await load({ keepPage: true });
       closeForm();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Save failed";
@@ -198,6 +241,8 @@ export default function ProviderPortfolioScreen() {
             });
             setProfile(updated);
             setOk("Portfolio item removed");
+            logger.info("provider-portfolio", "refresh after remove", { id: item.id });
+            await load({ keepPage: true });
             if (editingId === item.id) closeForm();
           } catch (e) {
             const msg = e instanceof Error ? e.message : "Remove failed";
@@ -215,7 +260,6 @@ export default function ProviderPortfolioScreen() {
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
 
   const modalVisible = formMode !== "closed";
-  const previewUri = image.trim();
 
   return (
     <>
@@ -224,7 +268,7 @@ export default function ProviderPortfolioScreen() {
           <View style={{ flex: 1 }}>
             <Title>Portfolio</Title>
             <Muted>
-              {filtered.length} of {items.length} shown
+              {items.length} of {total} shown
             </Muted>
           </View>
           <Button label="Add" onPress={openAdd} />
@@ -232,9 +276,9 @@ export default function ProviderPortfolioScreen() {
 
         <Field
           label="Search"
-          value={query}
+          value={queryInput}
           onChangeText={(v) => {
-            setQuery(v);
+            setQueryInput(v);
             logger.debug("provider-portfolio", "search", { q: v });
           }}
           placeholder="Title, description, or URL"
@@ -257,6 +301,7 @@ export default function ProviderPortfolioScreen() {
                 active={filter === id}
                 onPress={() => {
                   setFilter(id);
+                    setPage(1);
                   logger.debug("provider-portfolio", "filter", { filter: id });
                 }}
               />
@@ -267,12 +312,13 @@ export default function ProviderPortfolioScreen() {
         {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
         {ok ? <Text style={{ color: colors.success }}>{ok}</Text> : null}
 
-        {items.length === 0 ? (
+        {total === 0 ? (
           <View style={styles.emptyBox}>
+            <EmptyPortfolioIllustration />
             <Muted>No portfolio items yet. Add photo URLs to showcase your work.</Muted>
             <Button label="Add your first item" onPress={openAdd} />
           </View>
-        ) : filtered.length === 0 ? (
+        ) : items.length === 0 ? (
           <View style={styles.emptyBox}>
             <Muted>No items match your search or filter.</Muted>
             <Button
@@ -280,27 +326,26 @@ export default function ProviderPortfolioScreen() {
               variant="secondary"
               onPress={() => {
                 setQuery("");
+                setQueryInput("");
                 setFilter("all");
+                setPage(1);
                 logger.debug("provider-portfolio", "clear filters");
               }}
             />
           </View>
         ) : (
           <View style={styles.list}>
-            {filtered.map((item, index) => {
+            {items.map((item, index) => {
               const uri = (item.image || "").trim();
               return (
-                <Pressable
+                <AnimatedPressable
                   key={item.id}
                   onPress={() => {
                     logger.debug("provider-portfolio", "open lightbox", { id: item.id, index });
                     setLightboxIndex(index);
                   }}
-                  style={({ pressed }) => [
-                    styles.row,
-                    index < filtered.length - 1 && styles.rowBorder,
-                    pressed && { opacity: 0.85 },
-                  ]}
+                  style={[styles.row, index < items.length - 1 && styles.rowBorder]}
+                  entering={staggeredEntering(index)}
                 >
                   {uri ? (
                     <Image source={{ uri }} style={styles.thumb} resizeMode="cover" />
@@ -346,11 +391,36 @@ export default function ProviderPortfolioScreen() {
                       <Text style={styles.actionRemove}>Remove</Text>
                     </Pressable>
                   </View>
-                </Pressable>
+                </AnimatedPressable>
               );
             })}
           </View>
         )}
+        {total > PAGE_SIZE ? (
+          <View style={styles.pageRow}>
+            <Button
+              label="Previous"
+              variant="secondary"
+              disabled={page <= 1 || loading}
+              onPress={() => {
+                setPage((p) => Math.max(1, p - 1));
+                logger.debug("provider-portfolio", "page prev", { from: page });
+              }}
+            />
+            <Muted>
+              Page {page} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}
+            </Muted>
+            <Button
+              label="Next"
+              variant="secondary"
+              disabled={page >= Math.max(1, Math.ceil(total / PAGE_SIZE)) || loading}
+              onPress={() => {
+                setPage((p) => p + 1);
+                logger.debug("provider-portfolio", "page next", { from: page });
+              }}
+            />
+          </View>
+        ) : null}
       </Screen>
 
       <PortfolioLightbox
@@ -386,27 +456,15 @@ export default function ProviderPortfolioScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ gap: 12, paddingBottom: 8 }}
             >
-              {previewUri ? (
-                <Image
-                  source={{ uri: previewUri }}
-                  style={styles.preview}
-                  resizeMode="cover"
-                  onError={() =>
-                    logger.warn("provider-portfolio", "preview failed", {
-                      image: previewUri,
-                    })
-                  }
-                />
-              ) : (
-                <Muted>Image preview appears when you enter a URL.</Muted>
-              )}
-              <Field
-                label="Image URL"
+              <ImageUploadField
+                ref={imageUploadRef}
+                label="Image"
                 value={image}
-                onChangeText={setImage}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder="https://…"
+                onChange={setImage}
+                kind="provider-portfolio"
+                previewStyle={styles.preview}
+                uploadMode="manual"
+                hideUrlInput
               />
               <Field label="Title" value={title} onChangeText={setTitle} />
               <Field
@@ -448,6 +506,13 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 24,
     alignItems: "flex-start",
+  },
+  pageRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
   },
   list: {
     backgroundColor: colors.surface,

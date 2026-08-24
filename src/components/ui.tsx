@@ -1,7 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,10 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
+import Animated, { interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import spinnerGold from "@/assets/lottie/spinner-gold.json";
+import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
+import { LottieView } from "@/src/components/animated/LottieView";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 
@@ -84,17 +87,16 @@ export function Button({
   loading?: boolean;
 }) {
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
       disabled={disabled || loading}
-      style={({ pressed }) => [
+      style={[
         styles.btn,
         variant === "primary" && styles.btnPrimary,
         variant === "secondary" && styles.btnSecondary,
         variant === "danger" && styles.btnDanger,
         variant === "ghost" && styles.btnGhost,
         (disabled || loading) && styles.btnDisabled,
-        pressed && { opacity: 0.85 },
       ]}
     >
       {loading ? (
@@ -118,7 +120,7 @@ export function Button({
           {label}
         </Text>
       )}
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
@@ -136,18 +138,31 @@ export function Field(props: TextInputProps & { label: string }) {
   );
 }
 
-export function LoadingState({ label = "Loading…" }: { label?: string }) {
+export function LoadingState({ label = "Loading…", lottie }: { label?: string; lottie?: boolean }) {
   return (
     <View style={styles.center}>
-      <ActivityIndicator color={colors.accent} size="large" />
+      {lottie ? (
+        <LottieView source={spinnerGold} style={styles.loadingLottie} />
+      ) : (
+        <ActivityIndicator color={colors.accent} size="large" />
+      )}
       <Muted>{label}</Muted>
     </View>
   );
 }
 
-export function EmptyState({ title, body }: { title: string; body?: string }) {
+export function EmptyState({
+  title,
+  body,
+  illustration,
+}: {
+  title: string;
+  body?: string;
+  illustration?: React.ReactNode;
+}) {
   return (
     <View style={styles.center}>
+      {illustration}
       <Text style={styles.emptyTitle}>{title}</Text>
       {body ? <Muted>{body}</Muted> : null}
     </View>
@@ -178,13 +193,24 @@ export function Chip({
   active?: boolean;
   onPress?: () => void;
 }) {
+  const progress = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(active ? 1 : 0, { duration: 180 });
+  }, [active, progress]);
+
+  const animatedChipStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(progress.value, [0, 1], [colors.white, colors.accent]),
+    borderColor: interpolateColor(progress.value, [0, 1], [colors.border, colors.accent]),
+  }));
+  const animatedTextStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(progress.value, [0, 1], [colors.textMuted, colors.text]),
+  }));
+
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.chip, active && styles.chipActive]}
-    >
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
+    <AnimatedPressable onPress={onPress} style={[styles.chip, animatedChipStyle]}>
+      <Animated.Text style={[styles.chipText, animatedTextStyle]}>{label}</Animated.Text>
+    </AnimatedPressable>
   );
 }
 
@@ -270,6 +296,7 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: colors.bg,
   },
+  loadingLottie: { width: 64, height: 64 },
   emptyTitle: {
     color: colors.text,
     fontSize: 18,

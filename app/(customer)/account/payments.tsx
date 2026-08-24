@@ -5,8 +5,9 @@ export default function PaymentsStubScreen() {
     <Screen>
       <Title>Payments</Title>
       <Muted>
-        Payment methods and Stripe checkout are deferred (same as web). This screen is a
-        placeholder so the account module stays complete for v1.
+        Card payments are not available in this beta yet. Bookings are invite-only and
+        payment is handled outside the app for now. We will notify you when in-app
+        checkout launches.
       </Muted>
     </Screen>
   );

@@ -227,6 +227,8 @@ Workflows live in [`.eas/workflows/`](.eas/workflows/). They run on EAS when the
 | [`ci.yml`](.eas/workflows/ci.yml) | Push / PR → `main` | `npm run typecheck`, then native fingerprint |
 | [`preview.yml`](.eas/workflows/preview.yml) | PR labeled `eas-preview` | Typecheck, then Android `preview` APK |
 | [`android-preview-main.yml`](.eas/workflows/android-preview-main.yml) | Push → `main` | Typecheck, then Android `preview` APK (shareable; no Play Store) |
+| [`production.yml`](.eas/workflows/production.yml) | Push tag `v*` | Typecheck, production Android + iOS builds, Play internal + TestFlight |
+| [`testflight.yml`](.eas/workflows/testflight.yml) | Manual (`workflow_dispatch`) | Typecheck, iOS production build → TestFlight (`Team` group) |
 
 Manual run (no GitHub trigger required):
 
@@ -234,6 +236,10 @@ Manual run (no GitHub trigger required):
 npm run eas:ci            # typecheck + fingerprint
 npm run eas:preview       # typecheck + Android preview build (PR-style)
 npm run eas:preview:main  # typecheck + Android preview APK (main pipeline)
+npm run eas:production    # production builds + store/TestFlight submit
+npm run eas:testflight    # iOS production → TestFlight only
 ```
+
+Production/TestFlight builds expect EAS **production** env `EXPO_PUBLIC_API_URL=https://api.beru.digital/api/v1` (HTTPS only).
 
 Skip an automatic run by including `[eas skip]`, `[skip eas]`, or `[no eas]` in the commit message. Docs-only commits on `main` should skip so they do not consume Android build minutes.

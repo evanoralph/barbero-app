@@ -1,5 +1,9 @@
 import { apiRequest } from "@/src/api/client";
 import type {
+  MyProviderPortfolioPage,
+  MyProviderPortfolioQuery,
+  MyProviderServicesPage,
+  MyProviderServicesQuery,
   ProviderAnalytics,
   ProviderAnalyticsRange,
   ProviderListItem,
@@ -71,6 +75,30 @@ export function listProvidersMap(params?: {
 
 export function getMyProvider() {
   return apiRequest<ProviderProfile>("/providers/me");
+}
+
+export function listMyPortfolio(params?: MyProviderPortfolioQuery) {
+  logger.debug("providers-api", "listMyPortfolio", params);
+  return apiRequest<MyProviderPortfolioPage>("/providers/me/portfolio", {
+    query: {
+      limit: params?.limit,
+      page: params?.page,
+      q: params?.q,
+      filter: params?.filter,
+    },
+  });
+}
+
+export function listMyServices(params?: MyProviderServicesQuery) {
+  logger.debug("providers-api", "listMyServices", params);
+  return apiRequest<MyProviderServicesPage>("/providers/me/services", {
+    query: {
+      limit: params?.limit,
+      page: params?.page,
+      q: params?.q,
+      category: params?.category,
+    },
+  });
 }
 
 export function updateMyProvider(body: UpdateProviderProfileInput) {

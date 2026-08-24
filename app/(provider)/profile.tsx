@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Image, Text, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { getMyProvider, updateMyProvider } from "@/src/api/providers";
 import { useSession } from "@/src/auth/session";
 import {
@@ -14,6 +14,7 @@ import {
   Subtitle,
   Title,
 } from "@/src/components/ui";
+import { ImageUploadField } from "@/src/components/ImageUploadField";
 import type {
   ProviderProfile,
   ProviderPromotion,
@@ -23,7 +24,7 @@ import { colors } from "@/src/theme/colors";
 import { toDateKey } from "@/src/utils/dateKeys";
 import { logger } from "@/src/utils/logger";
 
-type BusyKey = "profile" | "promotion" | null;
+type BusyKey = "profile" | "promotion" | "avatar" | "cover" | null;
 
 function parseOptionalCoord(raw: string): number | undefined | "invalid" {
   const t = raw.trim();
@@ -126,6 +127,22 @@ export default function ProviderProfileScreen() {
     } finally {
       setBusy(null);
     }
+  };
+
+  const saveImageField = async (field: "avatar" | "coverImage", url: string) => {
+    const busyKey = field === "avatar" ? "avatar" : "cover";
+    logger.info("provider-profile", "save image", {
+      field,
+      hasUrl: Boolean(url.trim()),
+    });
+    await mutate(
+      busyKey,
+      field === "avatar"
+        ? { avatar: url.trim() || undefined }
+        : { coverImage: url.trim() || undefined },
+      field === "avatar" ? "Avatar updated" : "Cover image updated",
+      `saved ${field}`,
+    );
   };
 
   const saveProfile = async () => {
@@ -247,8 +264,6 @@ export default function ProviderProfileScreen() {
   const services = profile?.services ?? [];
   const portfolio = profile?.portfolio ?? [];
   const promotions = profile?.promotions ?? [];
-  const coverPreview = coverImage.trim();
-  const avatarPreview = avatar.trim();
 
   if (loading) return <LoadingState />;
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
@@ -272,49 +287,31 @@ export default function ProviderProfileScreen() {
       ) : null}
 
       <Subtitle>Basics</Subtitle>
-      {coverPreview ? (
-        <Image
-          source={{ uri: coverPreview }}
-          style={{
-            width: "100%",
-            height: 140,
-            borderRadius: 12,
-            backgroundColor: colors.border,
-          }}
-          resizeMode="cover"
-          onError={() => logger.warn("provider-profile", "cover preview failed", { coverPreview })}
-        />
-      ) : (
-        <Muted>Cover preview appears when you enter a valid image URL.</Muted>
-      )}
-      {avatarPreview ? (
-        <Image
-          source={{ uri: avatarPreview }}
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 36,
-            backgroundColor: colors.border,
-            alignSelf: "flex-start",
-          }}
-          onError={() => logger.warn("provider-profile", "avatar preview failed", { avatarPreview })}
-        />
-      ) : null}
-      <Field label="Bio" value={bio} onChangeText={setBio} multiline />
-      <Field label="Response time" value={responseTime} onChangeText={setResponseTime} />
-      <Field
-        label="Avatar URL"
+      <ImageUploadField
+        label="Profile photo"
         value={avatar}
-        onChangeText={setAvatar}
-        autoCapitalize="none"
-        autoCorrect={false}
+        onChange={(url) => {
+          setAvatar(url);
+          void saveImageField("avatar", url);
+        }}
+        kind="provider-avatar"
+        hideUrlInput
+        previewStyle={{
+          width: 72,
+          height: 72,
+          borderRadius: 36,
+          alignSelf: "flex-start",
+        }}
       />
-      <Field
-        label="Cover image URL"
+      <ImageUploadField
+        label="Cover banner"
         value={coverImage}
-        onChangeText={setCoverImage}
-        autoCapitalize="none"
-        autoCorrect={false}
+        onChange={(url) => {
+          setCoverImage(url);
+          void saveImageField("coverImage", url);
+        }}
+        kind="provider-cover"
+        hideUrlInput
       />
       <Field label="City" value={city} onChangeText={setCity} />
       <Field label="Address" value={address} onChangeText={setAddress} />

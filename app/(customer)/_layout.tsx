@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
-import { CalendarDays, Home, MessageCircle, Search, UserRound } from "lucide-react-native";
+import { CalendarDays, Home, Search, UserRound } from "lucide-react-native";
 import { useSession } from "@/src/auth/session";
 import { LoadingState } from "@/src/components/ui";
 import { TabIcon } from "@/src/components/TabIcon";
@@ -27,6 +27,7 @@ export default function CustomerLayout() {
 
   logger.debug("CustomerTabs", "mount lucide tab icons (figma chrome)", {
     tabBarHideOnKeyboard: true,
+    messagesTabHidden: true,
   });
 
   return (
@@ -56,7 +57,12 @@ export default function CustomerLayout() {
         options={{
           title: "Home",
           ...headerOptions,
-          headerTitle: "Beru",
+          // Hide the centered header title text ("Beru") - keep header buttons/icons.
+          headerTitle: () => null,
+          // Remove the solid background "highlight" area behind the navigation header
+          // while preserving the safe-area-driven layout inside the screen.
+          headerTransparent: true,
+          headerStyle: { backgroundColor: "transparent" },
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Home} color={color} focused={focused} name="customer.home" />
           ),
@@ -82,21 +88,20 @@ export default function CustomerLayout() {
         }}
       />
       <Tabs.Screen
-        name="messages"
-        options={{
-          title: "Messages",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon icon={MessageCircle} color={color} focused={focused} name="customer.messages" />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="account"
         options={{
           title: "Account",
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={UserRound} color={color} focused={focused} name="customer.account" />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          href: null,
+          headerShown: false,
+          title: "Messages",
         }}
       />
       <Tabs.Screen

@@ -20,6 +20,31 @@ Screenshots are written to `~/Documents/barbero-app-screenshots/<timestamp>/`
 (override with `SCREENSHOT_OUTPUT_DIR`), one PNG per screen, prefixed by
 which flow captured it (`provider__07_profile.png`, etc.).
 
+## App Store Connect 6.5" Display
+
+Capture output is usually native Pro Max size (e.g. 1290×2796). App Store
+Connect’s **iPhone → 6.5" Display** slot accepts portrait:
+
+- **1284 × 2778** (default export)
+- **1242 × 2688**
+
+Resize a curated customer shortlist without re-running Maestro:
+
+```bash
+scripts/screenshots/export-app-store-6.5.sh \
+  --from ~/Documents/barbero-app-screenshots/<timestamp>
+
+# Optional: alternate accepted size
+scripts/screenshots/export-app-store-6.5.sh \
+  --from ~/Documents/barbero-app-screenshots/<timestamp> \
+  --size 1242x2688
+```
+
+Writes `<capture-dir>/iphone-6.5/` with upload-ordered names
+(`01_home.png`, `02_explore.png`, …). Default sources: home, explore,
+provider profile, book flow, map. Upload those PNGs into App Store Connect
+→ iPhone → 6.5" Display (first 3 appear on the install sheet).
+
 ## Layout
 
 - `flows/auth.yaml`, `flows/provider.yaml`, `flows/customer.yaml` — one

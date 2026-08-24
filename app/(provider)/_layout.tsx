@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
-import { CalendarDays, Clock3, Home, MessageCircle, UserRound } from "lucide-react-native";
+import { CalendarDays, Clock3, Home, UserRound } from "lucide-react-native";
 import { useSession } from "@/src/auth/session";
 import { LoadingState } from "@/src/components/ui";
 import { TabIcon } from "@/src/components/TabIcon";
@@ -15,6 +15,7 @@ export default function ProviderLayout() {
 
   logger.debug("ProviderTabs", "mount lucide tab icons", {
     tabBarHideOnKeyboard: true,
+    messagesTabHidden: true,
   });
 
   return (
@@ -65,15 +66,6 @@ export default function ProviderLayout() {
         }}
       />
       <Tabs.Screen
-        name="messages"
-        options={{
-          title: "Inbox",
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon icon={MessageCircle} color={color} focused={focused} name="provider.messages" />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
@@ -83,6 +75,14 @@ export default function ProviderLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={UserRound} color={color} focused={focused} name="provider.profile" />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          href: null,
+          headerShown: false,
+          title: "Messages",
         }}
       />
       <Tabs.Screen

@@ -20,6 +20,7 @@ const SIZE = {
   md: { height: 36, width: 72 },
   lg: { height: 48, width: 96 },
   xl: { height: 64, width: 128 },
+  hero: { height: 46, width: 100 },
 } as const;
 
 export type BrandLogoSize = keyof typeof SIZE;
@@ -39,8 +40,13 @@ export function BrandLogo({
   const dims = SIZE[size];
 
   useEffect(() => {
-    console.log("[brand-logo] render", { variant, size, height: dims.height });
-  }, [variant, size, dims.height]);
+    console.log("[brand-logo] render", {
+      variant,
+      size,
+      height: dims.height,
+      width: dims.width,
+    });
+  }, [variant, size, dims.height, dims.width]);
 
   return (
     <Image

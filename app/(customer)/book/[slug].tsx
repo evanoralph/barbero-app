@@ -23,10 +23,12 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import checkmarkGold from "@/assets/lottie/checkmark-gold.json";
 import { createBooking } from "@/src/api/bookings";
 import { ApiError } from "@/src/api/client";
 import { getProvider, getProviderSlots } from "@/src/api/providers";
 import { useSession } from "@/src/auth/session";
+import { LottieView } from "@/src/components/animated/LottieView";
 import {
   Button,
   ErrorState,
@@ -145,6 +147,7 @@ export default function BookScreen() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
 
   const draftDateValue = useMemo(() => parseISODate(draftDate), [draftDate]);
   const minDate = useMemo(() => parseISODate(todayISODate()), []);
@@ -314,7 +317,7 @@ export default function BookScreen() {
       });
       logger.info("book", "created", { id: booking._id });
       console.log("[book] created", booking._id);
-      router.replace(`/(customer)/bookings/${booking._id}`);
+      setConfirmedBookingId(booking._id);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Booking failed");
       logger.warn("book", "create failed", e);
@@ -608,6 +611,19 @@ export default function BookScreen() {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={Boolean(confirmedBookingId)} transparent animationType="fade">
+        <View style={styles.successOverlay}>
+          <LottieView
+            source={checkmarkGold}
+            loop={false}
+            style={styles.successLottie}
+            onAnimationFinish={() => {
+              if (confirmedBookingId) router.replace(`/(customer)/bookings/${confirmedBookingId}`);
+            }}
+          />
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -873,4 +889,11 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   error: { color: colors.danger, fontSize: 14 },
+  successOverlay: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bg,
+  },
+  successLottie: { width: 120, height: 120 },
 });
