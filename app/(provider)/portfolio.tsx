@@ -315,7 +315,7 @@ export default function ProviderPortfolioScreen() {
         {total === 0 ? (
           <View style={styles.emptyBox}>
             <EmptyPortfolioIllustration />
-            <Muted>No portfolio items yet. Add photo URLs to showcase your work.</Muted>
+            <Muted>No portfolio items yet. Add photos to showcase your work.</Muted>
             <Button label="Add your first item" onPress={openAdd} />
           </View>
         ) : items.length === 0 ? (

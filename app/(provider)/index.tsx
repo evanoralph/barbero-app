@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import { router } from "expo-router";
 import {
   Briefcase,
@@ -11,8 +11,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { getMyAnalytics, getMyProvider, getProviderReviews } from "@/src/api/providers";
-import { getMySubscription } from "@/src/api/subscription";
-import { PlanBadge, type PlanId } from "@/src/components/PlanBadge";
 import { getMySubscription } from "@/src/api/subscription";
 import { PlanBadge, type PlanId } from "@/src/components/PlanBadge";
 import {

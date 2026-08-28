@@ -16,6 +16,8 @@ import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider } from "@/src/auth/session";
+import { ServerStatusGate } from "@/src/server/ServerStatusGate";
+import { ServerStatusProvider } from "@/src/server/server-status";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
 
@@ -98,16 +100,20 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <ThemeProvider value={navTheme}>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(customer)" />
-          <Stack.Screen name="(provider)" />
-        </Stack>
-      </ThemeProvider>
-    </AuthProvider>
+    <ServerStatusProvider>
+      <AuthProvider>
+        <ThemeProvider value={navTheme}>
+          <StatusBar style="dark" />
+          <ServerStatusGate />
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="server-down" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(customer)" />
+            <Stack.Screen name="(provider)" />
+          </Stack>
+        </ThemeProvider>
+      </AuthProvider>
+    </ServerStatusProvider>
   );
 }

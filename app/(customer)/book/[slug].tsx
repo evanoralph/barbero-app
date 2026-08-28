@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";

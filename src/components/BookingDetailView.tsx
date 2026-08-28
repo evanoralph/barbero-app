@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import type { ReactNode } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import type { Booking, ProviderProfile, ProviderService } from "@/src/types/api";

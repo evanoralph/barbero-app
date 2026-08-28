@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import { router } from "expo-router";
 import { Bell, ChevronRight, MapPin, Search, Star } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";

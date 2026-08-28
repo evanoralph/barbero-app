@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import * as Linking from "expo-linking";

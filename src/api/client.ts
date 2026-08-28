@@ -22,10 +22,15 @@ export class ApiError extends Error {
 }
 
 let tokenGetter: (() => string | null) | null = null;
+let serverUnavailableHandler: ((reason: string) => void) | null = null;
 let loggedBaseUrl = false;
 
 export function setApiTokenGetter(getter: () => string | null) {
   tokenGetter = getter;
+}
+
+export function setServerUnavailableHandler(handler: ((reason: string) => void) | null) {
+  serverUnavailableHandler = handler;
 }
 
 /** Rewrite localhost → 10.0.2.2 on Android so emulator can reach the host API over HTTP. */
@@ -114,6 +119,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     });
   } catch (error) {
     logger.error("api", `network error ${method} ${path}`, error);
+    serverUnavailableHandler?.("network");
     throw new ApiError("Network error — is the Meteor API running?", "NETWORK", 0, error);
   }
 
@@ -137,11 +143,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   return payload.data;
 }
 
-export async function checkHealth(): Promise<void> {
+export async function checkHealth(): Promise<boolean> {
   try {
     await apiRequest<{ status: string }>("/health", { auth: false });
     logger.info("api", "health ok");
+    return true;
   } catch (error) {
     logger.warn("api", "health check failed", error);
+    return false;
   }
 }

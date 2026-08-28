@@ -1,4 +1,4 @@
-import { formatMoney } from "@/utils/format";
+import { formatMoney } from "@/src/utils/format";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import { getMySubscriptionPayments } from "@/src/api/subscription";

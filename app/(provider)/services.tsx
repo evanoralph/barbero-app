@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -460,11 +460,12 @@ export default function ProviderServicesScreen() {
               />
               <Field label="Category" value={category} onChangeText={setCategory} />
               <ImageUploadField
-                label="Service image URL (optional)"
+                label="Service image (optional)"
                 value={image}
                 onChange={setImage}
                 kind="provider-service"
                 serviceId={editingId ?? undefined}
+                hideUrlInput
                 previewStyle={{
                   width: 72,
                   height: 72,

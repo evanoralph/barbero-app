@@ -7,7 +7,7 @@ import React, {
   useState,
 } from "react";
 import { authMe, login as apiLogin, logout as apiLogout } from "@/src/api/auth";
-import { checkHealth, setApiTokenGetter } from "@/src/api/client";
+import { setApiTokenGetter } from "@/src/api/client";
 import { clearToken, loadToken, saveToken } from "@/src/auth/token";
 import { resumeMobileDdp, signOutMobileDdp } from "@/src/meteor/session";
 import type { AuthMe, LoginResponse } from "@/src/types/api";
@@ -74,8 +74,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        // Don't block first paint on API health (API may be down).
-        void checkHealth();
         const stored = await loadToken();
         if (cancelled) return;
         setToken(stored);

@@ -1,4 +1,4 @@
-import { formatMoney } from "@/utils/format";
+import { formatMoney } from "@/src/utils/format";
 import { Text } from "react-native";
 import { Card, Muted } from "@/src/components/ui";
 import type { SubscriptionPayment } from "@/src/types/api";

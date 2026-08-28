@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import { router } from "expo-router";
 import { CalendarDays, MessageCircle, Search } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";

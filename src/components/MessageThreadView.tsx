@@ -1,4 +1,4 @@
-import { formatMoney } from '@/utils/format';
+import { formatMoney } from '@/src/utils/format';
 import { CheckCheck, ChevronLeft, ChevronRight, ImagePlus, Phone, Send } from "lucide-react-native";
 import { useEffect, useMemo, useRef } from "react";
 import {
