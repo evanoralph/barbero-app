@@ -4,6 +4,8 @@ import type {
   MyProviderPortfolioQuery,
   MyProviderServicesPage,
   MyProviderServicesQuery,
+  PayoutDestination,
+  PayoutVerificationStatus,
   ProviderAnalytics,
   ProviderAnalyticsRange,
   ProviderListItem,
@@ -113,5 +115,22 @@ export function getMyAnalytics(range: ProviderAnalyticsRange = "30days") {
   logger.debug("providers-api", "getMyAnalytics", { range });
   return apiRequest<ProviderAnalytics>("/providers/me/analytics", {
     query: { range },
+  });
+}
+
+export type PayoutDestinationResponse = {
+  payoutDestination: PayoutDestination | null;
+  payoutVerificationStatus: PayoutVerificationStatus | null;
+};
+
+export function getMyPayoutDestination() {
+  return apiRequest<PayoutDestinationResponse>("/providers/me/payout-destination");
+}
+
+export function setMyPayoutDestination(body: PayoutDestination) {
+  logger.info("providers-api", "setMyPayoutDestination", { type: body.type });
+  return apiRequest<PayoutDestinationResponse>("/providers/me/payout-destination", {
+    method: "PUT",
+    body,
   });
 }

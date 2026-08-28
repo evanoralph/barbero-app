@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { useEffect } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Muted } from "@/src/components/ui";
@@ -48,7 +49,7 @@ export function RevenueBarChart({ data, maxBars = 6 }: Props) {
           return (
             <View key={row.month} style={styles.col}>
               <Text style={styles.value} numberOfLines={1}>
-                ${revenue}
+                {formatMoney(revenue)}
               </Text>
               <View style={styles.barArea}>
                 <View style={[styles.bar, { height: barHeight }]} />

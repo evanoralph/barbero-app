@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { router } from "expo-router";
 import { CalendarDays, MessageCircle, Search } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -479,7 +480,7 @@ export default function ProviderBookingsScreen() {
             <View style={styles.dayStat}>
               <Text style={styles.dayStatLabel}>EXPECTED</Text>
               <Text style={styles.dayStatValue}>
-                {selectedDayStats.revenue > 0 ? `$${selectedDayStats.revenue}` : "—"}
+                {selectedDayStats.revenue > 0 ? formatMoney(selectedDayStats.revenue) : "—"}
               </Text>
             </View>
           </View>
@@ -528,7 +529,7 @@ export default function ProviderBookingsScreen() {
                 <Text style={styles.groupStats}>
                   {group.count} BOOKED
                   {group.hours > 0 ? ` · ${group.hours} HRS` : ""}
-                  {group.revenue > 0 ? ` · $${group.revenue}` : ""}
+                  {group.revenue > 0 ? ` · ${formatMoney(group.revenue)}` : ""}
                 </Text>
               </View>
             ) : null}
@@ -578,7 +579,7 @@ export default function ProviderBookingsScreen() {
                         </Text>
                         <Text style={styles.serviceName} numberOfLines={1}>
                           {b.serviceName}
-                          {price > 0 ? ` · $${price}` : ""}
+                          {price > 0 ? ` · ${formatMoney(price)}` : ""}
                         </Text>
                       </View>
                       {pending ? (

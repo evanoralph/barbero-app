@@ -1,15 +1,16 @@
-import { useEffect } from "react";
 import { Image, type ImageStyle, type StyleProp, StyleSheet } from "react-native";
 
 const LOGO_SRC = {
-  /** Gold mark on light background — default for light UI chrome */
+  /** Black + gold mark on transparent — light UI chrome */
   light: require("../../assets/logo/beru-logo-white-bg.png"),
-  /** Gold mark on black — dark sections / premium */
+  /** White mark on transparent — dark sections / premium (legacy name: gold) */
   gold: require("../../assets/logo/beru-logo-gold.png"),
-  /** White mark on black — dark sections */
+  /** White mark on transparent — dark sections */
   white: require("../../assets/logo/beru-logo-white.png"),
-  /** Subtle dark mark on black */
+  /** Black mark on transparent — light headers / light backgrounds */
   dark: require("../../assets/logo/beru-logo.png"),
+  /** Full lockup with "Book · Posh · Repeat" tagline — splash/login/hero moments only */
+  lockup: require("../../assets/logo/beru-logo-lockup.png"),
 } as const;
 
 export type BrandLogoVariant = keyof typeof LOGO_SRC;
@@ -39,14 +40,9 @@ export function BrandLogo({
   const source = LOGO_SRC[variant];
   const dims = SIZE[size];
 
-  useEffect(() => {
-    console.log("[brand-logo] render", {
-      variant,
-      size,
-      height: dims.height,
-      width: dims.width,
-    });
-  }, [variant, size, dims.height, dims.width]);
+  if (__DEV__) {
+    console.log("[BrandLogo] render", { variant, size });
+  }
 
   return (
     <Image

@@ -1,4 +1,4 @@
-import type { Booking, BookingStatus } from "@/src/types/api";
+import type { Booking, BookingPaymentStatus, BookingStatus } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 
 export function bookingDurationMinutes(booking: Booking, serviceDuration?: number): number {
@@ -57,6 +57,39 @@ export function bookingStatusColor(status: BookingStatus): string {
       return colors.textMuted;
     case "cancelled":
       return colors.danger;
+    default:
+      return colors.textMuted;
+  }
+}
+
+export function paymentStatusLabel(status: BookingPaymentStatus): string {
+  switch (status) {
+    case "unpaid":
+      return "Not paid";
+    case "pending":
+      return "Payment processing";
+    case "paid":
+      return "Paid";
+    case "refunded":
+      return "Refunded";
+    case "failed":
+      return "Payment failed";
+    default:
+      return status;
+  }
+}
+
+export function paymentStatusColor(status: BookingPaymentStatus): string {
+  switch (status) {
+    case "paid":
+      return colors.success;
+    case "pending":
+      return colors.warning;
+    case "failed":
+      return colors.danger;
+    case "refunded":
+      return colors.textMuted;
+    case "unpaid":
     default:
       return colors.textMuted;
   }

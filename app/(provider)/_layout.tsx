@@ -116,6 +116,26 @@ export default function ProviderLayout() {
         }}
       />
       <Tabs.Screen
+        name="subscription-payments"
+        options={{
+          href: null,
+          headerShown: true,
+          title: "Billing history",
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.text,
+        }}
+      />
+      <Tabs.Screen
+        name="payout-settings"
+        options={{
+          href: null,
+          headerShown: true,
+          title: "Payout settings",
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.text,
+        }}
+      />
+      <Tabs.Screen
         name="public-profile"
         options={{
           href: null,

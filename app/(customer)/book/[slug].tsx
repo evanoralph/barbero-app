@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -23,8 +24,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as WebBrowser from "expo-web-browser";
 import checkmarkGold from "@/assets/lottie/checkmark-gold.json";
 import { createBooking } from "@/src/api/bookings";
+import { createCheckoutSession } from "@/src/api/payments";
 import { ApiError } from "@/src/api/client";
 import { getProvider, getProviderSlots } from "@/src/api/providers";
 import { useSession } from "@/src/auth/session";
@@ -327,6 +330,27 @@ export default function BookScreen() {
     }
   };
 
+  // Runs after the success checkmark animation — booking creation and payment are
+  // one flow now, so we go straight into checkout instead of just landing on the
+  // booking detail screen. If checkout fails to start, the booking still exists as
+  // unpaid and the detail screen's own "Pay now" button covers that case.
+  const goToPayment = async (bookingId: string) => {
+    if (provider?.paymentsDisabled) {
+      router.replace(`/(customer)/bookings/${bookingId}`);
+      return;
+    }
+    try {
+      const session = await createCheckoutSession(bookingId);
+      logger.info("book", "checkout session created", { bookingId, checkoutSessionId: session.checkoutSessionId });
+      await WebBrowser.openBrowserAsync(session.checkoutUrl);
+    } catch (e) {
+      logger.warn("book", "checkout start failed", e);
+      console.log("[book] checkout start failed", e);
+    } finally {
+      router.replace(`/(customer)/bookings/${bookingId}`);
+    }
+  };
+
   if (loading) return <LoadingState />;
   if (error && !provider) return <ErrorState message={error} onRetry={loadProvider} />;
   if (!provider) return <ErrorState message="Provider not found" />;
@@ -406,7 +430,7 @@ export default function BookScreen() {
                     </Text>
                     <Text style={styles.serviceDuration}>{s.durationMinutes} min</Text>
                   </View>
-                  <Text style={styles.servicePrice}>${s.price}</Text>
+                  <Text style={styles.servicePrice}>{formatMoney(s.price)}</Text>
                   {active ? (
                     <View style={styles.checkCircle}>
                       <Check color={colors.bg} size={14} strokeWidth={3} />
@@ -456,7 +480,7 @@ export default function BookScreen() {
       <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.stickyMeta}>
           <Text style={styles.stickyPrice}>
-            {service ? `$${service.price}` : "—"}
+            {service ? formatMoney(service.price) : "—"}
           </Text>
           <Text style={styles.stickyDuration}>
             {service ? `${service.durationMinutes} MIN` : ""}
@@ -619,7 +643,7 @@ export default function BookScreen() {
             loop={false}
             style={styles.successLottie}
             onAnimationFinish={() => {
-              if (confirmedBookingId) router.replace(`/(customer)/bookings/${confirmedBookingId}`);
+              if (confirmedBookingId) void goToPayment(confirmedBookingId);
             }}
           />
         </View>

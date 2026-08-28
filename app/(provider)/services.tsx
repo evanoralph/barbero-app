@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -356,7 +357,7 @@ export default function ProviderServicesScreen() {
                     {s.name}
                   </Text>
                   <Text style={styles.rowMeta} numberOfLines={1}>
-                    ${s.price} · {s.durationMinutes} min · {s.category}
+                    {formatMoney(s.price)} · {s.durationMinutes} min · {s.category}
                   </Text>
                   {s.description ? (
                     <Text style={styles.rowDesc} numberOfLines={2}>

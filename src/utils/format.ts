@@ -8,3 +8,14 @@ export function safeNumber(value: unknown, fallback = 0): number {
 export function formatRating(value: unknown, digits = 1): string {
   return safeNumber(value).toFixed(digits);
 }
+
+export const DEFAULT_CURRENCY = "PHP";
+
+export function formatMoney(amount: number, currency = DEFAULT_CURRENCY): string {
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}

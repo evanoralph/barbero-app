@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { router } from "expo-router";
 import { Bell, ChevronRight, MapPin, Search, Star } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -395,7 +396,7 @@ export default function CustomerHome() {
       contentStyle={{ ...styles.content, paddingTop: topInsetPadding }}
     >
       <Animated.View style={styles.headerRow} entering={FadeInDown.duration(400)}>
-        <BrandLogo variant="gold" size="hero" style={styles.brandLogo} />
+        <BrandLogo variant="dark" size="hero" style={styles.brandLogo} />
         <View style={styles.headerActions}>
           <Pressable
             hitSlop={10}
@@ -597,7 +598,7 @@ export default function CustomerHome() {
                     </View>
                   </AnimatedPressable>
                   <View style={styles.providerActions}>
-                    <Text style={styles.fromPrice}>FROM ${p.startingPrice}</Text>
+                    <Text style={styles.fromPrice}>from {formatMoney(p.startingPrice)}</Text>
                     <AnimatedPressable
                       style={styles.bookBtn}
                       onPress={() => {

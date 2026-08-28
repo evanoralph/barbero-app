@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -438,7 +439,7 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
                     <Text style={styles.serviceDuration}>{s.durationMinutes} min</Text>
                   </View>
                 </View>
-                <Text style={styles.servicePrice}>${s.price}</Text>
+                <Text style={styles.servicePrice}>{formatMoney(s.price)}</Text>
                 <ChevronRight color={theme.textMuted} size={18} />
               </AnimatedPressable>
             ))}

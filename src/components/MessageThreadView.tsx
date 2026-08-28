@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { CheckCheck, ChevronLeft, ChevronRight, ImagePlus, Phone, Send } from "lucide-react-native";
 import { useEffect, useMemo, useRef } from "react";
 import {
@@ -197,7 +198,7 @@ export function MessageThreadView({
     : "";
   const statusUp = (booking?.status || "").toUpperCase();
   const priceLabel =
-    typeof booking?.price === "number" && booking.price > 0 ? ` · $${booking.price}` : "";
+    typeof booking?.price === "number" && booking.price > 0 ? ` · ${formatMoney(booking.price)}` : "";
 
   return (
     <KeyboardAvoidingView

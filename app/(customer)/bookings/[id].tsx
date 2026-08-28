@@ -1,7 +1,9 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import * as WebBrowser from "expo-web-browser";
 import { getBooking, updateBookingStatus } from "@/src/api/bookings";
 import { getProvider } from "@/src/api/providers";
+import { createCheckoutSession } from "@/src/api/payments";
 import { ApiError } from "@/src/api/client";
 import { BookingDetailView } from "@/src/components/BookingDetailView";
 import {
@@ -21,6 +23,7 @@ export default function CustomerBookingDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
@@ -78,12 +81,40 @@ export default function CustomerBookingDetail() {
     }
   };
 
+  const payNow = async () => {
+    if (!booking) return;
+    setPaying(true);
+    setError(null);
+    try {
+      const session = await createCheckoutSession(booking._id);
+      logger.info("bookings", "checkout session created", {
+        id: booking._id,
+        checkoutSessionId: session.checkoutSessionId,
+      });
+      await WebBrowser.openBrowserAsync(session.checkoutUrl);
+      // The backend confirms payment via webhook once PayMongo redirects back;
+      // re-fetch so the UI reflects whatever happened while the browser was open.
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Unable to start payment");
+      logger.error("bookings", "pay now failed", e);
+    } finally {
+      setPaying(false);
+    }
+  };
+
   if (loading) return <LoadingState />;
   if (error && !booking) return <ErrorState message={error} onRetry={load} />;
   if (!booking) return <ErrorState message="Not found" />;
 
   const canCancel = booking.status === "pending" || booking.status === "confirmed";
   const canMessage = booking.status !== "cancelled";
+  const canPay =
+    !provider?.paymentsDisabled &&
+    booking.status !== "cancelled" &&
+    (booking.paymentStatus === "unpaid" ||
+      booking.paymentStatus === "pending" ||
+      booking.paymentStatus === "failed");
 
   const openChat = () => {
     const threadId = threadIdForBooking(booking._id);
@@ -110,6 +141,13 @@ export default function CustomerBookingDetail() {
         error={error}
         actions={
           <>
+            {canPay ? (
+              <Button
+                label={booking.paymentStatus === "pending" ? "Continue payment" : "Pay now"}
+                onPress={() => void payNow()}
+                loading={paying}
+              />
+            ) : null}
             {provider?.slug ? (
               <Button
                 label="View provider"

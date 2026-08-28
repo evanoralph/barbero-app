@@ -420,6 +420,23 @@ export default function ProviderProfileScreen() {
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
       {ok ? <Text style={{ color: colors.success }}>{ok}</Text> : null}
 
+      <Subtitle>Payout settings</Subtitle>
+      <Muted>
+        {!profile?.payoutDestination
+          ? "No payout account on file yet."
+          : profile.payoutVerificationStatus === "verified"
+            ? `Verified — payouts go to your ${profile.payoutDestination.type} account.`
+            : `Pending review — payouts go to your ${profile.payoutDestination.type} account once verified.`}
+      </Muted>
+      <Button
+        label="Manage payout settings"
+        variant="secondary"
+        onPress={() => {
+          logger.info("provider-profile", "open payout settings");
+          router.push("/(provider)/payout-settings");
+        }}
+      />
+
       <Button
         label="Subscription plan"
         variant="secondary"

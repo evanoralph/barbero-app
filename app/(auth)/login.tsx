@@ -71,7 +71,7 @@ export default function LoginScreen() {
   return (
     <Screen scroll>
       <View style={styles.hero}>
-        <BrandLogo variant="gold" size="xl" style={styles.brandLogo} />
+        <BrandLogo variant="lockup" style={styles.brandLogo} />
         <Muted>Book beauty & grooming professionals</Muted>
       </View>
       <Title>Sign in</Title>
@@ -113,8 +113,8 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: 48, marginBottom: 12, gap: 8 },
-  brandLogo: { height: 72, width: 160, alignSelf: "flex-start" },
+  hero: { marginTop: 48, marginBottom: 12, gap: 8, alignItems: "center" },
+  brandLogo: { height: 148, width: 210, alignSelf: "center" },
   error: { color: colors.danger, fontSize: 14 },
   link: { color: colors.accent, fontWeight: "600", marginTop: 4 },
   devFill: { marginTop: 16, gap: 8 },

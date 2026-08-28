@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { LinearGradient } from "expo-linear-gradient";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { ProviderListItem } from "@/src/types/api";
@@ -56,7 +57,7 @@ export function ProviderCard({
         </Text>
         {variant === "list" ? (
           <Text style={styles.meta} numberOfLines={1}>
-            {provider.location.city} · from ${provider.startingPrice}
+            {provider.location.city} · from {formatMoney(provider.startingPrice)}
           </Text>
         ) : null}
       </LinearGradient>

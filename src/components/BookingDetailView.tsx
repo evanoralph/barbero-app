@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import type { ReactNode } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import type { Booking, ProviderProfile, ProviderService } from "@/src/types/api";
@@ -11,6 +12,8 @@ import {
   formatBookingDate,
   formatBookingTime,
   formatBookingTimeRange,
+  paymentStatusColor,
+  paymentStatusLabel,
 } from "@/src/utils/bookingDisplay";
 
 function matchService(
@@ -57,11 +60,13 @@ export function BookingDetailView({
       ? `${provider.location.address}, ${provider.location.city}`
       : null;
   const price =
-    typeof servicePrice === "number"
-      ? servicePrice
-      : typeof service?.price === "number"
-        ? service.price
-        : null;
+    typeof booking.amount === "number" && booking.amount > 0
+      ? booking.amount
+      : typeof servicePrice === "number"
+        ? servicePrice
+        : typeof service?.price === "number"
+          ? service.price
+          : null;
 
   return (
     <View style={styles.wrap}>
@@ -82,7 +87,9 @@ export function BookingDetailView({
             <Text style={styles.heroMetaText}>{duration} min</Text>
           ) : null}
           {price != null ? (
-            <Text style={styles.heroPrice}>${price}</Text>
+            <Text style={styles.heroPrice}>
+              {booking.currency || "PHP"} {price}
+            </Text>
           ) : null}
         </View>
       </View>
@@ -129,6 +136,25 @@ export function BookingDetailView({
           </>
         ) : null}
       </Card>
+
+      {booking.paymentStatus ? (
+        <Card>
+          <MonoLabel>Payment</MonoLabel>
+          <View style={styles.personRow}>
+            <Text
+              style={[styles.rowValue, { color: paymentStatusColor(booking.paymentStatus) }]}
+            >
+              {paymentStatusLabel(booking.paymentStatus)}
+            </Text>
+            {price != null ? (
+              <Text style={styles.rowValue}>
+                {"  ·  "}
+                {formatMoney(price, booking.currency || "PHP")}
+              </Text>
+            ) : null}
+          </View>
+        </Card>
+      ) : null}
 
       <Card>
         <MonoLabel>Details</MonoLabel>

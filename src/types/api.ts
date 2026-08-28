@@ -81,6 +81,17 @@ export type ProviderPromotion = {
   code: string;
 };
 
+export type PayoutDestinationType = "bank" | "gcash" | "maya";
+
+export type PayoutDestination = {
+  type: PayoutDestinationType;
+  accountName: string;
+  accountNumber: string;
+  bankCode?: string;
+};
+
+export type PayoutVerificationStatus = "verified" | "unverified" | "pending";
+
 export type ProviderProfile = ProviderListItem & {
   userId?: string;
   joinedAt: string;
@@ -89,6 +100,9 @@ export type ProviderProfile = ProviderListItem & {
   portfolio: PortfolioItem[];
   availability: Array<{ day: string; slots: Array<{ time: string; available: boolean }> }>;
   promotions?: ProviderPromotion[];
+  payoutDestination?: PayoutDestination;
+  payoutVerificationStatus?: PayoutVerificationStatus;
+  paymentsDisabled?: boolean;
 };
 
 export type MyProviderPortfolioQuery = {
@@ -200,6 +214,8 @@ export type ProviderMapMarker = {
 
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
 
+export type BookingPaymentStatus = "unpaid" | "pending" | "paid" | "refunded" | "failed";
+
 export type Booking = {
   _id: string;
   customerId: string;
@@ -208,6 +224,11 @@ export type Booking = {
   status: BookingStatus;
   startsAt: string;
   endsAt: string;
+  amount: number;
+  currency: string;
+  paymentStatus: BookingPaymentStatus;
+  paymongoCheckoutSessionId?: string;
+  paymongoPaymentIntentId?: string;
   createdAt: string;
   updatedAt: string;
   customer?: { userId: string; name: string; avatar?: string };
@@ -335,6 +356,7 @@ export type SubscriptionPlansResponse = {
     id: "free" | "pro" | "premium";
     name: string;
     price: number;
+    yearlyPrice?: number;
     billingPeriod: "monthly" | "yearly";
     isPopular?: boolean;
     features: string[];
@@ -348,6 +370,16 @@ export type SubscriptionPlansResponse = {
     isPremium: boolean;
     isFeatured: boolean;
   };
+};
+
+export type SubscriptionPayment = {
+  id: string;
+  checkoutSessionId: string;
+  planId: "pro" | "premium";
+  billingPeriod: "monthly" | "yearly";
+  amount: number;
+  status: "completed" | "failed";
+  paidAt: string;
 };
 
 const BOOKING_THREAD_PREFIX = "booking:";

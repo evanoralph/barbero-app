@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/format';
 import { router } from "expo-router";
 import {
   Briefcase,
@@ -10,6 +11,10 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { getMyAnalytics, getMyProvider, getProviderReviews } from "@/src/api/providers";
+import { getMySubscription } from "@/src/api/subscription";
+import { PlanBadge, type PlanId } from "@/src/components/PlanBadge";
+import { getMySubscription } from "@/src/api/subscription";
+import { PlanBadge, type PlanId } from "@/src/components/PlanBadge";
 import {
   Button,
   Card,
@@ -116,6 +121,7 @@ export default function ProviderDashboard() {
   const [range, setRange] = useState<ProviderAnalyticsRange>("30days");
   const [analytics, setAnalytics] = useState<ProviderAnalytics | null>(null);
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
+  const [planId, setPlanId] = useState<PlanId>("free");
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,10 +132,18 @@ export default function ProviderDashboard() {
     logger.debug("provider-dashboard", "load analytics", { range });
     console.log("[provider-dashboard] load", range);
     try {
-      const [data, me] = await Promise.all([getMyAnalytics(range), getMyProvider()]);
+      const [data, me, subscription] = await Promise.all([
+        getMyAnalytics(range),
+        getMyProvider(),
+        getMySubscription().catch((subscriptionErr) => {
+          logger.warn("provider-dashboard", "subscription load failed", subscriptionErr);
+          return null;
+        }),
+      ]);
       warnMissingAnalyticsFields(data);
       setAnalytics(data);
       setProfile(me);
+      setPlanId(subscription?.current?.planId ?? "free");
       const completeness = getProfileCompleteness(me);
       logger.debug("provider-dashboard", "analytics loaded", {
         range,
@@ -141,6 +155,7 @@ export default function ProviderDashboard() {
         recentActivity: data.recentActivity?.length,
         profileCompleteness: completeness.percent,
         missing: completeness.missing.map((m) => m.id),
+        planId: subscription?.current?.planId ?? "free",
       });
       console.log("[provider-dashboard] loaded", {
         bookings: data.bookingsThisMonth,
@@ -220,11 +235,7 @@ export default function ProviderDashboard() {
           <Title style={styles.title}>{profile?.name || "Dashboard"}</Title>
           <Muted>{RANGE_LABELS[range]} overview</Muted>
         </View>
-        {profile?.isPremium ? (
-          <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>PRO</Text>
-          </View>
-        ) : null}
+        {planId !== "free" ? <PlanBadge planId={planId} size="sm" /> : null}
       </View>
 
       <ScrollView
@@ -281,7 +292,7 @@ export default function ProviderDashboard() {
       <View style={styles.kpiGrid}>
         <Kpi label="Bookings" value={String(bookingsThisMonth)} />
         <Kpi label="Upcoming" value={String(upcomingBookings)} accent={pendingHint > 0} />
-        <Kpi label="Revenue" value={`$${revenueThisMonth}`} />
+        <Kpi label="Revenue" value={formatMoney(revenueThisMonth)} />
         <Kpi
           label="Rating"
           value={`${formatRating(analytics.averageRating)}`}
@@ -421,7 +432,7 @@ export default function ProviderDashboard() {
               <View style={styles.serviceBody}>
                 <Text style={styles.serviceName}>{s.service}</Text>
                 <Muted>
-                  {safeNumber(s.bookings)} bookings · ${safeNumber(s.revenue)}
+                  {safeNumber(s.bookings)} bookings · {formatMoney(safeNumber(s.revenue))}
                 </Muted>
               </View>
             </View>
@@ -499,20 +510,6 @@ const styles = StyleSheet.create({
   },
   headerText: { flex: 1, gap: 2 },
   title: { fontSize: 28 },
-  proBadge: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginTop: 4,
-  },
-  proBadgeText: {
-    color: colors.accentDark,
-    fontSize: 11,
-    fontFamily: fonts.monoMedium,
-    letterSpacing: 0.8,
-  },
   rangeRow: { gap: 8, paddingVertical: 2 },
   error: { color: colors.danger, fontSize: 14 },
   completeness: {
