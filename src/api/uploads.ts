@@ -5,7 +5,9 @@ export type UploadKind =
   | "provider-avatar"
   | "provider-cover"
   | "provider-portfolio"
-  | "provider-service";
+  | "provider-service"
+  | "provider-proof"
+  | "message-attachment";
 
 export type PresignUploadResponse = {
   uploadUrl: string;
@@ -18,6 +20,7 @@ export async function requestPresignedUpload(input: {
   contentType: string;
   fileName?: string;
   serviceId?: string;
+  threadId?: string;
 }): Promise<PresignUploadResponse> {
   logger.info("uploads", "request presign", input);
   return apiRequest<PresignUploadResponse>("/uploads/presign", {
@@ -44,18 +47,25 @@ function fileNameFromUri(uri: string): string {
 export async function uploadImageUriToS3(
   uri: string,
   kind: UploadKind,
-  opts?: { mimeType?: string | null; serviceId?: string },
+  opts?: { mimeType?: string | null; serviceId?: string; threadId?: string },
 ): Promise<string> {
   const contentType = guessContentType(uri, opts?.mimeType);
   const fileName = fileNameFromUri(uri);
 
-  logger.info("uploads", "upload start", { kind, contentType, fileName });
+  logger.info("uploads", "upload start", {
+    kind,
+    contentType,
+    fileName,
+    threadId: opts?.threadId,
+  });
+  console.log("[uploads] upload start", { kind, contentType, threadId: opts?.threadId });
 
   const presigned = await requestPresignedUpload({
     kind,
     contentType,
     fileName,
     serviceId: opts?.serviceId,
+    threadId: opts?.threadId,
   });
 
   const fileRes = await fetch(uri);
@@ -80,5 +90,6 @@ export async function uploadImageUriToS3(
   }
 
   logger.info("uploads", "upload ok", { kind, publicUrl: presigned.publicUrl });
+  console.log("[uploads] upload ok", { kind, publicUrl: presigned.publicUrl });
   return presigned.publicUrl;
 }

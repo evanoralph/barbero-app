@@ -4,6 +4,7 @@ import { getBooking } from "@/src/api/bookings";
 import { ApiError } from "@/src/api/client";
 import { listConversations, markThreadRead } from "@/src/api/conversations";
 import { listMessages, sendMessage } from "@/src/api/messages";
+import { uploadImageUriToS3 } from "@/src/api/uploads";
 import { useSession } from "@/src/auth/session";
 import {
   MessageThreadView,
@@ -267,6 +268,49 @@ export default function CustomerThreadScreen() {
     }
   };
 
+  const onSendImage = async (input: {
+    uri: string;
+    mimeType: string;
+    caption?: string;
+  }) => {
+    if (!user) {
+      console.log("[messages] image send skipped — no session user", { threadId });
+      logger.warn("messages", "image send skipped — no session user", { threadId });
+      return;
+    }
+    clearLocalTyping();
+    setSending(true);
+    setError(null);
+    try {
+      console.log("[messages] image upload start", { threadId, mimeType: input.mimeType });
+      logger.info("messages", "image upload start", { threadId });
+      const imageUrl = await uploadImageUriToS3(input.uri, "message-attachment", {
+        mimeType: input.mimeType,
+        threadId,
+      });
+      const msg = await sendMessage({
+        threadId,
+        senderId: user.userId,
+        body: input.caption?.trim() || "",
+        imageUrl,
+      });
+      setMessages((prev) => mergeMessages(prev, [msg]));
+      console.log("[messages] image sent", { threadId, messageId: msg._id });
+      logger.info("messages", "image sent", { threadId, messageId: msg._id });
+    } catch (e) {
+      const extra =
+        e instanceof ApiError
+          ? { threadId, status: e.status, code: e.code, message: e.message, details: e.details }
+          : { threadId, message: e instanceof Error ? e.message : String(e) };
+      console.log("[messages] image send failed", extra);
+      logger.error("messages", "image send failed", extra);
+      setError(e instanceof Error ? e.message : "Image send failed");
+      throw e;
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (loading) return <LoadingState />;
   if (loadError && messages.length === 0) {
     return <ErrorState message={loadError} onRetry={load} />;
@@ -285,6 +329,7 @@ export default function CustomerThreadScreen() {
         reportLocalTyping(text.trim().length > 0);
       }}
       onSend={onSend}
+      onSendImage={onSendImage}
       sending={sending}
       error={error}
       participantName={conversation?.participantName}

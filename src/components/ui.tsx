@@ -79,15 +79,20 @@ export function Button({
   variant = "primary",
   disabled,
   loading,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   variant?: "primary" | "secondary" | "danger" | "ghost";
   disabled?: boolean;
   loading?: boolean;
+  testID?: string;
 }) {
   return (
     <AnimatedPressable
+      testID={testID}
+      accessibilityLabel={label}
+      accessibilityRole="button"
       onPress={onPress}
       disabled={disabled || loading}
       style={[

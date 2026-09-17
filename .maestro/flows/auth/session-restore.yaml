@@ -1,0 +1,14 @@
+# A-06: Session restore — relaunch while logged in skips login.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- assertVisible: "Book now"
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 6000
+- extendedWaitUntil:
+    visible: "Book now"
+    timeout: 20000
+- assertNotVisible: "Dev quick fill"

@@ -1,0 +1,62 @@
+# P-09, P-10, P-11, P-12: Provider profile sub-screens.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_provider.yaml
+- tapOn: ".*Profile, tab.*"
+- assertVisible: "Profile"
+
+# P-09 Public profile preview
+- tapOn: "View public profile"
+- assertVisible:
+    text: ".*Book with.*|.*Public.*"
+    optional: true
+- launchApp:
+    clearState: false
+
+# P-10 Services
+- tapOn: ".*Profile, tab.*"
+- scrollUntilVisible:
+    element: "Manage services"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: "Manage services"
+    optional: true
+- assertVisible: "Services"
+- launchApp:
+    clearState: false
+
+# P-11 Portfolio
+- tapOn: ".*Profile, tab.*"
+- scrollUntilVisible:
+    element: "Manage portfolio"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: "Manage portfolio"
+    optional: true
+- assertVisible: "Portfolio"
+- launchApp:
+    clearState: false
+
+# P-12 Subscription plan
+- tapOn: ".*Profile, tab.*"
+- scrollUntilVisible:
+    element: "Subscription plan"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: "Subscription plan"
+    optional: true
+- assertVisible:
+    text: ".*Your plan.*|.*Subscription.*|.*Plan.*"

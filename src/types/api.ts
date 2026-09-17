@@ -43,6 +43,7 @@ export type ProviderService = {
   durationMinutes: number;
   category: string;
   image?: string;
+  isVisible?: boolean;
 };
 
 export type ProviderListItem = {
@@ -63,6 +64,18 @@ export type ProviderListItem = {
   serviceCount: number;
 };
 
+export type EstablishmentListItem = {
+  _id: string;
+  slug: string;
+  name: string;
+  categorySlug: string;
+  logo: string;
+  coverImage: string;
+  bio: string;
+  location: ProviderLocation;
+  isFeatured: boolean;
+};
+
 export type PortfolioItem = {
   id: string;
   image: string;
@@ -70,6 +83,7 @@ export type PortfolioItem = {
   description?: string;
   likes: number;
   createdAt: string;
+  isVisible?: boolean;
 };
 
 export type ProviderPromotion = {
@@ -92,6 +106,55 @@ export type PayoutDestination = {
 
 export type PayoutVerificationStatus = "verified" | "unverified" | "pending";
 
+export type PaymongoOnboardingStatus =
+  | "none"
+  | "created"
+  | "kyc_pending"
+  | "kyc_passed"
+  | "ready_to_activate"
+  | "activated"
+  | "declined"
+  | "error";
+
+export type ProviderPaymongoStatus = {
+  paymongoSubAccountId?: string;
+  paymongoOnboardingStatus?: PaymongoOnboardingStatus;
+  paymongoSplitEnabled?: boolean;
+  paymongoIdentitySessionUrl?: string;
+  paymongoActivatedAt?: string;
+  paymongoLastError?: string;
+  subscriptionTier?: "free" | "pro" | "premium";
+};
+
+export type ProofDocument = {
+  url: string;
+  fileName: string;
+  contentType: string;
+  uploadedAt: string;
+};
+
+/** POST /providers/apply/start body. */
+export type ProviderApplyStartInput = {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+};
+
+/** PATCH /providers/apply body. */
+export type ProviderApplyUpdateInput = {
+  name?: string;
+  categorySlug?: string;
+  bio?: string;
+  location?: ProviderLocation;
+  proofDocuments?: ProofDocument[];
+};
+
+/** POST /providers/apply/submit body. */
+export type ProviderApplySubmitInput = {
+  proofDocuments: ProofDocument[];
+};
+
 export type ProviderProfile = ProviderListItem & {
   userId?: string;
   joinedAt: string;
@@ -100,6 +163,11 @@ export type ProviderProfile = ProviderListItem & {
   portfolio: PortfolioItem[];
   availability: Array<{ day: string; slots: Array<{ time: string; available: boolean }> }>;
   promotions?: ProviderPromotion[];
+  loyaltyProgram?: {
+    enabled: boolean;
+    stampsRequired: number;
+    rewardDiscountPercent: number;
+  };
   payoutDestination?: PayoutDestination;
   payoutVerificationStatus?: PayoutVerificationStatus;
   paymentsDisabled?: boolean;
@@ -183,6 +251,22 @@ export type UpdateProviderProfileInput = {
     code: string;
   };
   removePromotionId?: string;
+  loyaltyProgram?: {
+    enabled: boolean;
+    stampsRequired: number;
+    rewardDiscountPercent: number;
+  };
+  visiblePortfolioIds?: string[];
+  visibleServiceIds?: string[];
+};
+
+export type LoyaltyCardView = {
+  providerId: string;
+  stamps: number;
+  stampsRequired: number;
+  rewardReady: boolean;
+  rewardDiscountPercent: number;
+  programEnabled: boolean;
 };
 
 export type Review = {
@@ -229,6 +313,9 @@ export type Booking = {
   paymentStatus: BookingPaymentStatus;
   paymongoCheckoutSessionId?: string;
   paymongoPaymentIntentId?: string;
+  loyaltyRewardApplied?: boolean;
+  loyaltyDiscountPercent?: number;
+  amountBeforeDiscount?: number;
   createdAt: string;
   updatedAt: string;
   customer?: { userId: string; name: string; avatar?: string };
@@ -257,6 +344,7 @@ export type Message = {
   threadId: string;
   senderId: string;
   body: string;
+  imageUrl?: string;
   createdAt: string;
 };
 

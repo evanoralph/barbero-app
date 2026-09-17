@@ -21,13 +21,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import spinnerGold from "@/assets/lottie/spinner-gold.json";
 import { addFavorite, listFavoriteIds, removeFavorite } from "@/src/api/favorites";
 import { getProvider, getProviderReviews } from "@/src/api/providers";
+import { getLoyaltyCard } from "@/src/api/loyalty";
+import { LoyaltyStampBanner } from "@/src/components/LoyaltyStampBanner";
+import { useSession } from "@/src/auth/session";
 import { AnimatedHeroScroll } from "@/src/components/animated/AnimatedHeroScroll";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import { LottieView } from "@/src/components/animated/LottieView";
 import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { PortfolioGrid, type PortfolioTile } from "@/src/components/PortfolioGrid";
 import { PortfolioLightbox } from "@/src/components/PortfolioLightbox";
-import type { ProviderProfile, Review } from "@/src/types/api";
+import type { LoyaltyCardView, ProviderProfile, Review } from "@/src/types/api";
 import { fonts } from "@/src/theme/fonts";
 import { formatRating } from "@/src/utils/format";
 import { logger } from "@/src/utils/logger";
@@ -77,12 +80,14 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
   const scope = logScope(mode);
   const isPreview = mode === "preview";
   const insets = useSafeAreaInsets();
+  const { user } = useSession();
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [favorited, setFavorited] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [loyaltyCard, setLoyaltyCard] = useState<LoyaltyCardView | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -140,6 +145,30 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (isPreview || !user || !provider?._id || !provider.loyaltyProgram?.enabled) {
+      setLoyaltyCard(null);
+      return;
+    }
+    let cancelled = false;
+    getLoyaltyCard(provider._id)
+      .then((card) => {
+        if (cancelled) return;
+        setLoyaltyCard(card);
+        logger.debug(scope, "loyalty card", {
+          stamps: card.stamps,
+          rewardReady: card.rewardReady,
+        });
+      })
+      .catch((e) => {
+        logger.warn(scope, "loyalty card load skipped", e);
+        if (!cancelled) setLoyaltyCard(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPreview, user, provider?._id, provider?.loyaltyProgram?.enabled, scope]);
 
   const handleBack = () => {
     logger.debug(scope, "back", { mode });
@@ -358,6 +387,12 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
         ) : null}
 
         {provider.bio ? <Text style={styles.bio}>{provider.bio}</Text> : null}
+
+        {provider.loyaltyProgram?.enabled ? (
+          <View style={{ marginBottom: 16 }}>
+            <LoyaltyStampBanner program={provider.loyaltyProgram} card={loyaltyCard} />
+          </View>
+        ) : null}
 
         <View style={styles.chips}>
           {specialtyChips.map((chip, index) => (

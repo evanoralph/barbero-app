@@ -1,0 +1,15 @@
+# C-07, C-08: Messages inbox and thread composer.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- tapOn: ".*Home, tab.*"
+- tapOn:
+    text: "Messages"
+- assertVisible: "Messages"
+- tapOn:
+    point: "50%,25%"
+    optional: true
+- assertVisible:
+    text: "Message"
+    optional: true

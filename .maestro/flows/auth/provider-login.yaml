@@ -1,0 +1,6 @@
+# A-02: Provider login lands on Dashboard tab.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_provider.yaml
+- assertVisible: "Quick actions"

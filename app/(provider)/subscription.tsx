@@ -6,7 +6,9 @@ import * as WebBrowser from "expo-web-browser";
 import { router, useLocalSearchParams } from "expo-router";
 import { getMySubscription, getMySubscriptionPayments, updateMySubscription } from "@/src/api/subscription";
 import { createSubscriptionCheckoutSession } from "@/src/api/payments";
+import { getMyProvider } from "@/src/api/providers";
 import { PlanBadge } from "@/src/components/PlanBadge";
+import { DowngradeVisibilityModal } from "@/src/components/DowngradeVisibilityModal";
 import { SubscriptionPaymentCard } from "@/src/components/SubscriptionPaymentCard";
 import {
   Button,
@@ -18,13 +20,21 @@ import {
   Screen,
   Title,
 } from "@/src/components/ui";
-import type { SubscriptionPayment, SubscriptionPlansResponse } from "@/src/types/api";
+import type {
+  PortfolioItem,
+  ProviderService,
+  SubscriptionPayment,
+  SubscriptionPlansResponse,
+} from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
 import { formatSubscriptionDate, planNameForPayment } from "@/src/utils/subscriptionDisplay";
 
 type BillingPeriod = "monthly" | "yearly";
 type PlanId = "free" | "pro" | "premium";
+
+const FREE_MAX_PORTFOLIO = 3;
+const FREE_MAX_SERVICES = 3;
 
 const DEFAULT_CURRENT: SubscriptionPlansResponse["current"] = {
   planId: "free",
@@ -93,6 +103,10 @@ export default function SubscriptionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [downgradeOpen, setDowngradeOpen] = useState(false);
+  const [downgradeConfirming, setDowngradeConfirming] = useState(false);
+  const [downgradePortfolio, setDowngradePortfolio] = useState<PortfolioItem[]>([]);
+  const [downgradeServices, setDowngradeServices] = useState<ProviderService[]>([]);
 
   const load = useCallback(async (): Promise<SubscriptionPlansResponse | null> => {
     setError(null);
@@ -197,6 +211,22 @@ export default function SubscriptionScreen() {
     logger.info("subscription", "select plan", { planId, billingPeriod: period });
     try {
       if (planId === "free") {
+        const me = await getMyProvider();
+        const portfolio = me.portfolio ?? [];
+        const services = me.services ?? [];
+        const overLimit =
+          portfolio.length > FREE_MAX_PORTFOLIO || services.length > FREE_MAX_SERVICES;
+        if (overLimit) {
+          logger.info("subscription", "open downgrade picker", {
+            portfolio: portfolio.length,
+            services: services.length,
+          });
+          setDowngradePortfolio(portfolio);
+          setDowngradeServices(services);
+          setDowngradeOpen(true);
+          setActingPlanId(null);
+          return;
+        }
         const result = await updateMySubscription({ planId, billingPeriod: period });
         const subscription = result?.subscription ?? DEFAULT_CURRENT;
         setOk("Switched to free");
@@ -373,6 +403,44 @@ export default function SubscriptionScreen() {
           );
         })
       )}
+
+      <DowngradeVisibilityModal
+        visible={downgradeOpen}
+        maxPortfolio={FREE_MAX_PORTFOLIO}
+        maxServices={FREE_MAX_SERVICES}
+        portfolio={downgradePortfolio}
+        services={downgradeServices}
+        confirming={downgradeConfirming}
+        onCancel={() => setDowngradeOpen(false)}
+        onConfirm={(selection) => {
+          void (async () => {
+            setDowngradeConfirming(true);
+            setError(null);
+            try {
+              const result = await updateMySubscription({
+                planId: "free",
+                billingPeriod: period,
+                visiblePortfolioIds: selection.visiblePortfolioIds,
+                visibleServiceIds: selection.visibleServiceIds,
+              });
+              const subscription = result?.subscription ?? DEFAULT_CURRENT;
+              setOk("Switched to free");
+              logger.info("subscription", "downgrade confirmed", {
+                planId: subscription.planId,
+                portfolio: selection.visiblePortfolioIds.length,
+                services: selection.visibleServiceIds.length,
+              });
+              setDowngradeOpen(false);
+              await load();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "Failed to switch plan");
+              logger.error("subscription", "downgrade failed", e);
+            } finally {
+              setDowngradeConfirming(false);
+            }
+          })();
+        }}
+      />
     </Screen>
   );
 }

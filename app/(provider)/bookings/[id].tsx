@@ -3,6 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { getBooking, listBookings, updateBookingStatus } from "@/src/api/bookings";
 import { getMyProvider } from "@/src/api/providers";
+import {
+  bookingPaymentsAvailable,
+  fetchPublicAppConfig,
+} from "@/src/api/public-config";
 import type { Booking, BookingStatus, ProviderProfile } from "@/src/types/api";
 import { threadIdForBooking } from "@/src/types/api";
 import { BookingDetailView } from "@/src/components/BookingDetailView";
@@ -21,6 +25,7 @@ export default function ProviderBookingDetail() {
   }>();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
@@ -30,14 +35,20 @@ export default function ProviderBookingDetail() {
     if (!id) return;
     setError(null);
     try {
-      const [detail, me] = await Promise.all([
+      const [detail, me, publicConfig] = await Promise.all([
         getBooking(id),
         getMyProvider().catch((e) => {
           logger.warn("provider-bookings", "detail provider soft-fail", e);
           return null;
         }),
+        fetchPublicAppConfig(),
       ]);
       if (me) setProvider(me);
+      setPaymentsEnabled(publicConfig?.paymentsEnabled === true);
+      console.log(
+        "[provider-bookings] paymentsEnabled",
+        publicConfig?.paymentsEnabled === true,
+      );
 
       let enriched = detail;
       if (!detail.customer) {
@@ -77,6 +88,7 @@ export default function ProviderBookingDetail() {
         status: enriched.status,
         serviceName: enriched.serviceName,
         hasCustomer: Boolean(enriched.customer),
+        paymentsEnabled: publicConfig?.paymentsEnabled === true,
       });
       console.log("[provider-bookings] detail loaded", enriched._id, enriched.status);
     } catch (e) {
@@ -143,6 +155,10 @@ export default function ProviderBookingDetail() {
   };
 
   const customerLabel = booking.customer?.name || "Customer";
+  const showPaymentUi = bookingPaymentsAvailable({
+    paymentsEnabled,
+    paymentsDisabled: provider?.paymentsDisabled,
+  });
 
   return (
     <Screen
@@ -159,6 +175,7 @@ export default function ProviderBookingDetail() {
         peerLabel={customerLabel}
         peerAvatar={booking.customer?.avatar}
         servicePrice={servicePrice}
+        showPayment={showPaymentUi}
         error={error}
         actions={
           <View style={{ gap: 8 }}>

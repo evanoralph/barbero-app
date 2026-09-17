@@ -1,9 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as WebBrowser from "expo-web-browser";
 import { getBooking, updateBookingStatus } from "@/src/api/bookings";
 import { getProvider } from "@/src/api/providers";
 import { createCheckoutSession } from "@/src/api/payments";
+import {
+  bookingPaymentsAvailable,
+  fetchPublicAppConfig,
+} from "@/src/api/public-config";
 import { ApiError } from "@/src/api/client";
 import { BookingDetailView } from "@/src/components/BookingDetailView";
 import {
@@ -17,26 +21,34 @@ import { threadIdForBooking } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
 
 export default function CustomerBookingDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, pay } = useLocalSearchParams<{ id: string; pay?: string }>();
   const [booking, setBooking] = useState<Booking | null>(null);
   const [provider, setProvider] = useState<ProviderProfile | null>(null);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [paying, setPaying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const autoPayStartedRef = useRef(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     setError(null);
     try {
-      const bookingData = await getBooking(id);
+      const [bookingData, publicConfig] = await Promise.all([
+        getBooking(id),
+        fetchPublicAppConfig(),
+      ]);
       setBooking(bookingData);
+      setPaymentsEnabled(publicConfig?.paymentsEnabled === true);
       logger.info("bookings", "detail loaded", {
         id: bookingData._id,
         providerId: bookingData.providerId,
         status: bookingData.status,
+        paymentStatus: bookingData.paymentStatus,
         serviceName: bookingData.serviceName,
+        paymentsEnabled: publicConfig?.paymentsEnabled === true,
       });
 
       try {
@@ -46,6 +58,7 @@ export default function CustomerBookingDetail() {
           id: profile._id,
           slug: profile.slug,
           services: profile.services.length,
+          paymentsDisabled: profile.paymentsDisabled,
         });
       } catch (providerErr) {
         setProvider(null);
@@ -81,7 +94,7 @@ export default function CustomerBookingDetail() {
     }
   };
 
-  const payNow = async () => {
+  const payNow = useCallback(async () => {
     if (!booking) return;
     setPaying(true);
     setError(null);
@@ -101,7 +114,48 @@ export default function CustomerBookingDetail() {
     } finally {
       setPaying(false);
     }
-  };
+  }, [booking, load]);
+
+  // After create-booking redirect with ?pay=1, open checkout once booking is ready.
+  useEffect(() => {
+    if (loading || !booking || autoPayStartedRef.current) return;
+    if (pay !== "1") return;
+
+    const paymentsOn = bookingPaymentsAvailable({
+      paymentsEnabled,
+      paymentsDisabled: provider?.paymentsDisabled,
+    });
+    const canPay =
+      paymentsOn &&
+      booking.status !== "cancelled" &&
+      (booking.paymentStatus === "unpaid" ||
+        booking.paymentStatus === "pending" ||
+        booking.paymentStatus === "failed");
+
+    if (!canPay) {
+      logger.debug("bookings", "auto-pay skipped", {
+        id: booking._id,
+        paymentStatus: booking.paymentStatus,
+        status: booking.status,
+        paymentsEnabled,
+        paymentsDisabled: provider?.paymentsDisabled,
+      });
+      console.log("[bookings] auto-pay skipped", booking._id, booking.paymentStatus);
+      // Clear pay query so refresh does not keep evaluating it.
+      router.replace(`/(customer)/bookings/${booking._id}`);
+      return;
+    }
+
+    autoPayStartedRef.current = true;
+    logger.info("bookings", "auto-pay starting after create redirect", {
+      id: booking._id,
+      paymentStatus: booking.paymentStatus,
+    });
+    console.log("[bookings] auto-pay starting", booking._id);
+    // Drop pay=1 so pull-to-refresh / remount does not re-open checkout.
+    router.replace(`/(customer)/bookings/${booking._id}`);
+    void payNow();
+  }, [loading, booking, provider, paymentsEnabled, pay, payNow]);
 
   if (loading) return <LoadingState />;
   if (error && !booking) return <ErrorState message={error} onRetry={load} />;
@@ -109,8 +163,12 @@ export default function CustomerBookingDetail() {
 
   const canCancel = booking.status === "pending" || booking.status === "confirmed";
   const canMessage = booking.status !== "cancelled";
+  const showPaymentUi = bookingPaymentsAvailable({
+    paymentsEnabled,
+    paymentsDisabled: provider?.paymentsDisabled,
+  });
   const canPay =
-    !provider?.paymentsDisabled &&
+    showPaymentUi &&
     booking.status !== "cancelled" &&
     (booking.paymentStatus === "unpaid" ||
       booking.paymentStatus === "pending" ||
@@ -138,6 +196,7 @@ export default function CustomerBookingDetail() {
       <BookingDetailView
         booking={booking}
         provider={provider}
+        showPayment={showPaymentUi}
         error={error}
         actions={
           <>

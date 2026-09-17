@@ -165,6 +165,13 @@ From `../barbero/apps/api-meteor/settings.development.json` (dev only):
 
 ## Smoke checklist
 
+Manual checks below are also covered by Maestro E2E — see **[docs/maestro-e2e.md](docs/maestro-e2e.md)** for the full scenario matrix and run commands.
+
+```bash
+npm run test:e2e:smoke    # Phase 1 smoke (iOS + Android)
+npm run test:e2e:full     # All happy-path flows
+```
+
 - [ ] API health: app logs successful `GET /health` on launch
 - [ ] Customer login → lands on Home
 - [ ] Browse provider → open profile → Book → booking appears in Bookings

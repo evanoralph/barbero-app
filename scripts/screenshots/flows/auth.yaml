@@ -1,5 +1,5 @@
 # Screens: (auth)/login.tsx, (auth)/forgot-password.tsx, (auth)/reset-password.tsx
-appId: com.barbero.app
+appId: com.beruapp.ai
 ---
 - runFlow: lib/ensure_logged_out.yaml
 - takeScreenshot: 00_login

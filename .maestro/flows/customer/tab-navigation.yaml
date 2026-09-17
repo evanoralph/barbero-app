@@ -1,0 +1,26 @@
+# C-01, C-02, C-05, C-10: Customer tab navigation smoke.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+
+# C-01 Home
+- assertVisible: "Book now"
+
+# C-02 Explore
+- tapOn:
+    id: "tab-explore"
+- assertVisible: "Explore"
+
+# C-05 Bookings
+- tapOn:
+    id: "tab-bookings"
+- assertVisible: "Bookings"
+
+# C-10 Account
+- tapOn:
+    id: "tab-account"
+- extendedWaitUntil:
+    visible: "Account"
+    timeout: 15000
+- assertVisible: "Sign out"

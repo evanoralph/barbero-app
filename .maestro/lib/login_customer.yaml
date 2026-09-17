@@ -1,0 +1,15 @@
+# Log in as seed customer via __DEV__ quick-fill buttons.
+# Matches scripts/screenshots/flows (text selectors). Asserts home content
+# ("Book now") rather than tab a11y labels, which can lag after redirect.
+appId: com.beruapp.ai
+---
+- tapOn: "Customer"
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    notVisible: "Dev quick fill"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Book now"
+    timeout: 20000

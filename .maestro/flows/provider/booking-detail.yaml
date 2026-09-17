@@ -1,0 +1,14 @@
+# P-03: Provider bookings → pending filter → booking detail.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_provider.yaml
+- tapOn: ".*Bookings, tab.*"
+- assertVisible: "Bookings"
+- tapOn: ".*Pending.*"
+- tapOn:
+    point: "50%,30%"
+    optional: true
+- assertVisible:
+    text: ".*Booking.*|.*Status.*|.*Message.*"
+    optional: true

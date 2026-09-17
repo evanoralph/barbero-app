@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FLOWS_DIR="$SCRIPT_DIR/flows"
 SNAPSHOT_FILE="$SCRIPT_DIR/routes.snapshot.txt"
-BUNDLE_ID="com.barbero.app"
+BUNDLE_ID="com.beruapp.ai"
 OUTPUT_ROOT="${SCREENSHOT_OUTPUT_DIR:-$HOME/Documents/barbero-app-screenshots}"
 
 export PATH="$PATH:$HOME/.maestro/bin"

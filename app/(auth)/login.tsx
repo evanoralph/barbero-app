@@ -1,10 +1,11 @@
 import { Link, Redirect, router } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "@/src/api/client";
 import { useSession } from "@/src/auth/session";
 import { BrandLogo } from "@/src/components/BrandLogo";
-import { Button, Field, Muted, Screen, Title } from "@/src/components/ui";
+import { Button, Field, Muted, Screen } from "@/src/components/ui";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
 
@@ -21,6 +22,7 @@ const DEV_SEED_LOGINS = {
 
 export default function LoginScreen() {
   const { ready, user, role, signIn, signOut } = useSession();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +46,21 @@ export default function LoginScreen() {
     logger.info("login", "submit", { email });
     try {
       const result = await signIn(email, password);
-      if (result.roles.includes("admin") && !result.roles.includes("provider") && !result.roles.includes("customer")) {
+      if (
+        result.roles.includes("admin") &&
+        !result.roles.includes("provider") &&
+        !result.roles.includes("customer")
+      ) {
         setError("Admin accounts use the web app. Mobile supports customer and provider only.");
+        await signOut();
+        return;
+      }
+      if (
+        result.roles.includes("establishment_owner") &&
+        !result.roles.includes("provider") &&
+        !result.roles.includes("customer")
+      ) {
+        setError("Establishment owner accounts use the web shop dashboard. Mobile supports customer and provider only.");
         await signOut();
         return;
       }
@@ -69,41 +84,68 @@ export default function LoginScreen() {
   };
 
   return (
-    <Screen scroll>
-      <View style={styles.hero}>
+    <Screen scroll contentStyle={styles.screenContent}>
+      <View style={[styles.hero, { paddingTop: insets.top + 12 }]}>
         <BrandLogo variant="lockup" style={styles.brandLogo} />
-        <Muted>Book beauty & grooming professionals</Muted>
       </View>
-      <Title>Sign in</Title>
-      <Field
-        label="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        autoComplete="email"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <Field
-        label="Password"
-        secureTextEntry
-        autoComplete="password"
-        value={password}
-        onChangeText={setPassword}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button label="Sign in" onPress={onSubmit} loading={loading} />
-      <Link href="/(auth)/forgot-password" style={styles.link}>
-        Forgot password?
-      </Link>
+
+      <View style={styles.fields}>
+        <Field
+          label="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <Field
+          label="Password"
+          secureTextEntry
+          autoComplete="password"
+          value={password}
+          onChangeText={setPassword}
+        />
+      </View>
+
+      <View style={styles.actions}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Button label="Sign in" onPress={onSubmit} loading={loading} testID="sign-in-button" />
+        <Link href="/(auth)/forgot-password" style={styles.forgotLink}>
+          Forgot password?
+        </Link>
+      </View>
+
+      <View style={styles.footer}>
+        <View style={styles.footerRow}>
+          <Muted>Don&apos;t have an account?</Muted>
+          <Link href="/(auth)/register" style={styles.footerLink}>
+            Sign up
+          </Link>
+        </View>
+        <Link href="/(auth)/apply/account" style={styles.providerLink}>
+          Become a provider
+        </Link>
+      </View>
+
       {__DEV__ ? (
         <View style={styles.devFill}>
           <Muted>Dev quick fill</Muted>
           <View style={styles.devFillRow}>
             <View style={styles.devFillBtn}>
-              <Button label="Customer" variant="secondary" onPress={() => fillDevLogin("customer")} />
+              <Button
+                label="Customer"
+                variant="secondary"
+                onPress={() => fillDevLogin("customer")}
+                testID="dev-fill-customer"
+              />
             </View>
             <View style={styles.devFillBtn}>
-              <Button label="Provider" variant="secondary" onPress={() => fillDevLogin("provider")} />
+              <Button
+                label="Provider"
+                variant="secondary"
+                onPress={() => fillDevLogin("provider")}
+                testID="dev-fill-provider"
+              />
             </View>
           </View>
         </View>
@@ -113,11 +155,33 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: 48, marginBottom: 12, gap: 8, alignItems: "center" },
-  brandLogo: { height: 148, width: 210, alignSelf: "center" },
+  screenContent: { flexGrow: 1, justifyContent: "center", gap: 28 },
+  hero: { alignItems: "center" },
+  brandLogo: { height: 132, width: 187, alignSelf: "center" },
+  fields: { gap: 14 },
   error: { color: colors.danger, fontSize: 14 },
-  link: { color: colors.accent, fontWeight: "600", marginTop: 4 },
-  devFill: { marginTop: 16, gap: 8 },
+  actions: { gap: 12 },
+  forgotLink: {
+    alignSelf: "center",
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  footer: {
+    alignItems: "center",
+    gap: 10,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  footerRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  footerLink: { color: colors.accent, fontWeight: "700", fontSize: 14 },
+  providerLink: {
+    color: colors.textMuted,
+    fontSize: 13,
+    textDecorationLine: "underline",
+  },
+  devFill: { gap: 8 },
   devFillRow: { flexDirection: "row", gap: 8 },
   devFillBtn: { flex: 1 },
 });

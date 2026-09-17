@@ -1,0 +1,6 @@
+# A-01: Customer login lands on Home tab.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- assertVisible: "Book now"

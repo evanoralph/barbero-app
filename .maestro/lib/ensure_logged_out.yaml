@@ -1,0 +1,54 @@
+# Shared sub-flow: relaunch and make sure we land on the login screen.
+#
+# Do NOT use `launchApp: { clearState: true }` on dev-client builds — it wipes
+# the stored bundler URL and drops the simulator into the Expo launcher screen.
+#
+# Wait for boot to finish, then sign out based on role-specific home content
+# (Book now = customer, Quick actions = provider). Account/Profile take a moment
+# to load before "Sign out" is rendered — wait for it, don't race LoadingState.
+appId: com.beruapp.ai
+---
+- launchApp:
+    clearState: false
+- waitForAnimationToEnd:
+    timeout: 6000
+- extendedWaitUntil:
+    visible:
+      text: "Dev quick fill|Book now|Quick actions"
+    timeout: 25000
+
+# Customer session → Account → Sign out (testID first, then tab label)
+- runFlow:
+    when:
+      visible: "Book now"
+    commands:
+      - tapOn:
+          id: "tab-account"
+          optional: true
+      - tapOn:
+          text: ".*Account, tab.*"
+          optional: true
+      - extendedWaitUntil:
+          visible: "Sign out"
+          timeout: 20000
+      - tapOn: "Sign out"
+
+# Provider session → Profile → Sign out
+- runFlow:
+    when:
+      visible: "Quick actions"
+    commands:
+      - tapOn:
+          id: "tab-profile"
+          optional: true
+      - tapOn:
+          text: ".*Profile, tab.*"
+          optional: true
+      - extendedWaitUntil:
+          visible: "Sign out"
+          timeout: 20000
+      - tapOn: "Sign out"
+
+- extendedWaitUntil:
+    visible: "Dev quick fill"
+    timeout: 15000

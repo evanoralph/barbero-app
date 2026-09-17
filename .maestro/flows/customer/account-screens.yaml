@@ -1,0 +1,19 @@
+# C-11, C-12, C-13: Account sub-screens.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- tapOn: ".*Account, tab.*"
+
+- tapOn: "Settings"
+- assertVisible: "Settings"
+- tapOn:
+    point: "7%,8%"
+
+- tapOn: "Saved providers"
+- assertVisible: "Saved"
+- tapOn:
+    point: "7%,8%"
+
+- tapOn: ".*Payments.*"
+- assertVisible: "Payments"

@@ -41,3 +41,37 @@ export async function resetPassword(
     body: { token, password },
   });
 }
+
+export async function registerStart(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<{ message: string }> {
+  logger.info("auth-api", "registerStart", { email: input.email });
+  return apiRequest<{ message: string }>("/auth/register/start", {
+    method: "POST",
+    auth: false,
+    body: input,
+  });
+}
+
+export async function registerVerify(input: {
+  email: string;
+  code: string;
+}): Promise<LoginResponse> {
+  logger.info("auth-api", "registerVerify", { email: input.email });
+  return apiRequest<LoginResponse>("/auth/register/verify", {
+    method: "POST",
+    auth: false,
+    body: input,
+  });
+}
+
+export async function registerResend(email: string): Promise<{ message: string }> {
+  logger.info("auth-api", "registerResend", { email });
+  return apiRequest<{ message: string }>("/auth/register/resend", {
+    method: "POST",
+    auth: false,
+    body: { email },
+  });
+}

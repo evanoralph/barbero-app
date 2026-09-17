@@ -1,5 +1,6 @@
 import { formatMoney } from '@/src/utils/format';
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { Bell, ChevronRight, MapPin, Search, Star } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -14,6 +15,10 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listBookings } from "@/src/api/bookings";
 import { listCategories } from "@/src/api/categories";
+import {
+  establishmentPublicUrl,
+  listEstablishments,
+} from "@/src/api/establishments";
 import { listProviders } from "@/src/api/providers";
 import { AnimatedHeroScroll } from "@/src/components/animated/AnimatedHeroScroll";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
@@ -30,7 +35,12 @@ import {
   Muted,
   Title,
 } from "@/src/components/ui";
-import type { Booking, ProviderListItem, ServiceCategory } from "@/src/types/api";
+import type {
+  Booking,
+  EstablishmentListItem,
+  ProviderListItem,
+  ServiceCategory,
+} from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { formatBookingTime } from "@/src/utils/bookingDisplay";
@@ -189,10 +199,62 @@ function FeaturedProviderCard({
   );
 }
 
+function FeaturedSalonCard({
+  salon,
+  index,
+}: {
+  salon: EstablishmentListItem;
+  index: number;
+}) {
+  const imageUri = (salon.coverImage || salon.logo || "").trim();
+  return (
+    <AnimatedPressable
+      style={styles.featCard}
+      entering={staggeredEntering(index)}
+      onPress={() => {
+        const url = establishmentPublicUrl(salon.slug);
+        console.log("[home] featured salon press", salon.slug, url);
+        void WebBrowser.openBrowserAsync(url);
+      }}
+      accessibilityLabel={`View salon ${salon.name}`}
+    >
+      {imageUri ? (
+        <Image source={{ uri: imageUri }} style={styles.featImage} />
+      ) : (
+        <View style={[styles.featImage, styles.featImageFallback]}>
+          <Text style={styles.featImageLetter}>
+            {salon.name.slice(0, 1).toUpperCase()}
+          </Text>
+        </View>
+      )}
+      <View style={styles.featCardBody}>
+        <Text style={styles.featName} numberOfLines={1}>
+          {salon.name}
+        </Text>
+        <Text style={styles.featCategory} numberOfLines={1}>
+          {(salon.location.city || salon.categorySlug || "salon").replace(/-/g, " ")}
+        </Text>
+        <Pressable
+          style={styles.featBookBtn}
+          onPress={() => {
+            const url = establishmentPublicUrl(salon.slug);
+            console.log("[home] featured salon open", salon.slug, url);
+            void WebBrowser.openBrowserAsync(url);
+          }}
+          accessibilityLabel={`Open ${salon.name}`}
+        >
+          <Text style={styles.featBookText}>View</Text>
+        </Pressable>
+      </View>
+    </AnimatedPressable>
+  );
+}
+
 export default function CustomerHome() {
   const insets = useSafeAreaInsets();
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
+  const [featuredSalons, setFeaturedSalons] = useState<EstablishmentListItem[]>([]);
   const [allProviders, setAllProviders] = useState<ProviderListItem[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,12 +267,13 @@ export default function CustomerHome() {
     logger.debug("home", "load");
     console.log("[home] load start");
     try {
-      const [catsResult, featuredResult, allResult, bookingsResult] =
+      const [catsResult, featuredResult, allResult, bookingsResult, salonsResult] =
         await Promise.allSettled([
           listCategories(),
           listProviders({ featured: true, sort: "rating" }),
           listProviders({ sort: "rating" }),
           listBookings(),
+          listEstablishments({ featured: true, limit: 8 }),
         ]);
 
       if (catsResult.status === "rejected" && featuredResult.status === "rejected") {
@@ -253,11 +316,21 @@ export default function CustomerHome() {
         setBookings([]);
       }
 
+      if (salonsResult.status === "fulfilled") {
+        setFeaturedSalons(salonsResult.value);
+        console.log("[home] featured salons loaded", salonsResult.value.length);
+      } else {
+        setFeaturedSalons([]);
+        logger.warn("home", "featured salons failed", salonsResult.reason);
+        console.log("[home] featured salons soft-fail", salonsResult.reason);
+      }
+
       logger.debug("home", "loaded", {
         categories:
           catsResult.status === "fulfilled" ? catsResult.value.length : 0,
         featured:
           featuredResult.status === "fulfilled" ? featuredResult.value.length : 0,
+        salons: salonsResult.status === "fulfilled" ? salonsResult.value.length : 0,
         bookings:
           bookingsResult.status === "fulfilled" ? bookingsResult.value.length : 0,
       });
@@ -467,6 +540,23 @@ export default function CustomerHome() {
           >
             {providers.slice(0, 8).map((p, index) => (
               <FeaturedProviderCard key={p._id} provider={p} index={index} />
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {featuredSalons.length > 0 && (
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.featSectionTitle}>Featured salons</Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featScroll}
+          >
+            {featuredSalons.slice(0, 8).map((salon, index) => (
+              <FeaturedSalonCard key={salon._id} salon={salon} index={index} />
             ))}
           </ScrollView>
         </View>

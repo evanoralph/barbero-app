@@ -1,0 +1,12 @@
+# P-06: Provider dashboard → Inbox list.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_provider.yaml
+- scrollUntilVisible:
+    element: "Inbox"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+- tapOn: "Inbox"
+- assertVisible: "Messages"

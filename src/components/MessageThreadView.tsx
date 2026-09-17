@@ -1,12 +1,15 @@
 import { formatMoney } from '@/src/utils/format';
-import { CheckCheck, ChevronLeft, ChevronRight, ImagePlus, Phone, Send } from "lucide-react-native";
-import { useEffect, useMemo, useRef } from "react";
+import * as ImagePicker from "expo-image-picker";
+import { CheckCheck, ChevronLeft, ChevronRight, ImagePlus, Phone, Send, X } from "lucide-react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -19,6 +22,7 @@ import { Muted } from "@/src/components/ui";
 import type { Message } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
+import { compressImageForUpload } from "@/src/utils/compressImage";
 import { logger } from "@/src/utils/logger";
 import { isOwnMessageSeen, lastSeenOwnMessageId } from "@/src/utils/messagesSeen";
 
@@ -38,6 +42,12 @@ type Props = {
   onChangeBody: (text: string) => void;
   /** Send current body, or an explicit quick-reply string. */
   onSend: (text?: string) => void;
+  /** Pick → compress already done; parent uploads + creates message. */
+  onSendImage?: (input: {
+    uri: string;
+    mimeType: string;
+    caption?: string;
+  }) => void | Promise<void>;
   sending: boolean;
   error?: string | null;
   emptyLabel?: string;
@@ -98,6 +108,7 @@ export function MessageThreadView({
   body,
   onChangeBody,
   onSend,
+  onSendImage,
   sending,
   error,
   emptyLabel = "No messages yet — say hello.",
@@ -113,6 +124,9 @@ export function MessageThreadView({
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ListRow>>(null);
   const keyboardVerticalOffset = Platform.OS === "ios" ? insets.top : 0;
+  const [pickingImage, setPickingImage] = useState(false);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const busy = sending || pickingImage;
 
   const seenOwnId = useMemo(
     () => lastSeenOwnMessageId(messages, userId, peerLastReadAt),
@@ -299,12 +313,33 @@ export function MessageThreadView({
             hour: "numeric",
             minute: "2-digit",
           });
+          const imageUrl = (item.message.imageUrl || "").trim();
+          const textBody = (item.message.body || "").trim();
           return (
             <View style={[styles.bubbleWrap, mine ? styles.bubbleWrapMine : styles.bubbleWrapOther]}>
-              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
-                <Text style={[styles.bubbleText, mine && styles.bubbleTextMine]}>
-                  {item.message.body}
-                </Text>
+              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther, imageUrl ? styles.bubbleImagePad : null]}>
+                {imageUrl ? (
+                  <Pressable
+                    onPress={() => {
+                      console.log("[MessageThreadView] open lightbox", { threadId, messageId: item.message._id });
+                      logger.debug("MessageThreadView", "open lightbox", { threadId });
+                      setLightboxUrl(imageUrl);
+                    }}
+                  >
+                    <Image source={{ uri: imageUrl }} style={styles.bubbleImage} />
+                  </Pressable>
+                ) : null}
+                {textBody ? (
+                  <Text
+                    style={[
+                      styles.bubbleText,
+                      mine && styles.bubbleTextMine,
+                      imageUrl ? styles.bubbleCaption : null,
+                    ]}
+                  >
+                    {textBody}
+                  </Text>
+                ) : null}
               </View>
               <View style={[styles.metaRow, mine && styles.metaRowMine]}>
                 <Text style={styles.metaTime}>{time}</Text>
@@ -333,7 +368,7 @@ export function MessageThreadView({
         {QUICK_CHIPS.map((chip) => (
           <Pressable
             key={chip}
-            disabled={sending}
+            disabled={busy}
             onPress={() => {
               console.log("[MessageThreadView] quick chip", { threadId, chip });
               logger.debug("MessageThreadView", "quick chip", { threadId, chip });
@@ -349,12 +384,56 @@ export function MessageThreadView({
       <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Pressable
           hitSlop={8}
-          onPress={() => {
-            console.log("[MessageThreadView] image stub", { threadId });
-            logger.debug("MessageThreadView", "image stub", { threadId });
+          disabled={busy || !onSendImage}
+          onPress={async () => {
+            if (!onSendImage || busy) return;
+            try {
+              setPickingImage(true);
+              console.log("[MessageThreadView] image pick start", { threadId });
+              logger.debug("MessageThreadView", "image pick start", { threadId });
+              const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+              if (!permission.granted) {
+                Alert.alert("Permission needed", "Allow photo library access to send images.");
+                return;
+              }
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ["images"],
+                quality: 1,
+              });
+              if (result.canceled || !result.assets?.[0]) {
+                console.log("[MessageThreadView] image pick cancelled", { threadId });
+                logger.debug("MessageThreadView", "image pick cancelled", { threadId });
+                return;
+              }
+              const asset = result.assets[0];
+              console.log("[MessageThreadView] image picked", {
+                threadId,
+                width: asset.width,
+                height: asset.height,
+              });
+              const compressed = await compressImageForUpload(asset.uri);
+              const caption = body.trim() || undefined;
+              await onSendImage({
+                uri: compressed.uri,
+                mimeType: compressed.mimeType,
+                caption,
+              });
+              if (caption) onChangeBody("");
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : "Could not send image";
+              console.log("[MessageThreadView] image pick/send failed", { threadId, msg });
+              logger.error("MessageThreadView", "image pick/send failed", { threadId, msg, e });
+              Alert.alert("Image failed", msg);
+            } finally {
+              setPickingImage(false);
+            }
           }}
         >
-          <ImagePlus size={22} color={colors.textMuted} />
+          {pickingImage ? (
+            <ActivityIndicator size="small" color={colors.textMuted} />
+          ) : (
+            <ImagePlus size={22} color={busy ? colors.border : colors.textMuted} />
+          )}
         </Pressable>
         <TextInput
           value={body}
@@ -362,14 +441,14 @@ export function MessageThreadView({
           placeholder="Message"
           placeholderTextColor={colors.textMuted}
           style={styles.input}
-          editable={!sending}
+          editable={!busy}
           onSubmitEditing={() => {
             if (body.trim()) onSend();
           }}
           returnKeyType="send"
         />
         <Pressable
-          disabled={sending || !body.trim()}
+          disabled={busy || !body.trim()}
           onPress={() => {
             console.log("[MessageThreadView] send", { threadId, len: body.trim().length });
             logger.debug("MessageThreadView", "send press", { threadId });
@@ -377,7 +456,7 @@ export function MessageThreadView({
           }}
           style={({ pressed }) => [
             styles.sendBtn,
-            (!body.trim() || sending) && styles.sendBtnDisabled,
+            (!body.trim() || busy) && styles.sendBtnDisabled,
             pressed && { opacity: 0.9 },
           ]}
         >
@@ -388,6 +467,26 @@ export function MessageThreadView({
           )}
         </Pressable>
       </View>
+
+      <Modal
+        visible={Boolean(lightboxUrl)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLightboxUrl(null)}
+      >
+        <View style={styles.lightbox}>
+          <Pressable
+            style={[styles.lightboxClose, { top: Math.max(insets.top, 12) }]}
+            onPress={() => setLightboxUrl(null)}
+            hitSlop={12}
+          >
+            <X size={24} color={colors.white} />
+          </Pressable>
+          {lightboxUrl ? (
+            <Image source={{ uri: lightboxUrl }} style={styles.lightboxImage} resizeMode="contain" />
+          ) : null}
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -531,6 +630,37 @@ const styles = StyleSheet.create({
   },
   bubbleTextMine: {
     color: colors.white,
+  },
+  bubbleImagePad: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+  },
+  bubbleImage: {
+    width: 220,
+    height: 220,
+    borderRadius: 12,
+    backgroundColor: colors.border,
+  },
+  bubbleCaption: {
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingBottom: 4,
+  },
+  lightbox: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  lightboxClose: {
+    position: "absolute",
+    right: 16,
+    zIndex: 2,
+    padding: 8,
+  },
+  lightboxImage: {
+    width: "100%",
+    height: "80%",
   },
   metaRow: {
     flexDirection: "row",

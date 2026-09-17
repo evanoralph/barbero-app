@@ -1,0 +1,14 @@
+# A-05: Provider sign out returns to login.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_provider.yaml
+- tapOn:
+    id: "tab-profile"
+- extendedWaitUntil:
+    visible: "Sign out"
+    timeout: 20000
+- tapOn: "Sign out"
+- extendedWaitUntil:
+    visible: "Dev quick fill"
+    timeout: 10000

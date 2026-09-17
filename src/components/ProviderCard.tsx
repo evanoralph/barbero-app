@@ -61,7 +61,11 @@ export function ProviderCard({
           </Text>
         ) : null}
       </LinearGradient>
-      {provider.isPremium ? (
+      {provider.isFeatured ? (
+        <View style={[styles.badge, provider.isPremium ? styles.badgeSecondary : null]}>
+          <Text style={styles.badgeText}>Featured</Text>
+        </View>
+      ) : provider.isPremium ? (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>Premium</Text>
         </View>
@@ -130,6 +134,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 999,
+  },
+  badgeSecondary: {
+    backgroundColor: colors.onImage,
   },
   badgeText: {
     color: colors.text,

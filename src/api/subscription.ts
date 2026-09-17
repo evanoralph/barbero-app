@@ -24,8 +24,15 @@ export async function getMySubscriptionPayments() {
 export function updateMySubscription(input: {
   planId: "free" | "pro" | "premium";
   billingPeriod: "monthly" | "yearly";
+  visiblePortfolioIds?: string[];
+  visibleServiceIds?: string[];
 }) {
-  logger.info("subscription-api", "updateMySubscription", input);
+  logger.info("subscription-api", "updateMySubscription", {
+    planId: input.planId,
+    billingPeriod: input.billingPeriod,
+    portfolioIds: input.visiblePortfolioIds?.length,
+    serviceIds: input.visibleServiceIds?.length,
+  });
   return apiRequest<{
     profile: unknown;
     subscription: SubscriptionPlansResponse["current"];

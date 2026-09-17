@@ -38,6 +38,13 @@ type FormMode = "closed" | "add" | "edit";
 type FilterId = "all" | "with-desc" | "no-desc";
 const PAGE_SIZE = 10;
 
+function maxVisiblePortfolio(profile: ProviderProfile | null): number | null {
+  if (!profile) return 3;
+  if (profile.isFeatured) return null;
+  if (profile.isPremium) return 50;
+  return 3;
+}
+
 export default function ProviderPortfolioScreen() {
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
@@ -256,6 +263,39 @@ export default function ProviderPortfolioScreen() {
     ]);
   };
 
+  const toggleVisibility = async (item: PortfolioItem) => {
+    if (!profile) return;
+    const max = maxVisiblePortfolio(profile);
+    const makeVisible = item.isVisible === false;
+    const currentlyVisible = (profile.portfolio ?? [])
+      .filter((x) => x.isVisible !== false)
+      .map((x) => x.id);
+    let next = currentlyVisible;
+    if (makeVisible) {
+      if (max !== null && currentlyVisible.length >= max && !currentlyVisible.includes(item.id)) {
+        setError(`Your plan allows ${max} visible photos. Hide another first or upgrade.`);
+        return;
+      }
+      next = currentlyVisible.includes(item.id) ? currentlyVisible : [...currentlyVisible, item.id];
+    } else {
+      next = currentlyVisible.filter((id) => id !== item.id);
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      logger.info("provider-portfolio", "toggle visibility", { id: item.id, makeVisible, next });
+      const updated = await updateMyProvider({ visiblePortfolioIds: next });
+      setProfile(updated);
+      setOk(makeVisible ? "Photo shown on profile" : "Photo hidden from profile");
+      await load({ keepPage: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update visibility");
+      logger.error("provider-portfolio", "toggle visibility failed", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading portfolio…" />;
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
 
@@ -359,6 +399,7 @@ export default function ProviderPortfolioScreen() {
                   <View style={styles.rowMain}>
                     <Text style={styles.rowTitle} numberOfLines={1}>
                       {item.title}
+                      {item.isVisible === false ? " · Hidden" : ""}
                     </Text>
                     <Text style={styles.rowMeta} numberOfLines={1}>
                       {item.likes != null ? `${item.likes} likes` : "Portfolio"}
@@ -375,6 +416,16 @@ export default function ProviderPortfolioScreen() {
                     )}
                   </View>
                   <View style={styles.rowActions}>
+                    <Pressable
+                      onPress={() => void toggleVisibility(item)}
+                      hitSlop={8}
+                      style={styles.actionBtn}
+                      disabled={saving}
+                    >
+                      <Text style={styles.actionEdit}>
+                        {item.isVisible === false ? "Show" : "Hide"}
+                      </Text>
+                    </Pressable>
                     <Pressable
                       onPress={() => openEdit(item)}
                       hitSlop={8}

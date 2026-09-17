@@ -5,7 +5,7 @@
 #
 # See provider.yaml for notes on the ".*<Label>, tab.*" tab-bar selector and
 # the launchApp-to-reset-nav-stack pattern used throughout.
-appId: com.barbero.app
+appId: com.beruapp.ai
 ---
 - runFlow: lib/ensure_logged_out.yaml
 - tapOn: "Customer"

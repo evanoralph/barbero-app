@@ -15,7 +15,7 @@
 # out (clearState: false only clears app process state, not the persisted
 # auth token) — used here to back out of a pushed detail screen instead of
 # relying on a back button, since some detail headers don't render one.
-appId: com.barbero.app
+appId: com.beruapp.ai
 ---
 - runFlow: lib/ensure_logged_out.yaml
 - tapOn: "Provider"

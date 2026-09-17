@@ -10,6 +10,7 @@ import type {
   ProviderAnalyticsRange,
   ProviderListItem,
   ProviderMapMarker,
+  ProviderPaymongoStatus,
   ProviderProfile,
   Review,
   UpdateProviderProfileInput,
@@ -132,5 +133,32 @@ export function setMyPayoutDestination(body: PayoutDestination) {
   return apiRequest<PayoutDestinationResponse>("/providers/me/payout-destination", {
     method: "PUT",
     body,
+  });
+}
+
+export function getMyPaymongoStatus() {
+  logger.debug("providers-api", "getMyPaymongoStatus");
+  return apiRequest<ProviderPaymongoStatus>("/providers/me/paymongo");
+}
+
+export function createMyPaymongoAccount() {
+  logger.info("providers-api", "createMyPaymongoAccount");
+  return apiRequest<ProviderPaymongoStatus>("/providers/me/paymongo/create", {
+    method: "POST",
+  });
+}
+
+export function startMyPaymongoIdentity() {
+  logger.info("providers-api", "startMyPaymongoIdentity");
+  return apiRequest<ProviderPaymongoStatus>(
+    "/providers/me/paymongo/identity-session",
+    { method: "POST" },
+  );
+}
+
+export function refreshMyPaymongoStatus() {
+  logger.info("providers-api", "refreshMyPaymongoStatus");
+  return apiRequest<ProviderPaymongoStatus>("/providers/me/paymongo/refresh", {
+    method: "POST",
   });
 }

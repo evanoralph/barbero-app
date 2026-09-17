@@ -1,0 +1,11 @@
+# C-14: Home → open full map.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- tapOn: ".*Home, tab.*"
+- tapOn:
+    text: "Open full map"
+- extendedWaitUntil:
+    visible: ".*Map.*|.*Explore.*"
+    timeout: 15000

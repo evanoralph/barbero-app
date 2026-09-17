@@ -1,0 +1,5 @@
+# Default Maestro workspace config for barbero-app E2E tests.
+# Requires a dev-client build (__DEV__) with seed API reachable.
+appId: com.beruapp.ai
+env:
+  APP_ID: com.beruapp.ai

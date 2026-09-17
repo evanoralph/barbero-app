@@ -36,6 +36,13 @@ import { logger } from "@/src/utils/logger";
 type FormMode = "closed" | "add" | "edit";
 const PAGE_SIZE = 10;
 
+function maxVisibleServices(profile: ProviderProfile | null): number | null {
+  if (!profile) return 3;
+  if (profile.isFeatured) return null;
+  if (profile.isPremium) return 50;
+  return 3;
+}
+
 export default function ProviderServicesScreen() {
   const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
@@ -263,6 +270,39 @@ export default function ProviderServicesScreen() {
     ]);
   };
 
+  const toggleVisibility = async (s: ProviderService) => {
+    if (!profile) return;
+    const max = maxVisibleServices(profile);
+    const makeVisible = s.isVisible === false;
+    const currentlyVisible = (profile.services ?? [])
+      .filter((x) => x.isVisible !== false)
+      .map((x) => x.id);
+    let next = currentlyVisible;
+    if (makeVisible) {
+      if (max !== null && currentlyVisible.length >= max && !currentlyVisible.includes(s.id)) {
+        setError(`Your plan allows ${max} visible services. Hide another first or upgrade.`);
+        return;
+      }
+      next = currentlyVisible.includes(s.id) ? currentlyVisible : [...currentlyVisible, s.id];
+    } else {
+      next = currentlyVisible.filter((id) => id !== s.id);
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      logger.info("provider-services", "toggle visibility", { id: s.id, makeVisible, next });
+      const updated = await updateMyProvider({ visibleServiceIds: next });
+      setProfile(updated);
+      setOk(makeVisible ? "Service shown on profile" : "Service hidden from profile");
+      await load({ keepPage: true });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update visibility");
+      logger.error("provider-services", "toggle visibility failed", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <LoadingState label="Loading services…" />;
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
 
@@ -355,6 +395,7 @@ export default function ProviderServicesScreen() {
                 <View style={styles.rowMain}>
                   <Text style={styles.rowTitle} numberOfLines={1}>
                     {s.name}
+                    {s.isVisible === false ? " · Hidden" : ""}
                   </Text>
                   <Text style={styles.rowMeta} numberOfLines={1}>
                     {formatMoney(s.price)} · {s.durationMinutes} min · {s.category}
@@ -366,6 +407,16 @@ export default function ProviderServicesScreen() {
                   ) : null}
                 </View>
                 <View style={styles.rowActions}>
+                  <Pressable
+                    onPress={() => void toggleVisibility(s)}
+                    hitSlop={8}
+                    style={styles.actionBtn}
+                    disabled={saving}
+                  >
+                    <Text style={styles.actionEdit}>
+                      {s.isVisible === false ? "Show" : "Hide"}
+                    </Text>
+                  </Pressable>
                   <Pressable
                     onPress={() => openEdit(s)}
                     hitSlop={8}

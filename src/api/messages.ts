@@ -10,7 +10,16 @@ export function sendMessage(input: {
   threadId: string;
   senderId: string;
   body: string;
+  imageUrl?: string;
 }) {
-  logger.info("messages-api", "sendMessage", { threadId: input.threadId });
+  logger.info("messages-api", "sendMessage", {
+    threadId: input.threadId,
+    hasImage: Boolean(input.imageUrl),
+    bodyLen: input.body.length,
+  });
+  console.log("[messages-api] sendMessage", {
+    threadId: input.threadId,
+    hasImage: Boolean(input.imageUrl),
+  });
   return apiRequest<Message>("/messages", { method: "POST", body: input });
 }

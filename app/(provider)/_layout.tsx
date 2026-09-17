@@ -1,6 +1,7 @@
 import { Redirect, Tabs } from "expo-router";
 import { CalendarDays, Clock3, Home, UserRound } from "lucide-react-native";
 import { useSession } from "@/src/auth/session";
+import { e2eTabBarButton } from "@/src/components/E2eTabBarButton";
 import { LoadingState } from "@/src/components/ui";
 import { TabIcon } from "@/src/components/TabIcon";
 import { colors } from "@/src/theme/colors";
@@ -42,6 +43,7 @@ export default function ProviderLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Home} color={color} focused={focused} name="provider.home" />
           ),
+          tabBarButton: e2eTabBarButton("tab-dashboard"),
         }}
       />
       <Tabs.Screen
@@ -51,6 +53,7 @@ export default function ProviderLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={CalendarDays} color={color} focused={focused} name="provider.bookings" />
           ),
+          tabBarButton: e2eTabBarButton("tab-bookings"),
         }}
       />
       <Tabs.Screen
@@ -63,6 +66,7 @@ export default function ProviderLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Clock3} color={color} focused={focused} name="provider.hours" />
           ),
+          tabBarButton: e2eTabBarButton("tab-hours"),
         }}
       />
       <Tabs.Screen
@@ -75,6 +79,7 @@ export default function ProviderLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={UserRound} color={color} focused={focused} name="provider.profile" />
           ),
+          tabBarButton: e2eTabBarButton("tab-profile"),
         }}
       />
       <Tabs.Screen

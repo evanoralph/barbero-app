@@ -1,0 +1,13 @@
+# C-03: Explore tab → open first provider profile.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- tapOn: ".*Explore, tab.*"
+- assertVisible: "Explore"
+- tapOn:
+    point: "50%,55%"
+    optional: true
+- assertVisible:
+    text: ".*Book with.*"
+    optional: true

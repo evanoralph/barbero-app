@@ -48,6 +48,7 @@ export default function AccountScreen() {
       <Button
         label="Sign out"
         variant="danger"
+        testID="sign-out-button"
         onPress={async () => {
           logger.info("account", "sign out");
           await signOut();

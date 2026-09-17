@@ -445,6 +445,7 @@ export default function ProviderProfileScreen() {
       <Button
         label="Sign out"
         variant="danger"
+        testID="sign-out-button"
         onPress={async () => {
           logger.info("provider-profile", "sign out");
           await signOut();

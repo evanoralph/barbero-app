@@ -11,8 +11,16 @@ export default function AuthLayout() {
       }}
     >
       <Stack.Screen name="login" options={{ title: "Sign in", headerShown: false }} />
+      <Stack.Screen name="register" options={{ title: "Create account" }} />
+      <Stack.Screen name="verify-email" options={{ title: "Verify email" }} />
       <Stack.Screen name="forgot-password" options={{ title: "Forgot password" }} />
       <Stack.Screen name="reset-password" options={{ title: "Reset password" }} />
+      <Stack.Screen name="apply/account" options={{ title: "Become a provider" }} />
+      <Stack.Screen name="apply/verify-email" options={{ title: "Verify email" }} />
+      <Stack.Screen name="apply/business" options={{ title: "Your business" }} />
+      <Stack.Screen name="apply/location" options={{ title: "Location" }} />
+      <Stack.Screen name="apply/proofs" options={{ title: "Proof documents" }} />
+      <Stack.Screen name="apply/done" options={{ title: "Application submitted" }} />
     </Stack>
   );
 }

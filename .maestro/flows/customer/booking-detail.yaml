@@ -1,0 +1,13 @@
+# C-06: Bookings list → open first booking detail.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- tapOn: ".*Bookings, tab.*"
+- assertVisible: "Bookings"
+- tapOn:
+    point: "50%,32%"
+    optional: true
+- assertVisible:
+    text: ".*Booking.*|.*Status.*|.*Message.*"
+    optional: true

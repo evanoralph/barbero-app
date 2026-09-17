@@ -7,7 +7,7 @@
 # Relaunching without clearing state keeps the app talking to the same
 # bundler; if that leaves us logged in (persisted auth token), we sign out
 # by hand instead.
-appId: com.barbero.app
+appId: com.beruapp.ai
 ---
 - launchApp:
     clearState: false

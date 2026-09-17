@@ -22,6 +22,7 @@ type SessionState = {
   user: AuthMe | null;
   role: AppRole;
   signIn: (email: string, password: string) => Promise<LoginResponse>;
+  completeSignUp: (result: LoginResponse) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -122,6 +123,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, []);
 
+  const completeSignUp = useCallback(async (result: LoginResponse) => {
+    await saveToken(result.token);
+    setToken(result.token);
+    setApiTokenGetter(() => result.token);
+    setUser({
+      userId: result.userId,
+      email: result.email,
+      roles: result.roles,
+      expiresAt: result.expiresAt,
+    });
+    logger.info("session", "signed up", { roles: result.roles });
+    void registerPushToken(result.userId);
+  }, []);
+
   const signOut = useCallback(async () => {
     try {
       if (token) await apiLogout();
@@ -142,10 +157,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       role: user ? pickRole(user.roles) : "unknown",
       signIn,
+      completeSignUp,
       signOut,
       refresh,
     }),
-    [ready, token, user, signIn, signOut, refresh],
+    [ready, token, user, signIn, completeSignUp, signOut, refresh],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

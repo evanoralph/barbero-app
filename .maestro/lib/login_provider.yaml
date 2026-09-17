@@ -1,0 +1,13 @@
+# Log in as seed provider via __DEV__ quick-fill buttons.
+appId: com.beruapp.ai
+---
+- tapOn: "Provider"
+- tapOn:
+    text: "Sign in"
+    index: 1
+- extendedWaitUntil:
+    notVisible: "Dev quick fill"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Quick actions"
+    timeout: 20000

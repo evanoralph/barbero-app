@@ -1,6 +1,7 @@
 import { Redirect, Tabs } from "expo-router";
 import { CalendarDays, Home, Search, UserRound } from "lucide-react-native";
 import { useSession } from "@/src/auth/session";
+import { e2eTabBarButton } from "@/src/components/E2eTabBarButton";
 import { LoadingState } from "@/src/components/ui";
 import { TabIcon } from "@/src/components/TabIcon";
 import { colors } from "@/src/theme/colors";
@@ -66,6 +67,7 @@ export default function CustomerLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Home} color={color} focused={focused} name="customer.home" />
           ),
+          tabBarButton: e2eTabBarButton("tab-home"),
         }}
       />
       <Tabs.Screen
@@ -76,6 +78,7 @@ export default function CustomerLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Search} color={color} focused={focused} name="customer.search" />
           ),
+          tabBarButton: e2eTabBarButton("tab-explore"),
         }}
       />
       <Tabs.Screen
@@ -85,6 +88,7 @@ export default function CustomerLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={CalendarDays} color={color} focused={focused} name="customer.bookings" />
           ),
+          tabBarButton: e2eTabBarButton("tab-bookings"),
         }}
       />
       <Tabs.Screen
@@ -94,6 +98,7 @@ export default function CustomerLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={UserRound} color={color} focused={focused} name="customer.account" />
           ),
+          tabBarButton: e2eTabBarButton("tab-account"),
         }}
       />
       <Tabs.Screen

@@ -36,6 +36,8 @@ type Props = {
   peerAvatar?: string;
   /** Optional price override when provider services are loaded separately. */
   servicePrice?: number | null;
+  /** When false, hide Payment status card (online booking payments unavailable). */
+  showPayment?: boolean;
   error?: string | null;
   actions?: ReactNode;
 };
@@ -46,6 +48,7 @@ export function BookingDetailView({
   peerLabel,
   peerAvatar,
   servicePrice,
+  showPayment = true,
   error,
   actions,
 }: Props) {
@@ -67,6 +70,10 @@ export function BookingDetailView({
         : typeof service?.price === "number"
           ? service.price
           : null;
+
+  if (!showPayment) {
+    console.log("[BookingDetailView] payment card hidden", booking._id);
+  }
 
   return (
     <View style={styles.wrap}>
@@ -137,7 +144,7 @@ export function BookingDetailView({
         ) : null}
       </Card>
 
-      {booking.paymentStatus ? (
+      {showPayment && booking.paymentStatus ? (
         <Card>
           <MonoLabel>Payment</MonoLabel>
           <View style={styles.personRow}>

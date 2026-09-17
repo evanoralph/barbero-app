@@ -1,0 +1,8 @@
+# S-01: Cold start (logged out) — login screen with dev quick fill visible.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- assertVisible: "Sign in"
+- assertVisible: "Dev quick fill"
+- assertVisible: "Customer"
+- assertVisible: "Provider"

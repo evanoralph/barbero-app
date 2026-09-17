@@ -1,0 +1,24 @@
+# P-01, P-02, P-08: Provider tab navigation smoke.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_provider.yaml
+
+# P-01 Dashboard
+- assertVisible: "Quick actions"
+
+# P-02 Bookings
+- tapOn:
+    id: "tab-bookings"
+- assertVisible: "Bookings"
+
+# P-08 Profile (via Hours then Profile)
+- tapOn:
+    id: "tab-hours"
+- assertVisible: "Hours"
+- tapOn:
+    id: "tab-profile"
+- extendedWaitUntil:
+    visible: "Sign out"
+    timeout: 20000
+- assertVisible: "Profile"

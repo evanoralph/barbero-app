@@ -1,0 +1,20 @@
+# C-04: Provider profile → book flow screen opens.
+appId: com.beruapp.ai
+---
+- runFlow: ../../lib/ensure_logged_out.yaml
+- runFlow: ../../lib/login_customer.yaml
+- tapOn: ".*Explore, tab.*"
+- tapOn:
+    point: "50%,55%"
+    optional: true
+- scrollUntilVisible:
+    element: ".*Book with.*"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: ".*Book with.*"
+    optional: true
+- assertVisible: "Request booking"

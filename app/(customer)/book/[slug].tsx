@@ -24,14 +24,16 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as WebBrowser from "expo-web-browser";
-import checkmarkGold from "@/assets/lottie/checkmark-gold.json";
 import { createBooking } from "@/src/api/bookings";
-import { createCheckoutSession } from "@/src/api/payments";
+import { getLoyaltyCard } from "@/src/api/loyalty";
 import { ApiError } from "@/src/api/client";
+import {
+  bookingPaymentsAvailable,
+  fetchPublicAppConfig,
+} from "@/src/api/public-config";
 import { getProvider, getProviderSlots } from "@/src/api/providers";
 import { useSession } from "@/src/auth/session";
-import { LottieView } from "@/src/components/animated/LottieView";
+import { LoyaltyStampBanner } from "@/src/components/LoyaltyStampBanner";
 import {
   Button,
   ErrorState,
@@ -39,7 +41,7 @@ import {
   MonoLabel,
   Muted,
 } from "@/src/components/ui";
-import type { ProviderProfile, ProviderService } from "@/src/types/api";
+import type { LoyaltyCardView, ProviderProfile, ProviderService } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { logger } from "@/src/utils/logger";
@@ -150,7 +152,8 @@ export default function BookScreen() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
+  const [loyaltyCard, setLoyaltyCard] = useState<LoyaltyCardView | null>(null);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
 
   const draftDateValue = useMemo(() => parseISODate(draftDate), [draftDate]);
   const minDate = useMemo(() => parseISODate(todayISODate()), []);
@@ -165,8 +168,13 @@ export default function BookScreen() {
     logger.debug("book", "load provider", { slug, serviceId: preferredId });
     console.log("[book] load provider", slug);
     try {
-      const p = await getProvider(slug);
+      const [p, publicConfig] = await Promise.all([
+        getProvider(slug),
+        fetchPublicAppConfig(),
+      ]);
       setProvider(p);
+      setPaymentsEnabled(publicConfig?.paymentsEnabled === true);
+      console.log("[book] public config paymentsEnabled", publicConfig?.paymentsEnabled === true);
       const preselected = preferredId
         ? p.services.find((s) => s.id === preferredId)
         : undefined;
@@ -174,6 +182,7 @@ export default function BookScreen() {
       logger.debug("book", "provider loaded", {
         services: p.services.length,
         preselected: preselected?.id ?? null,
+        paymentsEnabled: publicConfig?.paymentsEnabled === true,
       });
       console.log("[book] provider loaded", p.services.length, "services");
     } catch (e) {
@@ -188,6 +197,32 @@ export default function BookScreen() {
   useEffect(() => {
     loadProvider();
   }, [loadProvider]);
+
+  useEffect(() => {
+    if (!user || !provider?._id || !provider.loyaltyProgram?.enabled) {
+      setLoyaltyCard(null);
+      return;
+    }
+    let cancelled = false;
+    getLoyaltyCard(provider._id)
+      .then((card) => {
+        if (cancelled) return;
+        setLoyaltyCard(card);
+        logger.debug("book", "loyalty card", {
+          stamps: card.stamps,
+          rewardReady: card.rewardReady,
+        });
+        console.log("[book] loyalty card", card.stamps, card.rewardReady);
+      })
+      .catch((e) => {
+        logger.warn("book", "loyalty card skipped", e);
+        console.log("[book] loyalty card skipped", e);
+        if (!cancelled) setLoyaltyCard(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, provider?._id, provider?.loyaltyProgram?.enabled]);
 
   useEffect(() => {
     if (!slug || !date) return;
@@ -318,36 +353,51 @@ export default function BookScreen() {
         startsAt: starts.toISOString(),
         endsAt: ends.toISOString(),
       });
-      logger.info("book", "created", { id: booking._id });
-      console.log("[book] created", booking._id);
-      setConfirmedBookingId(booking._id);
+      logger.info("book", "created", {
+        id: booking._id,
+        amount: booking.amount,
+        loyaltyRewardApplied: booking.loyaltyRewardApplied,
+      });
+      console.log("[book] created", booking._id, booking.amount);
+
+      // Skip the checkmark overlay — land on booking detail so status is visible.
+      // When payment is due, pass pay=1 so detail auto-opens PayMongo once.
+      const needsPayment =
+        bookingPaymentsAvailable({
+          paymentsEnabled,
+          paymentsDisabled: provider.paymentsDisabled,
+        }) &&
+        typeof booking.amount === "number" &&
+        booking.amount > 0;
+      if (needsPayment) {
+        logger.info("book", "redirect to booking detail with pay", { bookingId: booking._id });
+        console.log("[book] redirect to booking detail with pay", booking._id);
+        router.replace(`/(customer)/bookings/${booking._id}?pay=1`);
+      } else {
+        if (typeof booking.amount === "number" && booking.amount <= 0) {
+          logger.info("book", "skip checkout zero-amount loyalty booking", {
+            bookingId: booking._id,
+          });
+          console.log("[book] skip checkout zero-amount loyalty booking", booking._id);
+        } else {
+          logger.info("book", "redirect to booking detail (no pay)", {
+            bookingId: booking._id,
+            paymentsEnabled,
+            paymentsDisabled: provider.paymentsDisabled,
+          });
+          console.log("[book] redirect to booking detail (no pay)", booking._id, {
+            paymentsEnabled,
+            paymentsDisabled: provider.paymentsDisabled,
+          });
+        }
+        router.replace(`/(customer)/bookings/${booking._id}`);
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Booking failed");
       logger.warn("book", "create failed", e);
       console.log("[book] create failed", e);
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  // Runs after the success checkmark animation — booking creation and payment are
-  // one flow now, so we go straight into checkout instead of just landing on the
-  // booking detail screen. If checkout fails to start, the booking still exists as
-  // unpaid and the detail screen's own "Pay now" button covers that case.
-  const goToPayment = async (bookingId: string) => {
-    if (provider?.paymentsDisabled) {
-      router.replace(`/(customer)/bookings/${bookingId}`);
-      return;
-    }
-    try {
-      const session = await createCheckoutSession(bookingId);
-      logger.info("book", "checkout session created", { bookingId, checkoutSessionId: session.checkoutSessionId });
-      await WebBrowser.openBrowserAsync(session.checkoutUrl);
-    } catch (e) {
-      logger.warn("book", "checkout start failed", e);
-      console.log("[book] checkout start failed", e);
-    } finally {
-      router.replace(`/(customer)/bookings/${bookingId}`);
     }
   };
 
@@ -361,6 +411,18 @@ export default function BookScreen() {
     provider.location?.city,
     provider.rating ? provider.rating.toFixed(1) : null,
   ].filter(Boolean);
+
+  const loyaltyDiscountPercent =
+    loyaltyCard?.rewardReady && provider.loyaltyProgram?.enabled
+      ? loyaltyCard.rewardDiscountPercent
+      : 0;
+  const previewTotal =
+    service && loyaltyDiscountPercent > 0
+      ? Math.max(
+          0,
+          Math.round(service.price * (1 - loyaltyDiscountPercent / 100) * 100) / 100,
+        )
+      : service?.price ?? 0;
 
   return (
     <View style={styles.root}>
@@ -406,6 +468,12 @@ export default function BookScreen() {
             <Text style={styles.providerMeta}>{metaParts.join(" · ").toUpperCase()}</Text>
           </View>
         </View>
+
+        {provider.loyaltyProgram?.enabled ? (
+          <View style={{ marginBottom: 16 }}>
+            <LoyaltyStampBanner program={provider.loyaltyProgram} card={loyaltyCard} />
+          </View>
+        ) : null}
 
         <MonoLabel>Services</MonoLabel>
         {provider.services.length === 0 ? (
@@ -480,10 +548,14 @@ export default function BookScreen() {
       <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <View style={styles.stickyMeta}>
           <Text style={styles.stickyPrice}>
-            {service ? formatMoney(service.price) : "—"}
+            {service ? formatMoney(previewTotal) : "—"}
           </Text>
           <Text style={styles.stickyDuration}>
-            {service ? `${service.durationMinutes} MIN` : ""}
+            {service
+              ? loyaltyDiscountPercent > 0
+                ? `${service.durationMinutes} MIN · LOYALTY`
+                : `${service.durationMinutes} MIN`
+              : ""}
           </Text>
         </View>
         <Pressable
@@ -633,19 +705,6 @@ export default function BookScreen() {
               </View>
             </View>
           </View>
-        </View>
-      </Modal>
-
-      <Modal visible={Boolean(confirmedBookingId)} transparent animationType="fade">
-        <View style={styles.successOverlay}>
-          <LottieView
-            source={checkmarkGold}
-            loop={false}
-            style={styles.successLottie}
-            onAnimationFinish={() => {
-              if (confirmedBookingId) void goToPayment(confirmedBookingId);
-            }}
-          />
         </View>
       </Modal>
     </View>
@@ -913,11 +972,4 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   error: { color: colors.danger, fontSize: 14 },
-  successOverlay: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.bg,
-  },
-  successLottie: { width: 120, height: 120 },
 });
