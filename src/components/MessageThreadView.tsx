@@ -23,6 +23,7 @@ import type { Message } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { compressImageForUpload } from "@/src/utils/compressImage";
+import { isBookingChatOpen } from "@/src/utils/bookingDisplay";
 import { logger } from "@/src/utils/logger";
 import { isOwnMessageSeen, lastSeenOwnMessageId } from "@/src/utils/messagesSeen";
 
@@ -47,6 +48,7 @@ type Props = {
     uri: string;
     mimeType: string;
     caption?: string;
+    byteSize?: number;
   }) => void | Promise<void>;
   sending: boolean;
   error?: string | null;
@@ -127,6 +129,22 @@ export function MessageThreadView({
   const [pickingImage, setPickingImage] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const busy = sending || pickingImage;
+  const chatOpen = isBookingChatOpen(booking?.status);
+  const closedReason =
+    (booking?.status || "").toLowerCase() === "cancelled" ? "cancelled" : "completed";
+
+  useEffect(() => {
+    if (!chatOpen && booking?.status) {
+      console.log("[MessageThreadView] chat closed", {
+        threadId,
+        status: booking.status,
+      });
+      logger.info("MessageThreadView", "chat closed", {
+        threadId,
+        status: booking.status,
+      });
+    }
+  }, [chatOpen, booking?.status, threadId]);
 
   const seenOwnId = useMemo(
     () => lastSeenOwnMessageId(messages, userId, peerLastReadAt),
@@ -358,29 +376,32 @@ export function MessageThreadView({
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {peerTyping ? (
+      {peerTyping && chatOpen ? (
         <Text style={styles.typing}>
           {participantName ? `${participantName} is typing…` : "Typing…"}
         </Text>
       ) : null}
 
-      <View style={styles.chips}>
-        {QUICK_CHIPS.map((chip) => (
-          <Pressable
-            key={chip}
-            disabled={busy}
-            onPress={() => {
-              console.log("[MessageThreadView] quick chip", { threadId, chip });
-              logger.debug("MessageThreadView", "quick chip", { threadId, chip });
-              onSend(chip);
-            }}
-            style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-          >
-            <Text style={styles.chipText}>{chip}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {chatOpen ? (
+        <View style={styles.chips}>
+          {QUICK_CHIPS.map((chip) => (
+            <Pressable
+              key={chip}
+              disabled={busy}
+              onPress={() => {
+                console.log("[MessageThreadView] quick chip", { threadId, chip });
+                logger.debug("MessageThreadView", "quick chip", { threadId, chip });
+                onSend(chip);
+              }}
+              style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+            >
+              <Text style={styles.chipText}>{chip}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
+      {chatOpen ? (
       <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
         <Pressable
           hitSlop={8}
@@ -417,6 +438,7 @@ export function MessageThreadView({
                 uri: compressed.uri,
                 mimeType: compressed.mimeType,
                 caption,
+                byteSize: compressed.afterBytes,
               });
               if (caption) onChangeBody("");
             } catch (e) {
@@ -467,6 +489,15 @@ export function MessageThreadView({
           )}
         </Pressable>
       </View>
+      ) : (
+        <View style={[styles.closedBanner, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <Muted style={styles.closedText}>
+            {closedReason === "cancelled"
+              ? "Chat closed — this booking was cancelled."
+              : "Chat closed — this booking is completed."}
+          </Muted>
+        </View>
+      )}
 
       <Modal
         visible={Boolean(lightboxUrl)}
@@ -703,6 +734,17 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 16,
     paddingVertical: 6,
+  },
+  closedBanner: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  closedText: {
+    textAlign: "center",
+    fontSize: 13,
   },
   chip: {
     paddingVertical: 8,

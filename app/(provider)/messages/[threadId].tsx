@@ -278,6 +278,7 @@ export default function ProviderThreadScreen() {
     uri: string;
     mimeType: string;
     caption?: string;
+    byteSize?: number;
   }) => {
     if (!user) {
       console.log("[provider-messages] image send skipped — no session user", { threadId });
@@ -288,11 +289,19 @@ export default function ProviderThreadScreen() {
     setSending(true);
     setError(null);
     try {
-      console.log("[provider-messages] image upload start", { threadId, mimeType: input.mimeType });
-      logger.info("provider-messages", "image upload start", { threadId });
+      console.log("[provider-messages] image upload start", {
+        threadId,
+        mimeType: input.mimeType,
+        byteSize: input.byteSize,
+      });
+      logger.info("provider-messages", "image upload start", {
+        threadId,
+        byteSize: input.byteSize,
+      });
       const imageUrl = await uploadImageUriToS3(input.uri, "message-attachment", {
         mimeType: input.mimeType,
         threadId,
+        contentLength: input.byteSize,
       });
       const msg = await sendMessage({
         threadId,

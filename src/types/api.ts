@@ -139,6 +139,7 @@ export type ProviderApplyStartInput = {
   email: string;
   password: string;
   phone?: string;
+  turnstileToken?: string;
 };
 
 /** PATCH /providers/apply body. */
@@ -148,11 +149,15 @@ export type ProviderApplyUpdateInput = {
   bio?: string;
   location?: ProviderLocation;
   proofDocuments?: ProofDocument[];
+  governmentIdDocument?: ProofDocument;
+  selfieWithId?: ProofDocument;
 };
 
 /** POST /providers/apply/submit body. */
 export type ProviderApplySubmitInput = {
   proofDocuments: ProofDocument[];
+  governmentIdDocument: ProofDocument;
+  selfieWithId: ProofDocument;
 };
 
 export type ProviderProfile = ProviderListItem & {
@@ -440,6 +445,7 @@ export type ProviderAnalytics = {
 };
 
 export type SubscriptionPlansResponse = {
+  /** Sellable catalog is pro | premium only. Client filters out id === "free" if present. */
   plans: Array<{
     id: "free" | "pro" | "premium";
     name: string;
@@ -450,6 +456,7 @@ export type SubscriptionPlansResponse = {
     features: string[];
   }>;
   current: {
+    /** Internal "free" means locked (no active paid/trial subscription). */
     planId: "free" | "pro" | "premium";
     status: "active" | "cancelled" | "none";
     billingPeriod: "monthly" | "yearly";
@@ -457,6 +464,9 @@ export type SubscriptionPlansResponse = {
     expiresAt: string | null;
     isPremium: boolean;
     isFeatured: boolean;
+    source: "trial" | "paid" | null;
+    trialUsed: boolean;
+    isTrialing: boolean;
   };
 };
 

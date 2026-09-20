@@ -201,7 +201,7 @@ export default function ProviderBookingDetail() {
                 loading={acting}
               />
             ) : null}
-            {booking.status !== "cancelled" ? (
+            {booking.status === "pending" || booking.status === "confirmed" ? (
               <Button
                 label="Message customer"
                 variant="secondary"

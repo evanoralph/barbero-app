@@ -11,12 +11,14 @@ import {
   Text,
   View,
 } from "react-native";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listCategories } from "@/src/api/categories";
 import { getMyProvider, listMyServices, updateMyProvider } from "@/src/api/providers";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { EmptyServicesIllustration } from "@/src/components/illustrations/EmptyServicesIllustration";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import {
   Button,
   Chip,
@@ -36,15 +38,22 @@ import { logger } from "@/src/utils/logger";
 type FormMode = "closed" | "add" | "edit";
 const PAGE_SIZE = 10;
 
+/** Hard paywall: no paid/trial entitlements → edits blocked (not a Free 3-item cap). */
+function isProfileLocked(profile: ProviderProfile | null): boolean {
+  if (!profile) return true;
+  return !profile.isPremium && !profile.isFeatured;
+}
+
 function maxVisibleServices(profile: ProviderProfile | null): number | null {
-  if (!profile) return 3;
+  if (!profile || isProfileLocked(profile)) return 0;
   if (profile.isFeatured) return null;
   if (profile.isPremium) return 50;
-  return 3;
+  return 0;
 }
 
 export default function ProviderServicesScreen() {
   const insets = useSafeAreaInsets();
+  const hidePlans = useProviderOnboardingHome();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +97,11 @@ export default function ProviderServicesScreen() {
   }, [seedCategory]);
 
   const openAdd = () => {
+    if (isProfileLocked(profile)) {
+      logger.info("provider-services", "blocked add — locked");
+      console.log("[provider-services] locked — block add");
+      return;
+    }
     setEditingId(null);
     setName("");
     setDescription("");
@@ -102,6 +116,11 @@ export default function ProviderServicesScreen() {
   };
 
   const openEdit = (s: ProviderService) => {
+    if (isProfileLocked(profile)) {
+      logger.info("provider-services", "blocked edit — locked", { id: s.id });
+      console.log("[provider-services] locked — block edit", s.id);
+      return;
+    }
     setEditingId(s.id);
     setName(s.name);
     setDescription(s.description);
@@ -139,11 +158,20 @@ export default function ProviderServicesScreen() {
       setTotal(paged.total);
       setPage(paged.page);
       setCategories(cats);
+      const locked = isProfileLocked(me);
       logger.info("provider-services", "loaded", {
         services: paged.items.length,
         total: paged.total,
         page: paged.page,
         categories: cats.length,
+        locked,
+        isPremium: me.isPremium,
+        isFeatured: me.isFeatured,
+      });
+      console.log("[provider-services] loaded", {
+        locked,
+        isPremium: me.isPremium,
+        isFeatured: me.isFeatured,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load services";
@@ -241,6 +269,11 @@ export default function ProviderServicesScreen() {
   };
 
   const remove = (s: ProviderService) => {
+    if (isProfileLocked(profile)) {
+      logger.info("provider-services", "blocked remove — locked", { id: s.id });
+      console.log("[provider-services] locked — block remove", s.id);
+      return;
+    }
     Alert.alert("Remove service", `Remove “${s.name}”?`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -272,6 +305,12 @@ export default function ProviderServicesScreen() {
 
   const toggleVisibility = async (s: ProviderService) => {
     if (!profile) return;
+    if (isProfileLocked(profile)) {
+      logger.info("provider-services", "blocked visibility — locked", { id: s.id });
+      console.log("[provider-services] locked — block visibility", s.id);
+      setError("Subscribe to Pro or Premium to manage services.");
+      return;
+    }
     const max = maxVisibleServices(profile);
     const makeVisible = s.isVisible === false;
     const currentlyVisible = (profile.services ?? [])
@@ -307,6 +346,7 @@ export default function ProviderServicesScreen() {
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
 
   const modalVisible = formMode !== "closed";
+  const locked = isProfileLocked(profile);
 
   return (
     <>
@@ -318,8 +358,29 @@ export default function ProviderServicesScreen() {
               {services.length} of {total} shown
             </Muted>
           </View>
-          <Button label="Add" onPress={openAdd} />
+          {!locked ? <Button label="Add" onPress={openAdd} /> : null}
         </View>
+
+        {locked ? (
+          <View style={styles.paywallBox}>
+            <Text style={styles.paywallTitle}>Subscribe to continue</Text>
+            <Muted>
+              {hidePlans
+                ? "Service edits require an active plan. Plans will be available soon."
+                : "Service edits require an active Pro or Premium plan."}
+            </Muted>
+            {!hidePlans ? (
+              <Button
+                label="View plans"
+                onPress={() => {
+                  logger.info("provider-services", "paywall → subscription");
+                  console.log("[provider-services] paywall CTA → subscription");
+                  router.push("/(provider)/subscription");
+                }}
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         <Field
           label="Search"
@@ -366,7 +427,16 @@ export default function ProviderServicesScreen() {
           <View style={styles.emptyBox}>
             <EmptyServicesIllustration />
             <Muted>No services yet.</Muted>
-            <Button label="Add your first service" onPress={openAdd} />
+            {!locked ? (
+              <Button label="Add your first service" onPress={openAdd} />
+            ) : !hidePlans ? (
+              <Button
+                label="Subscribe to add services"
+                onPress={() => router.push("/(provider)/subscription")}
+              />
+            ) : (
+              <Muted>Plans will be available soon.</Muted>
+            )}
           </View>
         ) : services.length === 0 ? (
           <View style={styles.emptyBox}>
@@ -406,33 +476,35 @@ export default function ProviderServicesScreen() {
                     </Text>
                   ) : null}
                 </View>
-                <View style={styles.rowActions}>
-                  <Pressable
-                    onPress={() => void toggleVisibility(s)}
-                    hitSlop={8}
-                    style={styles.actionBtn}
-                    disabled={saving}
-                  >
-                    <Text style={styles.actionEdit}>
-                      {s.isVisible === false ? "Show" : "Hide"}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => openEdit(s)}
-                    hitSlop={8}
-                    style={styles.actionBtn}
-                  >
-                    <Text style={styles.actionEdit}>Edit</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => remove(s)}
-                    hitSlop={8}
-                    style={styles.actionBtn}
-                    disabled={saving}
-                  >
-                    <Text style={styles.actionRemove}>Remove</Text>
-                  </Pressable>
-                </View>
+                {!locked ? (
+                  <View style={styles.rowActions}>
+                    <Pressable
+                      onPress={() => void toggleVisibility(s)}
+                      hitSlop={8}
+                      style={styles.actionBtn}
+                      disabled={saving}
+                    >
+                      <Text style={styles.actionEdit}>
+                        {s.isVisible === false ? "Show" : "Hide"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => openEdit(s)}
+                      hitSlop={8}
+                      style={styles.actionBtn}
+                    >
+                      <Text style={styles.actionEdit}>Edit</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => remove(s)}
+                      hitSlop={8}
+                      style={styles.actionBtn}
+                      disabled={saving}
+                    >
+                      <Text style={styles.actionRemove}>Remove</Text>
+                    </Pressable>
+                  </View>
+                ) : null}
               </AnimatedPressable>
             ))}
           </View>
@@ -576,6 +648,19 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 24,
     alignItems: "flex-start",
+  },
+  paywallBox: {
+    gap: 8,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: 14,
+    backgroundColor: colors.bg,
+  },
+  paywallTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
   },
   pageRow: {
     marginTop: 12,

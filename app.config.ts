@@ -78,7 +78,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         },
       },
     ],
+    // Xcode 27 / iOS 27 requires UIScene; Expo SDK 57.0.x template still uses AppDelegate window.
+    // Remove once Expo prebuild ships SceneDelegate by default.
+    "./plugins/withIosSceneLifecycle",
   ];
+
+  console.log("[app.config] UIScene lifecycle plugin enabled (Xcode 27 backport)");
 
   if (production) {
     plugins.push([

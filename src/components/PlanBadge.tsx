@@ -12,19 +12,24 @@ type PlanBadgeProps = {
 };
 
 const PLAN_LABELS: Record<PlanId, string> = {
-  free: "FREE",
+  // Internal "free" = locked / no active subscription (not a sellable Free plan)
+  free: "NO PLAN",
   pro: "PRO",
   premium: "PREMIUM",
 };
 
-export function planBadgeLabel(planId: PlanId): string {
-  return PLAN_LABELS[planId] ?? "FREE";
+export function planBadgeLabel(planId: PlanId, status?: SubscriptionStatus): string {
+  if (planId === "free") {
+    return status === "cancelled" ? "EXPIRED" : "NO PLAN";
+  }
+  return PLAN_LABELS[planId] ?? "NO PLAN";
 }
 
 export function PlanBadge({ planId, size = "md", status }: PlanBadgeProps) {
-  const label = planBadgeLabel(planId);
+  const label = planBadgeLabel(planId, status);
   const isSmall = size === "sm";
   const isCancelled = status === "cancelled";
+  const isLocked = planId === "free";
 
   return (
     <View style={{ gap: 4 }}>
@@ -32,20 +37,20 @@ export function PlanBadge({ planId, size = "md", status }: PlanBadgeProps) {
         style={[
           styles.base,
           isSmall ? styles.sm : styles.md,
-          planId === "free" && styles.free,
+          isLocked && styles.free,
           planId === "pro" && styles.pro,
           planId === "premium" && styles.premium,
-          isCancelled && styles.cancelled,
+          (isCancelled || isLocked) && styles.cancelled,
         ]}
       >
         <Text
           style={[
             styles.text,
             isSmall ? styles.textSm : styles.textMd,
-            planId === "free" && styles.textFree,
+            isLocked && styles.textFree,
             planId === "pro" && styles.textPro,
             planId === "premium" && styles.textPremium,
-            isCancelled && styles.textCancelled,
+            (isCancelled || isLocked) && styles.textCancelled,
           ]}
         >
           {label}
@@ -53,7 +58,15 @@ export function PlanBadge({ planId, size = "md", status }: PlanBadgeProps) {
       </View>
       {status ? (
         <Text style={[styles.status, isSmall && styles.statusSm]}>
-          {status === "active" ? "Active" : status === "cancelled" ? "Cancelled" : "No plan"}
+          {isLocked
+            ? status === "cancelled"
+              ? "Expired"
+              : "Subscribe to continue"
+            : status === "active"
+              ? "Active"
+              : status === "cancelled"
+                ? "Cancelled"
+                : "No plan"}
         </Text>
       ) : null}
     </View>

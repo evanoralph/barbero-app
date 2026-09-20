@@ -9,7 +9,10 @@ import type {
 import { logger } from "@/src/utils/logger";
 
 export function startProviderApply(input: ProviderApplyStartInput) {
-  logger.info("provider-apply-api", "start", { email: input.email });
+  logger.info("provider-apply-api", "start", {
+    email: input.email,
+    turnstile: Boolean(input.turnstileToken),
+  });
   return apiRequest<LoginResponse>("/providers/apply/start", {
     method: "POST",
     auth: false,
@@ -41,7 +44,11 @@ export function resendProviderApplyEmailCode() {
 }
 
 export function submitProviderApply(input: ProviderApplySubmitInput) {
-  logger.info("provider-apply-api", "submit", input.proofDocuments.length);
+  logger.info("provider-apply-api", "submit", {
+    proofs: input.proofDocuments.length,
+    hasGovId: Boolean(input.governmentIdDocument?.url),
+    hasSelfie: Boolean(input.selfieWithId?.url),
+  });
   return apiRequest<ProviderProfile>("/providers/apply/submit", {
     method: "POST",
     body: input,

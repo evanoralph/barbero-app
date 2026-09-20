@@ -15,6 +15,7 @@ import {
   Title,
 } from "@/src/components/ui";
 import { ImageUploadField } from "@/src/components/ImageUploadField";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import type {
   ProviderProfile,
   ProviderPromotion,
@@ -36,6 +37,7 @@ function parseOptionalCoord(raw: string): number | undefined | "invalid" {
 
 export default function ProviderProfileScreen() {
   const { signOut } = useSession();
+  const hidePlans = useProviderOnboardingHome();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [bio, setBio] = useState("");
   const [responseTime, setResponseTime] = useState("");
@@ -437,11 +439,17 @@ export default function ProviderProfileScreen() {
         }}
       />
 
-      <Button
-        label="Subscription plan"
-        variant="secondary"
-        onPress={() => router.push("/(provider)/subscription")}
-      />
+      {!hidePlans ? (
+        <Button
+          label="Subscription plan"
+          variant="secondary"
+          onPress={() => {
+            logger.info("provider-profile", "open subscription");
+            console.log("[provider-profile] open subscription");
+            router.push("/(provider)/subscription");
+          }}
+        />
+      ) : null}
       <Button
         label="Sign out"
         variant="danger"

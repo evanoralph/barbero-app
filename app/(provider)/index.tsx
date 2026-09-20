@@ -13,6 +13,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { getMyAnalytics, getMyProvider, getProviderReviews } from "@/src/api/providers";
 import { getMySubscription } from "@/src/api/subscription";
 import { PlanBadge, type PlanId } from "@/src/components/PlanBadge";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import {
   Button,
   Card,
@@ -37,6 +38,10 @@ import { formatBookingTime } from "@/src/utils/bookingDisplay";
 import { RevenueBarChart } from "@/src/components/RevenueBarChart";
 import { getProfileCompleteness } from "@/src/utils/profileCompleteness";
 import { logger } from "@/src/utils/logger";
+import {
+  formatSubscriptionDate,
+  trialDaysLeft,
+} from "@/src/utils/subscriptionDisplay";
 
 const RANGES: Array<{ id: ProviderAnalyticsRange; label: string }> = [
   { id: "7days", label: "7d" },
@@ -116,14 +121,33 @@ function warnMissingAnalyticsFields(data: ProviderAnalytics) {
 }
 
 export default function ProviderDashboard() {
+  const hidePlans = useProviderOnboardingHome();
   const [range, setRange] = useState<ProviderAnalyticsRange>("30days");
   const [analytics, setAnalytics] = useState<ProviderAnalytics | null>(null);
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [planId, setPlanId] = useState<PlanId>("free");
+  const [isTrialing, setIsTrialing] = useState(false);
+  const [trialUsed, setTrialUsed] = useState(false);
+  const [trialExpiresAt, setTrialExpiresAt] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const quickActions = useMemo(
+    () =>
+      hidePlans
+        ? QUICK_ACTIONS.filter((a) => a.id !== "plan")
+        : QUICK_ACTIONS,
+    [hidePlans],
+  );
+
+  useEffect(() => {
+    if (hidePlans) {
+      logger.info("provider-dashboard", "plans hidden (providerOnboardingHome)");
+      console.log("[provider-dashboard] plans hidden — providerOnboardingHome on");
+    }
+  }, [hidePlans]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -154,7 +178,12 @@ export default function ProviderDashboard() {
         profileCompleteness: completeness.percent,
         missing: completeness.missing.map((m) => m.id),
         planId: subscription?.current?.planId ?? "free",
+        isTrialing: Boolean(subscription?.current?.isTrialing),
+        trialUsed: Boolean(subscription?.current?.trialUsed),
       });
+      setIsTrialing(Boolean(subscription?.current?.isTrialing));
+      setTrialUsed(Boolean(subscription?.current?.trialUsed));
+      setTrialExpiresAt(subscription?.current?.expiresAt ?? null);
       console.log("[provider-dashboard] loaded", {
         bookings: data.bookingsThisMonth,
         upcoming: data.upcomingBookings,
@@ -233,8 +262,56 @@ export default function ProviderDashboard() {
           <Title style={styles.title}>{profile?.name || "Dashboard"}</Title>
           <Muted>{RANGE_LABELS[range]} overview</Muted>
         </View>
-        {planId !== "free" ? <PlanBadge planId={planId} size="sm" /> : null}
+        <PlanBadge
+          planId={planId}
+          size="sm"
+          status={planId === "free" && !isTrialing ? "none" : undefined}
+        />
       </View>
+
+      {hidePlans ? null : isTrialing ? (
+        <Pressable
+          style={styles.trialBanner}
+          onPress={() => {
+            logger.info("provider-dashboard", "trial banner → subscription");
+            console.log("[provider-dashboard] trial banner open subscription");
+            router.push("/(provider)/subscription");
+          }}
+        >
+          <Text style={styles.trialBannerTitle}>
+            Pro trial
+            {trialDaysLeft(trialExpiresAt) != null
+              ? ` — ${trialDaysLeft(trialExpiresAt)} day${
+                  trialDaysLeft(trialExpiresAt) === 1 ? "" : "s"
+                } left`
+              : ""}
+          </Text>
+          <Muted style={styles.trialBannerHint}>
+            Ends {formatSubscriptionDate(trialExpiresAt)}. Tap to subscribe to Pro or Premium.
+          </Muted>
+        </Pressable>
+      ) : null}
+
+      {hidePlans ? null : planId === "free" && !isTrialing ? (
+        <Pressable
+          style={styles.renewBanner}
+          onPress={() => {
+            logger.info("provider-dashboard", "paywall banner → subscription");
+            console.log("[provider-dashboard] paywall banner open subscription", {
+              trialUsed,
+              planId,
+            });
+            router.push("/(provider)/subscription");
+          }}
+        >
+          <Text style={styles.renewBannerTitle}>
+            {trialUsed ? "Your Pro trial ended" : "Subscription required"}
+          </Text>
+          <Muted style={styles.trialBannerHint}>
+            Subscribe to Pro or Premium to continue.
+          </Muted>
+        </Pressable>
+      ) : null}
 
       <ScrollView
         horizontal
@@ -309,7 +386,7 @@ export default function ProviderDashboard() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.actionsRow}
       >
-        {QUICK_ACTIONS.map((action) => {
+        {quickActions.map((action) => {
           const Icon = action.icon;
           return (
             <Pressable
@@ -510,6 +587,33 @@ const styles = StyleSheet.create({
   title: { fontSize: 28 },
   rangeRow: { gap: 8, paddingVertical: 2 },
   error: { color: colors.danger, fontSize: 14 },
+  trialBanner: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 14,
+    padding: 14,
+    gap: 4,
+    backgroundColor: colors.surfaceAlt,
+  },
+  renewBanner: {
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: 14,
+    padding: 14,
+    gap: 4,
+    backgroundColor: colors.bg,
+  },
+  trialBannerTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontFamily: fonts.serifMedium,
+  },
+  renewBannerTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontFamily: fonts.serifMedium,
+  },
+  trialBannerHint: { fontSize: 12 },
   completeness: {
     borderWidth: 1,
     borderColor: colors.border,

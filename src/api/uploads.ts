@@ -7,6 +7,8 @@ export type UploadKind =
   | "provider-portfolio"
   | "provider-service"
   | "provider-proof"
+  | "provider-gov-id"
+  | "provider-selfie"
   | "message-attachment";
 
 export type PresignUploadResponse = {
@@ -21,6 +23,7 @@ export async function requestPresignedUpload(input: {
   fileName?: string;
   serviceId?: string;
   threadId?: string;
+  contentLength?: number;
 }): Promise<PresignUploadResponse> {
   logger.info("uploads", "request presign", input);
   return apiRequest<PresignUploadResponse>("/uploads/presign", {
@@ -47,7 +50,12 @@ function fileNameFromUri(uri: string): string {
 export async function uploadImageUriToS3(
   uri: string,
   kind: UploadKind,
-  opts?: { mimeType?: string | null; serviceId?: string; threadId?: string },
+  opts?: {
+    mimeType?: string | null;
+    serviceId?: string;
+    threadId?: string;
+    contentLength?: number;
+  },
 ): Promise<string> {
   const contentType = guessContentType(uri, opts?.mimeType);
   const fileName = fileNameFromUri(uri);
@@ -57,8 +65,24 @@ export async function uploadImageUriToS3(
     contentType,
     fileName,
     threadId: opts?.threadId,
+    contentLength: opts?.contentLength,
   });
-  console.log("[uploads] upload start", { kind, contentType, threadId: opts?.threadId });
+  console.log("[uploads] upload start", {
+    kind,
+    contentType,
+    threadId: opts?.threadId,
+    contentLength: opts?.contentLength,
+  });
+
+  const fileRes = await fetch(uri);
+  const blob = await fileRes.blob();
+  const contentLength = opts?.contentLength ?? blob.size;
+
+  if (kind === "message-attachment" && contentLength > 1 * 1024 * 1024) {
+    console.log("[uploads] reject oversize chat image", { contentLength });
+    logger.warn("uploads", "reject oversize chat image", { contentLength });
+    throw new Error("Photo must be under 1MB. Try a smaller or less detailed image.");
+  }
 
   const presigned = await requestPresignedUpload({
     kind,
@@ -66,10 +90,8 @@ export async function uploadImageUriToS3(
     fileName,
     serviceId: opts?.serviceId,
     threadId: opts?.threadId,
+    contentLength,
   });
-
-  const fileRes = await fetch(uri);
-  const blob = await fileRes.blob();
 
   const putRes = await fetch(presigned.uploadUrl, {
     method: "PUT",

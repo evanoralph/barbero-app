@@ -162,7 +162,7 @@ export default function CustomerBookingDetail() {
   if (!booking) return <ErrorState message="Not found" />;
 
   const canCancel = booking.status === "pending" || booking.status === "confirmed";
-  const canMessage = booking.status !== "cancelled";
+  const canMessage = booking.status === "pending" || booking.status === "confirmed";
   const showPaymentUi = bookingPaymentsAvailable({
     paymentsEnabled,
     paymentsDisabled: provider?.paymentsDisabled,

@@ -47,6 +47,13 @@ export function bookingStatusLabel(status: BookingStatus): string {
   }
 }
 
+/** Chat is only open while the booking is still active. Unknown status stays open. */
+export function isBookingChatOpen(status?: string | null): boolean {
+  const s = (status || "").trim().toLowerCase();
+  if (!s) return true;
+  return s === "pending" || s === "confirmed";
+}
+
 export function bookingStatusColor(status: BookingStatus): string {
   switch (status) {
     case "pending":

@@ -541,10 +541,7 @@ export default function ProviderBookingsScreen() {
               const price = priceForBooking(b, priceByService);
               const pending = b.status === "pending";
               const confirmed = b.status === "confirmed";
-              const canMessage =
-                b.status === "confirmed" ||
-                b.status === "pending" ||
-                b.status === "completed";
+              const canMessage = b.status === "confirmed" || b.status === "pending";
               const acting = actingId === b._id;
 
               return (
@@ -584,13 +581,13 @@ export default function ProviderBookingsScreen() {
                       </View>
                       {pending ? (
                         <Text style={styles.pendingLabel}>PENDING</Text>
-                      ) : !canMessage || (!confirmed && b.status !== "completed") ? (
+                      ) : !canMessage ? (
                         <Text style={styles.pastStatus}>{b.status.toUpperCase()}</Text>
                       ) : (
                         <View style={styles.confirmedDot} />
                       )}
                     </Pressable>
-                    {canMessage && (confirmed || b.status === "completed") ? (
+                    {canMessage ? (
                       <Pressable
                         hitSlop={8}
                         accessibilityLabel="Message customer"

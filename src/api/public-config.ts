@@ -9,6 +9,12 @@ export type PublicAppConfig = {
   privacyUrl: string;
   termsUrl: string;
   supportEmail: string;
+  turnstileSiteKey: string | null;
+  providerOnboardingHome: boolean;
+  providerHomeHeadline: string;
+  providerHomeSubtext: string;
+  providerHomePrimaryCta: string;
+  providerHomeSecondaryCta: string;
 };
 
 /** True when platform online payments are on and this provider allows booking checkout. */
@@ -36,6 +42,8 @@ export async function fetchPublicAppConfig(): Promise<PublicAppConfig | null> {
     logger.info("config", "public app config loaded", {
       inviteOnly: config.inviteOnly,
       paymentsEnabled: config.paymentsEnabled,
+      providerOnboardingHome: config.providerOnboardingHome,
+      turnstile: Boolean(config.turnstileSiteKey),
     });
     return config;
   } catch (error) {

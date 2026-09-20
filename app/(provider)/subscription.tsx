@@ -4,11 +4,9 @@ import { Text, View } from "react-native";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { router, useLocalSearchParams } from "expo-router";
-import { getMySubscription, getMySubscriptionPayments, updateMySubscription } from "@/src/api/subscription";
+import { getMySubscription, getMySubscriptionPayments } from "@/src/api/subscription";
 import { createSubscriptionCheckoutSession } from "@/src/api/payments";
-import { getMyProvider } from "@/src/api/providers";
 import { PlanBadge } from "@/src/components/PlanBadge";
-import { DowngradeVisibilityModal } from "@/src/components/DowngradeVisibilityModal";
 import { SubscriptionPaymentCard } from "@/src/components/SubscriptionPaymentCard";
 import {
   Button,
@@ -21,20 +19,23 @@ import {
   Title,
 } from "@/src/components/ui";
 import type {
-  PortfolioItem,
-  ProviderService,
   SubscriptionPayment,
   SubscriptionPlansResponse,
 } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
-import { formatSubscriptionDate, planNameForPayment } from "@/src/utils/subscriptionDisplay";
+import {
+  formatSubscriptionDate,
+  isSubscriptionLocked,
+  needsProRenewal,
+  planNameForPayment,
+  subscriptionStatusLabel,
+  trialDaysLeft,
+} from "@/src/utils/subscriptionDisplay";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 
 type BillingPeriod = "monthly" | "yearly";
-type PlanId = "free" | "pro" | "premium";
-
-const FREE_MAX_PORTFOLIO = 3;
-const FREE_MAX_SERVICES = 3;
+type SellablePlanId = "pro" | "premium";
 
 const DEFAULT_CURRENT: SubscriptionPlansResponse["current"] = {
   planId: "free",
@@ -44,6 +45,9 @@ const DEFAULT_CURRENT: SubscriptionPlansResponse["current"] = {
   expiresAt: null,
   isPremium: false,
   isFeatured: false,
+  source: null,
+  trialUsed: false,
+  isTrialing: false,
 };
 
 /** Use plan yearlyPrice from API when available; fallback to 10× monthly. */
@@ -66,7 +70,7 @@ function normalizeSubscriptionResponse(raw: unknown): SubscriptionPlansResponse 
     ...(obj.current && typeof obj.current === "object" ? obj.current : {}),
   };
   if (!obj.current) {
-    logger.warn("subscription", "API missing current; using free defaults", {
+    logger.warn("subscription", "API missing current; using locked defaults", {
       planCount: plans.length,
       keys: Object.keys(obj),
     });
@@ -93,20 +97,25 @@ export default function SubscriptionScreen() {
     ? params.subscription[0]
     : params.subscription;
   const handledReturnRef = useRef<string | null>(null);
+  const hidePlans = useProviderOnboardingHome();
 
   const [data, setData] = useState<SubscriptionPlansResponse | null>(null);
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
   const [paymentsError, setPaymentsError] = useState<string | null>(null);
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [loading, setLoading] = useState(true);
-  const [actingPlanId, setActingPlanId] = useState<PlanId | null>(null);
+  const [actingPlanId, setActingPlanId] = useState<SellablePlanId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [downgradeOpen, setDowngradeOpen] = useState(false);
-  const [downgradeConfirming, setDowngradeConfirming] = useState(false);
-  const [downgradePortfolio, setDowngradePortfolio] = useState<PortfolioItem[]>([]);
-  const [downgradeServices, setDowngradeServices] = useState<ProviderService[]>([]);
+
+  // Provider-onboarding mode: plans not in use yet — bounce away.
+  useEffect(() => {
+    if (!hidePlans) return;
+    logger.info("subscription", "providerOnboardingHome on — redirecting away from plans");
+    console.log("[subscription] providerOnboardingHome on — redirect away");
+    router.replace("/(provider)");
+  }, [hidePlans]);
 
   const load = useCallback(async (): Promise<SubscriptionPlansResponse | null> => {
     setError(null);
@@ -127,6 +136,7 @@ export default function SubscriptionScreen() {
       setData(next);
       setPayments(paymentRows);
       setPeriod(next.current.billingPeriod || "monthly");
+      const locked = isSubscriptionLocked(next.current);
       logger.info("subscription", "loaded", {
         planId: next.current.planId,
         status: next.current.status,
@@ -134,8 +144,18 @@ export default function SubscriptionScreen() {
         expiresAt: next.current.expiresAt,
         isPremium: next.current.isPremium,
         isFeatured: next.current.isFeatured,
+        isTrialing: next.current.isTrialing,
+        trialUsed: next.current.trialUsed,
+        locked,
+        source: next.current.source,
         planCount: next.plans.length,
         paymentCount: paymentRows.length,
+      });
+      console.log("[subscription] loaded", {
+        planId: next.current.planId,
+        locked,
+        isTrialing: next.current.isTrialing,
+        trialUsed: next.current.trialUsed,
       });
       return next;
     } catch (e) {
@@ -151,6 +171,7 @@ export default function SubscriptionScreen() {
   const pollAfterPayment = useCallback(async () => {
     setOk("Payment received — updating your plan…");
     logger.info("subscription", "checkout success — polling plan");
+    console.log("[subscription] checkout poll start");
     for (let attempt = 1; attempt <= 8; attempt += 1) {
       const next = await load();
       if (next && next.current.planId !== "free" && next.current.status === "active") {
@@ -163,6 +184,10 @@ export default function SubscriptionScreen() {
           planId: next.current.planId,
           status: next.current.status,
         });
+        console.log("[subscription] checkout poll complete", {
+          attempt,
+          planId: next.current.planId,
+        });
         return;
       }
       logger.debug("subscription", "poll waiting for webhook", { attempt });
@@ -172,6 +197,7 @@ export default function SubscriptionScreen() {
     }
     setOk("Payment received. Your plan may take a moment to update — pull to refresh.");
     logger.info("subscription", "poll ended without active paid plan");
+    console.log("[subscription] checkout poll ended without active plan");
   }, [load]);
 
   const handleCheckoutReturn = useCallback(
@@ -182,6 +208,7 @@ export default function SubscriptionScreen() {
       }
       handledReturnRef.current = status;
       logger.info("subscription", "checkout return", { status, source });
+      console.log("[subscription] checkout return", { status, source });
       if (status === "cancelled") {
         setOk(null);
         setError("Checkout cancelled. You can try again anytime.");
@@ -204,43 +231,13 @@ export default function SubscriptionScreen() {
     }
   }, [subscriptionParam, handleCheckoutReturn]);
 
-  const choose = async (planId: PlanId) => {
+  const choose = async (planId: SellablePlanId) => {
     setActingPlanId(planId);
     setError(null);
     setOk(null);
     logger.info("subscription", "select plan", { planId, billingPeriod: period });
+    console.log("[subscription] checkout start", { planId, billingPeriod: period });
     try {
-      if (planId === "free") {
-        const me = await getMyProvider();
-        const portfolio = me.portfolio ?? [];
-        const services = me.services ?? [];
-        const overLimit =
-          portfolio.length > FREE_MAX_PORTFOLIO || services.length > FREE_MAX_SERVICES;
-        if (overLimit) {
-          logger.info("subscription", "open downgrade picker", {
-            portfolio: portfolio.length,
-            services: services.length,
-          });
-          setDowngradePortfolio(portfolio);
-          setDowngradeServices(services);
-          setDowngradeOpen(true);
-          setActingPlanId(null);
-          return;
-        }
-        const result = await updateMySubscription({ planId, billingPeriod: period });
-        const subscription = result?.subscription ?? DEFAULT_CURRENT;
-        setOk("Switched to free");
-        logger.info("subscription", "updated", {
-          planId: subscription.planId,
-          billingPeriod: subscription.billingPeriod,
-          expiresAt: subscription.expiresAt,
-          isPremium: subscription.isPremium,
-          isFeatured: subscription.isFeatured,
-        });
-        await load();
-        return;
-      }
-
       const session = await createSubscriptionCheckoutSession({
         planId,
         billingPeriod: period,
@@ -255,12 +252,17 @@ export default function SubscriptionScreen() {
         client: "mobile",
         redirectUrl,
       });
+      console.log("[subscription] checkout session created", {
+        planId,
+        checkoutSessionId: session.checkoutSessionId,
+      });
 
       const result = await WebBrowser.openAuthSessionAsync(session.checkoutUrl, redirectUrl);
       logger.info("subscription", "auth session result", {
         type: result.type,
         url: result.type === "success" ? result.url : undefined,
       });
+      console.log("[subscription] auth session result", { type: result.type });
 
       if (result.type === "success") {
         const status = subscriptionStatusFromUrl(result.url) ?? "success";
@@ -274,18 +276,30 @@ export default function SubscriptionScreen() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Update failed");
       logger.error("subscription", "update failed", e);
+      console.log("[subscription] checkout failed", e);
     } finally {
       setActingPlanId(null);
     }
   };
 
+  if (hidePlans) return <LoadingState />;
   if (loading) return <LoadingState />;
   if (error && !data) return <ErrorState message={error} onRetry={load} />;
   if (!data) return <ErrorState message="No plans" />;
 
   const current = data.current ?? DEFAULT_CURRENT;
-  const plans = Array.isArray(data.plans) ? data.plans : [];
+  const locked = isSubscriptionLocked(current);
+  const sellablePlans = (Array.isArray(data.plans) ? data.plans : []).filter(
+    (plan) => plan.id === "pro" || plan.id === "premium",
+  );
   const paymentPreview = payments.slice(0, 3);
+
+  if (locked) {
+    console.log("[subscription] paywall locked", {
+      trialUsed: current.trialUsed,
+      status: current.status,
+    });
+  }
 
   return (
     <Screen
@@ -302,16 +316,53 @@ export default function SubscriptionScreen() {
           planId={current.planId || "free"}
           status={current.status || "none"}
         />
+        {current.isTrialing ? (
+          <Text style={{ color: colors.accent, fontWeight: "600", marginTop: 8 }}>
+            Pro trial
+            {trialDaysLeft(current.expiresAt) != null
+              ? ` — ${trialDaysLeft(current.expiresAt)} day${
+                  trialDaysLeft(current.expiresAt) === 1 ? "" : "s"
+                } left`
+              : ""}
+          </Text>
+        ) : null}
+        {locked ? (
+          <Text style={{ color: colors.warning, fontWeight: "600", marginTop: 8 }}>
+            {current.trialUsed
+              ? "Your Pro trial has ended. Subscribe to Pro or Premium to continue."
+              : "Subscribe to Pro or Premium to continue."}
+          </Text>
+        ) : null}
+        <Muted>
+          Status: {subscriptionStatusLabel(current)}
+          {current.isFeatured ? " · Featured listing" : ""}
+        </Muted>
         <Muted>
           Billing: {current.billingPeriod || "monthly"}
-          {current.isFeatured ? " · Featured listing" : ""}
+          {current.source === "trial" ? " · Trial" : ""}
+          {current.source === "paid" ? " · Paid" : ""}
         </Muted>
         <Muted>Started: {formatSubscriptionDate(current.startedAt)}</Muted>
         <Muted>
           {current.expiresAt
-            ? `Renews / expires: ${formatSubscriptionDate(current.expiresAt)}`
-            : "No renewal date (free or open-ended)"}
+            ? `${current.isTrialing ? "Trial ends" : "Renews / expires"}: ${formatSubscriptionDate(current.expiresAt)}`
+            : locked
+              ? "No active subscription"
+              : "No renewal date"}
         </Muted>
+        {locked ? (
+          <Button
+            label={needsProRenewal(current) ? "Subscribe to Pro" : "View plans"}
+            variant="primary"
+            onPress={() => {
+              logger.info("subscription", "locked cta scroll/focus plans");
+              console.log("[subscription] locked CTA → pro checkout");
+              void choose("pro");
+            }}
+            disabled={actingPlanId != null}
+            loading={actingPlanId === "pro"}
+          />
+        ) : null}
       </Card>
 
       <Title>Billing history</Title>
@@ -364,16 +415,28 @@ export default function SubscriptionScreen() {
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
       {ok ? <Text style={{ color: colors.success }}>{ok}</Text> : null}
 
-      {plans.length === 0 ? (
+      {locked ? (
+        <Card>
+          <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>
+            Subscribe to continue
+          </Text>
+          <Muted>
+            {current.trialUsed
+              ? "Your trial has ended. Choose Pro or Premium below to restore access."
+              : "Choose Pro or Premium below to unlock bookings tools, services, and portfolio edits."}
+          </Muted>
+        </Card>
+      ) : null}
+
+      {sellablePlans.length === 0 ? (
         <Muted>No plans available from the server.</Muted>
       ) : (
-        plans.map((plan) => {
+        sellablePlans.map((plan) => {
           const price = displayPrice(plan, period);
           const isCurrent =
             current.planId === plan.id &&
-            (plan.id === "free"
-              ? true
-              : current.status === "active" && current.billingPeriod === period);
+            current.status === "active" &&
+            current.billingPeriod === period;
           return (
             <Card key={`${plan.id}-${period}`}>
               <Text style={{ color: colors.text, fontWeight: "700", fontSize: 16 }}>
@@ -393,54 +456,26 @@ export default function SubscriptionScreen() {
               ) : null}
               <Muted>{(plan.features ?? []).join(" · ")}</Muted>
               <Button
-                label={isCurrent ? "Current plan" : `Select ${plan.name}`}
+                label={
+                  isCurrent
+                    ? current.isTrialing && plan.id === "pro"
+                      ? "Pro trial active"
+                      : "Current plan"
+                    : needsProRenewal(current) && plan.id === "pro"
+                      ? "Subscribe to Pro"
+                      : locked
+                        ? `Subscribe to ${plan.name}`
+                        : `Select ${plan.name}`
+                }
                 variant={isCurrent ? "ghost" : plan.isPopular ? "primary" : "secondary"}
                 disabled={isCurrent || actingPlanId != null}
                 loading={actingPlanId === plan.id}
-                onPress={() => choose(plan.id)}
+                onPress={() => choose(plan.id as SellablePlanId)}
               />
             </Card>
           );
         })
       )}
-
-      <DowngradeVisibilityModal
-        visible={downgradeOpen}
-        maxPortfolio={FREE_MAX_PORTFOLIO}
-        maxServices={FREE_MAX_SERVICES}
-        portfolio={downgradePortfolio}
-        services={downgradeServices}
-        confirming={downgradeConfirming}
-        onCancel={() => setDowngradeOpen(false)}
-        onConfirm={(selection) => {
-          void (async () => {
-            setDowngradeConfirming(true);
-            setError(null);
-            try {
-              const result = await updateMySubscription({
-                planId: "free",
-                billingPeriod: period,
-                visiblePortfolioIds: selection.visiblePortfolioIds,
-                visibleServiceIds: selection.visibleServiceIds,
-              });
-              const subscription = result?.subscription ?? DEFAULT_CURRENT;
-              setOk("Switched to free");
-              logger.info("subscription", "downgrade confirmed", {
-                planId: subscription.planId,
-                portfolio: selection.visiblePortfolioIds.length,
-                services: selection.visibleServiceIds.length,
-              });
-              setDowngradeOpen(false);
-              await load();
-            } catch (e) {
-              setError(e instanceof Error ? e.message : "Failed to switch plan");
-              logger.error("subscription", "downgrade failed", e);
-            } finally {
-              setDowngradeConfirming(false);
-            }
-          })();
-        }}
-      />
     </Screen>
   );
 }

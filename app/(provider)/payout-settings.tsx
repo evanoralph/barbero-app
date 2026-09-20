@@ -28,6 +28,7 @@ import type {
   ProviderPaymongoStatus,
 } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import { router } from "expo-router";
 
 const TYPE_OPTIONS: { value: PayoutDestinationType; label: string }[] = [
@@ -82,6 +83,7 @@ function paymongoStatusLabel(status: ProviderPaymongoStatus["paymongoOnboardingS
 }
 
 export default function PayoutSettingsScreen() {
+  const hidePlans = useProviderOnboardingHome();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [paymongoBusy, setPaymongoBusy] = useState(false);
@@ -246,14 +248,20 @@ export default function PayoutSettingsScreen() {
         </Text>
         {!isPaid ? (
           <>
-            <Muted>Upgrade to Pro or Premium to create a PayMongo account.</Muted>
-            <Button
-              label="View plans"
-              onPress={() => {
-                logger.info("provider-payout-settings", "open subscription");
-                router.push("/(provider)/subscription");
-              }}
-            />
+            <Muted>
+              {hidePlans
+                ? "PayMongo payouts require a paid plan. Plans will be available soon."
+                : "Upgrade to Pro or Premium to create a PayMongo account."}
+            </Muted>
+            {!hidePlans ? (
+              <Button
+                label="View plans"
+                onPress={() => {
+                  logger.info("provider-payout-settings", "open subscription");
+                  router.push("/(provider)/subscription");
+                }}
+              />
+            ) : null}
           </>
         ) : !paymongo?.paymongoSubAccountId ? (
           <Button

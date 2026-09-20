@@ -11,11 +11,13 @@ import {
   Text,
   View,
 } from "react-native";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMyProvider, listMyPortfolio, updateMyProvider } from "@/src/api/providers";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { EmptyPortfolioIllustration } from "@/src/components/illustrations/EmptyPortfolioIllustration";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import { PortfolioLightbox } from "@/src/components/PortfolioLightbox";
 import type { PortfolioTile } from "@/src/components/PortfolioGrid";
 import {
@@ -38,15 +40,22 @@ type FormMode = "closed" | "add" | "edit";
 type FilterId = "all" | "with-desc" | "no-desc";
 const PAGE_SIZE = 10;
 
+/** Hard paywall: no paid/trial entitlements → edits blocked (not a Free 3-item cap). */
+function isProfileLocked(profile: ProviderProfile | null): boolean {
+  if (!profile) return true;
+  return !profile.isPremium && !profile.isFeatured;
+}
+
 function maxVisiblePortfolio(profile: ProviderProfile | null): number | null {
-  if (!profile) return 3;
+  if (!profile || isProfileLocked(profile)) return 0;
   if (profile.isFeatured) return null;
   if (profile.isPremium) return 50;
-  return 3;
+  return 0;
 }
 
 export default function ProviderPortfolioScreen() {
   const insets = useSafeAreaInsets();
+  const hidePlans = useProviderOnboardingHome();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,6 +90,11 @@ export default function ProviderPortfolioScreen() {
   }, []);
 
   const openAdd = () => {
+    if (isProfileLocked(profile)) {
+      logger.info("provider-portfolio", "blocked add — locked");
+      console.log("[provider-portfolio] locked — block add");
+      return;
+    }
     setEditingId(null);
     setImage("");
     setTitle("");
@@ -92,6 +106,11 @@ export default function ProviderPortfolioScreen() {
   };
 
   const openEdit = (item: PortfolioItem) => {
+    if (isProfileLocked(profile)) {
+      logger.info("provider-portfolio", "blocked edit — locked", { id: item.id });
+      console.log("[provider-portfolio] locked — block edit", item.id);
+      return;
+    }
     setEditingId(item.id);
     setImage(item.image);
     setTitle(item.title);
@@ -121,12 +140,21 @@ export default function ProviderPortfolioScreen() {
       setItems(paged.items);
       setTotal(paged.total);
       setPage(paged.page);
+      const locked = isProfileLocked(me);
       logger.info("provider-portfolio", "loaded", {
         portfolio: me.portfolio?.length ?? 0,
         page: paged.page,
         total: paged.total,
         filter,
         q: query,
+        locked,
+        isPremium: me.isPremium,
+        isFeatured: me.isFeatured,
+      });
+      console.log("[provider-portfolio] loaded", {
+        locked,
+        isPremium: me.isPremium,
+        isFeatured: me.isFeatured,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load portfolio";
@@ -232,6 +260,11 @@ export default function ProviderPortfolioScreen() {
   };
 
   const remove = (item: PortfolioItem) => {
+    if (isProfileLocked(profile)) {
+      logger.info("provider-portfolio", "blocked remove — locked", { id: item.id });
+      console.log("[provider-portfolio] locked — block remove", item.id);
+      return;
+    }
     Alert.alert("Remove portfolio item", `Remove “${item.title}”?`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -265,6 +298,12 @@ export default function ProviderPortfolioScreen() {
 
   const toggleVisibility = async (item: PortfolioItem) => {
     if (!profile) return;
+    if (isProfileLocked(profile)) {
+      logger.info("provider-portfolio", "blocked visibility — locked", { id: item.id });
+      console.log("[provider-portfolio] locked — block visibility", item.id);
+      setError("Subscribe to Pro or Premium to manage portfolio.");
+      return;
+    }
     const max = maxVisiblePortfolio(profile);
     const makeVisible = item.isVisible === false;
     const currentlyVisible = (profile.portfolio ?? [])
@@ -300,6 +339,7 @@ export default function ProviderPortfolioScreen() {
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
 
   const modalVisible = formMode !== "closed";
+  const locked = isProfileLocked(profile);
 
   return (
     <>
@@ -311,8 +351,29 @@ export default function ProviderPortfolioScreen() {
               {items.length} of {total} shown
             </Muted>
           </View>
-          <Button label="Add" onPress={openAdd} />
+          {!locked ? <Button label="Add" onPress={openAdd} /> : null}
         </View>
+
+        {locked ? (
+          <View style={styles.paywallBox}>
+            <Text style={styles.paywallTitle}>Subscribe to continue</Text>
+            <Muted>
+              {hidePlans
+                ? "Portfolio edits require an active plan. Plans will be available soon."
+                : "Portfolio edits require an active Pro or Premium plan."}
+            </Muted>
+            {!hidePlans ? (
+              <Button
+                label="View plans"
+                onPress={() => {
+                  logger.info("provider-portfolio", "paywall → subscription");
+                  console.log("[provider-portfolio] paywall CTA → subscription");
+                  router.push("/(provider)/subscription");
+                }}
+              />
+            ) : null}
+          </View>
+        ) : null}
 
         <Field
           label="Search"
@@ -356,7 +417,16 @@ export default function ProviderPortfolioScreen() {
           <View style={styles.emptyBox}>
             <EmptyPortfolioIllustration />
             <Muted>No portfolio items yet. Add photos to showcase your work.</Muted>
-            <Button label="Add your first item" onPress={openAdd} />
+            {!locked ? (
+              <Button label="Add your first item" onPress={openAdd} />
+            ) : !hidePlans ? (
+              <Button
+                label="Subscribe to add photos"
+                onPress={() => router.push("/(provider)/subscription")}
+              />
+            ) : (
+              <Muted>Plans will be available soon.</Muted>
+            )}
           </View>
         ) : items.length === 0 ? (
           <View style={styles.emptyBox}>
@@ -416,31 +486,35 @@ export default function ProviderPortfolioScreen() {
                     )}
                   </View>
                   <View style={styles.rowActions}>
-                    <Pressable
-                      onPress={() => void toggleVisibility(item)}
-                      hitSlop={8}
-                      style={styles.actionBtn}
-                      disabled={saving}
-                    >
-                      <Text style={styles.actionEdit}>
-                        {item.isVisible === false ? "Show" : "Hide"}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => openEdit(item)}
-                      hitSlop={8}
-                      style={styles.actionBtn}
-                    >
-                      <Text style={styles.actionEdit}>Edit</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => remove(item)}
-                      hitSlop={8}
-                      style={styles.actionBtn}
-                      disabled={saving}
-                    >
-                      <Text style={styles.actionRemove}>Remove</Text>
-                    </Pressable>
+                    {!locked ? (
+                      <>
+                        <Pressable
+                          onPress={() => void toggleVisibility(item)}
+                          hitSlop={8}
+                          style={styles.actionBtn}
+                          disabled={saving}
+                        >
+                          <Text style={styles.actionEdit}>
+                            {item.isVisible === false ? "Show" : "Hide"}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => openEdit(item)}
+                          hitSlop={8}
+                          style={styles.actionBtn}
+                        >
+                          <Text style={styles.actionEdit}>Edit</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => remove(item)}
+                          hitSlop={8}
+                          style={styles.actionBtn}
+                          disabled={saving}
+                        >
+                          <Text style={styles.actionRemove}>Remove</Text>
+                        </Pressable>
+                      </>
+                    ) : null}
                   </View>
                 </AnimatedPressable>
               );
@@ -557,6 +631,19 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 24,
     alignItems: "flex-start",
+  },
+  paywallBox: {
+    gap: 8,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.warning,
+    borderRadius: 14,
+    backgroundColor: colors.bg,
+  },
+  paywallTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
   },
   pageRow: {
     marginTop: 12,

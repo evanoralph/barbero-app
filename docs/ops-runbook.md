@@ -19,6 +19,7 @@
 | `EXPO_PUBLIC_API_DDP_URL` | `wss://api.beru.digital/websocket` (optional; derived if unset) |
 | `EXPO_PUBLIC_PRIVACY_URL` | Your published privacy page URL |
 | `EXPO_PUBLIC_TERMS_URL` | Your published terms page URL |
+| `EXPO_PUBLIC_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (required when API has `TURNSTILE_SECRET_KEY`) |
 
 Maps keys are still optional (map tiles may be limited until added).
 
