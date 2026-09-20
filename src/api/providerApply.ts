@@ -11,6 +11,7 @@ import { logger } from "@/src/utils/logger";
 export function startProviderApply(input: ProviderApplyStartInput) {
   logger.info("provider-apply-api", "start", {
     email: input.email,
+    hasPhone: Boolean(input.phone),
     turnstile: Boolean(input.turnstileToken),
   });
   return apiRequest<LoginResponse>("/providers/apply/start", {

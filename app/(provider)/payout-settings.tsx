@@ -30,6 +30,11 @@ import type {
 import { logger } from "@/src/utils/logger";
 import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import { router } from "expo-router";
+import {
+  normalizePhMobile,
+  PH_MOBILE_ERROR,
+  PH_MOBILE_HINT,
+} from "@/src/utils/phone";
 
 const TYPE_OPTIONS: { value: PayoutDestinationType; label: string }[] = [
   { value: "bank", label: "Bank" },
@@ -146,17 +151,29 @@ export default function PayoutSettingsScreen() {
       return;
     }
 
+    let accountNumberToSave = accountNumber.trim();
+    if (type === "gcash" || type === "maya") {
+      const normalized = normalizePhMobile(accountNumber);
+      if (!normalized) {
+        setError(PH_MOBILE_ERROR);
+        logger.info("provider-payout-settings", "blocked — invalid PH e-wallet number", { type });
+        return;
+      }
+      accountNumberToSave = normalized;
+    }
+
     setSaving(true);
     try {
       const data = await setMyPayoutDestination({
         type,
         accountName: accountName.trim(),
-        accountNumber: accountNumber.trim(),
+        accountNumber: accountNumberToSave,
         ...(type === "bank" ? { bankCode: bankCode.trim() } : {}),
       });
       setVerificationStatus(data.payoutVerificationStatus);
+      setAccountNumber(accountNumberToSave);
       setOk("Saved — your payout account is pending admin review.");
-      logger.info("provider-payout-settings", "saved", { type });
+      logger.info("provider-payout-settings", "saved", { type, hasNormalizedPhone: type !== "bank" });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Failed to save payout settings");
       logger.error("provider-payout-settings", "save failed", e);
@@ -319,7 +336,11 @@ export default function PayoutSettingsScreen() {
         value={accountNumber}
         onChangeText={setAccountNumber}
         keyboardType={type === "bank" ? "number-pad" : "phone-pad"}
+        placeholder={type === "bank" ? undefined : PH_MOBILE_HINT}
       />
+      {type !== "bank" && accountNumber.trim() && !normalizePhMobile(accountNumber) ? (
+        <Text style={{ color: colors.danger, fontSize: 12 }}>{PH_MOBILE_ERROR}</Text>
+      ) : null}
       {type === "bank" ? (
         <Field
           label="Bank code (e.g. BDO, BPI, UBP)"

@@ -12,6 +12,12 @@ import {
 } from "@/src/components/TurnstileWebView";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
+import {
+  normalizePhMobile,
+  parseOptionalPhMobile,
+  PH_MOBILE_ERROR,
+  PH_MOBILE_HINT,
+} from "@/src/utils/phone";
 
 export default function ApplyAccountScreen() {
   const { completeSignUp } = useSession();
@@ -40,18 +46,30 @@ export default function ApplyAccountScreen() {
 
   const onSubmit = async () => {
     setError(null);
+
+    const parsedPhone = parseOptionalPhMobile(phone);
+    if (parsedPhone === null) {
+      setError(PH_MOBILE_ERROR);
+      logger.info("apply-account", "blocked — invalid PH phone");
+      return;
+    }
+
     if (siteKey && !turnstileToken) {
       setError("Complete the security check");
       return;
     }
     setLoading(true);
-    logger.info("apply-account", "submit", { email, turnstile: Boolean(turnstileToken) });
+    logger.info("apply-account", "submit", {
+      email,
+      hasPhone: Boolean(parsedPhone),
+      turnstile: Boolean(turnstileToken),
+    });
     try {
       const session = await startProviderApply({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
-        phone: phone.trim() || undefined,
+        ...(parsedPhone ? { phone: parsedPhone } : {}),
         ...(turnstileToken ? { turnstileToken } : {}),
       });
       await completeSignUp(session);
@@ -67,10 +85,12 @@ export default function ApplyAccountScreen() {
   };
 
   const turnstileRequired = Boolean(siteKey);
+  const phoneOk = !phone.trim() || Boolean(normalizePhMobile(phone));
   const canSubmit =
     Boolean(name.trim()) &&
     Boolean(email.trim()) &&
     password.length >= 8 &&
+    phoneOk &&
     (!turnstileRequired || Boolean(turnstileToken));
 
   return (
@@ -89,9 +109,14 @@ export default function ApplyAccountScreen() {
       <Field
         label="Phone (optional)"
         keyboardType="phone-pad"
+        autoComplete="tel"
         value={phone}
         onChangeText={setPhone}
+        placeholder={PH_MOBILE_HINT}
       />
+      {phone.trim() && !normalizePhMobile(phone) ? (
+        <Text style={{ color: colors.danger, fontSize: 12 }}>{PH_MOBILE_ERROR}</Text>
+      ) : null}
       <Field
         label="Password"
         secureTextEntry

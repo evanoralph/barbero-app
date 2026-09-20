@@ -12,10 +12,17 @@ import {
 import { getPasswordStrengthScore, PasswordStrengthMeter } from "@/src/components/PasswordStrengthMeter";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
+import {
+  normalizePhMobile,
+  parseOptionalPhMobile,
+  PH_MOBILE_ERROR,
+  PH_MOBILE_HINT,
+} from "@/src/utils/phone";
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -52,18 +59,31 @@ export default function RegisterScreen() {
       setError("Passwords do not match");
       return;
     }
+
+    const parsedPhone = parseOptionalPhMobile(phone);
+    if (parsedPhone === null) {
+      setError(PH_MOBILE_ERROR);
+      logger.info("register", "blocked — invalid PH phone");
+      return;
+    }
+
     if (siteKey && !turnstileToken) {
       setError("Complete the security check");
       return;
     }
 
     setLoading(true);
-    logger.info("register", "submit", { email, turnstile: Boolean(turnstileToken) });
+    logger.info("register", "submit", {
+      email,
+      hasPhone: Boolean(parsedPhone),
+      turnstile: Boolean(turnstileToken),
+    });
     try {
       await registerStart({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         password,
+        ...(parsedPhone ? { phone: parsedPhone } : {}),
         ...(turnstileToken ? { turnstileToken } : {}),
       });
       router.push({
@@ -81,11 +101,13 @@ export default function RegisterScreen() {
   };
 
   const turnstileRequired = Boolean(siteKey);
+  const phoneOk = !phone.trim() || Boolean(normalizePhMobile(phone));
   const canSubmit =
     Boolean(name.trim()) &&
     Boolean(email.trim()) &&
     password.length >= 8 &&
     password === confirmPassword &&
+    phoneOk &&
     (!turnstileRequired || Boolean(turnstileToken));
 
   return (
@@ -101,6 +123,17 @@ export default function RegisterScreen() {
         value={email}
         onChangeText={setEmail}
       />
+      <Field
+        label="Phone (optional)"
+        keyboardType="phone-pad"
+        autoComplete="tel"
+        value={phone}
+        onChangeText={setPhone}
+        placeholder={PH_MOBILE_HINT}
+      />
+      {phone.trim() && !normalizePhMobile(phone) ? (
+        <Text style={{ color: colors.danger, fontSize: 12 }}>{PH_MOBILE_ERROR}</Text>
+      ) : null}
       <Field
         label="Password"
         secureTextEntry

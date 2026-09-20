@@ -46,10 +46,12 @@ export async function registerStart(input: {
   name: string;
   email: string;
   password: string;
+  phone?: string;
   turnstileToken?: string;
 }): Promise<{ message: string }> {
   logger.info("auth-api", "registerStart", {
     email: input.email,
+    hasPhone: Boolean(input.phone),
     turnstile: Boolean(input.turnstileToken),
   });
   return apiRequest<{ message: string }>("/auth/register/start", {
