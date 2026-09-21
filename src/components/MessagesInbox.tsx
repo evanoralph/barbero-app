@@ -4,12 +4,13 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ConversationRow } from "@/src/components/ConversationRow";
 import { EmptyMessagesIllustration } from "@/src/components/illustrations/EmptyMessagesIllustration";
-import { EmptyState, Screen } from "@/src/components/ui";
+import { EmptyState, Screen, SegmentedControl } from "@/src/components/ui";
 import type { ConversationListItem } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import {
   filterConversations,
+  isUpcomingConversation,
   splitConversations,
 } from "@/src/utils/conversations";
 import { logger } from "@/src/utils/logger";
@@ -41,7 +42,18 @@ export function MessagesInbox({
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const filtered = useMemo(() => filterConversations(items, query), [items, query]);
+  const [tab, setTab] = useState<"all" | "unread" | "upcoming">("all");
+
+  const unreadThreads = useMemo(
+    () => items.filter((c) => (c.unreadCount || 0) > 0).length,
+    [items],
+  );
+  const filtered = useMemo(() => {
+    const searched = filterConversations(items, query);
+    if (tab === "unread") return searched.filter((c) => (c.unreadCount || 0) > 0);
+    if (tab === "upcoming") return searched.filter((c) => isUpcomingConversation(c));
+    return searched;
+  }, [items, query, tab]);
   const { upcoming, earlier } = useMemo(
     () => splitConversations(filtered),
     [filtered],
@@ -119,14 +131,34 @@ export function MessagesInbox({
         )}
       </View>
 
+      {items.length > 0 ? (
+        <View style={styles.segmentWrap}>
+          <SegmentedControl
+            options={[
+              { id: "all", label: "All" },
+              { id: "unread", label: unreadThreads > 0 ? `Unread · ${unreadThreads}` : "Unread" },
+              { id: "upcoming", label: "Upcoming" },
+            ]}
+            value={tab}
+            onChange={setTab}
+          />
+        </View>
+      ) : null}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {items.length === 0 ? (
         <EmptyState title={emptyTitle} body={emptyBody} illustration={<EmptyMessagesIllustration />} />
       ) : filtered.length === 0 ? (
         <EmptyState
-          title="No matches"
-          body="Try a different name, service, or message snippet."
+          title={tab === "all" || query.trim() ? "No matches" : tab === "unread" ? "All caught up" : "Nothing upcoming"}
+          body={
+            query.trim()
+              ? "Try a different name, service, or message snippet."
+              : tab === "unread"
+                ? "No unread messages."
+                : "Chats for upcoming appointments show up here."
+          }
         />
       ) : (
         <>
@@ -215,6 +247,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     padding: 0,
   },
+  segmentWrap: { paddingHorizontal: 20, paddingBottom: 16 },
   sectionLabel: {
     paddingHorizontal: 20,
     paddingBottom: 10,

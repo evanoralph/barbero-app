@@ -1,5 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { MapPin, MessageCircle } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Linking, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 import { getBooking, updateBookingStatus } from "@/src/api/bookings";
 import { getProvider } from "@/src/api/providers";
@@ -10,50 +13,62 @@ import {
 } from "@/src/api/public-config";
 import { ApiError } from "@/src/api/client";
 import { BookingDetailView } from "@/src/components/BookingDetailView";
+import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import {
-  Button,
   ErrorState,
-  LoadingState,
+  OfflineState,
   Screen,
+  Skeleton,
+  StaleBadge,
 } from "@/src/components/ui";
+import { savedAgoLabel, updatedAgoLabel } from "@/src/offline/cache";
+import { enqueue, hasQueuedCancel, removeQueued, useQueue } from "@/src/offline/queue";
+import { showToast } from "@/src/offline/toast";
+import { useCachedQuery } from "@/src/offline/useCachedQuery";
+import { useServerStatus } from "@/src/server/server-status";
 import type { Booking, ProviderProfile } from "@/src/types/api";
 import { threadIdForBooking } from "@/src/types/api";
+import { colors } from "@/src/theme/colors";
+import { fonts } from "@/src/theme/fonts";
+import { formatMoney } from "@/src/utils/format";
 import { logger } from "@/src/utils/logger";
+
+type Loaded = {
+  booking: Booking;
+  provider: ProviderProfile | null;
+  paymentsEnabled: boolean;
+};
 
 export default function CustomerBookingDetail() {
   const { id, pay } = useLocalSearchParams<{ id: string; pay?: string }>();
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [provider, setProvider] = useState<ProviderProfile | null>(null);
-  const [paymentsEnabled, setPaymentsEnabled] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const insets = useSafeAreaInsets();
+  const { offline } = useServerStatus();
+  const queue = useQueue();
+  const [override, setOverride] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [paying, setPaying] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const autoPayStartedRef = useRef(false);
 
-  const load = useCallback(async () => {
-    if (!id) return;
-    setError(null);
-    try {
+  const query = useCachedQuery<Loaded>({
+    key: id ? `booking:${id}` : null,
+    fetcher: async () => {
       const [bookingData, publicConfig] = await Promise.all([
-        getBooking(id),
+        getBooking(id!),
         fetchPublicAppConfig(),
       ]);
-      setBooking(bookingData);
-      setPaymentsEnabled(publicConfig?.paymentsEnabled === true);
+      const paymentsEnabled = publicConfig?.paymentsEnabled === true;
       logger.info("bookings", "detail loaded", {
         id: bookingData._id,
         providerId: bookingData.providerId,
         status: bookingData.status,
         paymentStatus: bookingData.paymentStatus,
         serviceName: bookingData.serviceName,
-        paymentsEnabled: publicConfig?.paymentsEnabled === true,
+        paymentsEnabled,
       });
-
+      let profile: ProviderProfile | null = null;
       try {
-        const profile = await getProvider(bookingData.providerId);
-        setProvider(profile);
+        profile = await getProvider(bookingData.providerId);
         logger.info("bookings", "detail provider loaded", {
           id: profile._id,
           slug: profile.slug,
@@ -61,34 +76,53 @@ export default function CustomerBookingDetail() {
           paymentsDisabled: profile.paymentsDisabled,
         });
       } catch (providerErr) {
-        setProvider(null);
         logger.warn("bookings", "detail provider load skipped", providerErr);
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load");
-      logger.error("bookings", "detail load failed", e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [id]);
+      return { booking: bookingData, provider: profile, paymentsEnabled };
+    },
+  });
 
+  // A fresh fetch supersedes any locally applied result (e.g. the cancel response).
   useEffect(() => {
-    setLoading(true);
-    void load();
-  }, [load]);
+    setOverride(null);
+  }, [query.data]);
+
+  const booking = override ?? query.data?.booking ?? null;
+  const provider = query.data?.provider ?? null;
+  const paymentsEnabled = query.data?.paymentsEnabled ?? false;
+  const loading = query.loading;
+  const load = query.refetch;
+  const queuedCancel = booking ? queue.find((q) => q.kind === "cancelBooking" && q.bookingId === booking._id) : undefined;
+  const cancelQueued = booking ? hasQueuedCancel(queue, booking._id) : false;
+
+  const queueCancel = async (b: Booking) => {
+    await enqueue({
+      kind: "cancelBooking",
+      bookingId: b._id,
+      label: `Cancel · ${b.serviceName}`,
+    });
+    showToast("Cancellation queued — sends when you're back online");
+  };
 
   const cancel = async () => {
     if (!booking) return;
-    setActing(true);
     setError(null);
+    if (offline) {
+      await queueCancel(booking);
+      return;
+    }
+    setActing(true);
     try {
       const updated = await updateBookingStatus(booking._id, { status: "cancelled" });
-      setBooking(updated);
+      setOverride(updated);
       logger.info("bookings", "cancelled", { id: booking._id });
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Cancel failed");
-      logger.error("bookings", "cancel failed", e);
+      if (e instanceof ApiError && e.code === "NETWORK") {
+        await queueCancel(booking);
+      } else {
+        setError(e instanceof ApiError ? e.message : "Cancel failed");
+        logger.error("bookings", "cancel failed", e);
+      }
     } finally {
       setActing(false);
     }
@@ -157,8 +191,23 @@ export default function CustomerBookingDetail() {
     void payNow();
   }, [loading, booking, provider, paymentsEnabled, pay, payNow]);
 
-  if (loading) return <LoadingState />;
-  if (error && !booking) return <ErrorState message={error} onRetry={load} />;
+  if (loading) {
+    return (
+      <Screen contentStyle={{ gap: 14 }}>
+        <Skeleton style={{ height: 170, borderRadius: 16 }} />
+        <Skeleton style={{ height: 96 }} />
+        <Skeleton style={{ height: 64 }} />
+        <Skeleton style={{ height: 64 }} />
+      </Screen>
+    );
+  }
+  if (query.error && !booking) {
+    return query.offline ? (
+      <OfflineState onRetry={load} body="This booking isn't saved on this device yet." />
+    ) : (
+      <ErrorState message={query.error} onRetry={load} />
+    );
+  }
   if (!booking) return <ErrorState message="Not found" />;
 
   const canCancel = booking.status === "pending" || booking.status === "confirmed";
@@ -184,53 +233,164 @@ export default function CustomerBookingDetail() {
     });
   };
 
+  const dueAmount =
+    typeof booking.amount === "number" && booking.amount > 0
+      ? booking.amount
+      : provider?.services.find(
+          (svc) => svc.name.toLowerCase() === booking.serviceName?.trim().toLowerCase(),
+        )?.price ?? null;
+  const payHeld = offline || query.offline;
+  const location = provider?.location;
+
+  const openDirections = () => {
+    if (!location) return;
+    const url = `https://www.google.com/maps/search/?api=1&query=${location.lat},${location.lng}`;
+    logger.info("bookings", "open directions", { id: booking._id });
+    void Linking.openURL(url).catch((e) => logger.warn("bookings", "directions failed", e));
+  };
+
   return (
-    <Screen
-      scroll
-      refreshing={refreshing}
-      onRefresh={() => {
-        setRefreshing(true);
-        void load();
-      }}
-    >
-      <BookingDetailView
-        booking={booking}
-        provider={provider}
-        showPayment={showPaymentUi}
-        error={error}
-        actions={
-          <>
-            {canPay ? (
-              <Button
-                label={booking.paymentStatus === "pending" ? "Continue payment" : "Pay now"}
-                onPress={() => void payNow()}
-                loading={paying}
-              />
-            ) : null}
-            {provider?.slug ? (
-              <Button
-                label="View provider"
-                variant="secondary"
-                onPress={() => {
+    <View style={styles.root}>
+      <Screen
+        scroll
+        refreshing={query.refreshing}
+        onRefresh={query.refresh}
+        contentStyle={{ paddingBottom: canPay ? 24 : 40 }}
+      >
+        <View style={styles.statusRow}>
+          {query.stale ? (
+            <StaleBadge label={savedAgoLabel(query.savedAt)} />
+          ) : query.savedAt ? (
+            <Text style={styles.updated}>{updatedAgoLabel(query.savedAt)}</Text>
+          ) : null}
+        </View>
+        <BookingDetailView
+          booking={booking}
+          provider={provider}
+          showPayment={showPaymentUi}
+          error={error}
+          cancelQueued={cancelQueued}
+          onUndoCancel={queuedCancel ? () => void removeQueued(queuedCancel.id) : undefined}
+          paymentHeld={payHeld}
+          onOpenProvider={
+            provider?.slug
+              ? () => {
                   logger.info("bookings", "open provider", { slug: provider.slug });
                   router.push(`/(customer)/provider/${provider.slug}`);
-                }}
-              />
-            ) : null}
-            {canMessage ? (
-              <Button label="Message about this booking" onPress={openChat} />
-            ) : null}
-            {canCancel ? (
-              <Button
-                label="Cancel booking"
-                variant="danger"
+                }
+              : undefined
+          }
+          actions={
+            <>
+              {canMessage ? (
+                <AnimatedPressable style={styles.actionBtn} onPress={openChat} accessibilityLabel="Message">
+                  <MessageCircle size={16} color={colors.text} />
+                  <Text style={styles.actionText}>Message</Text>
+                </AnimatedPressable>
+              ) : null}
+              {location ? (
+                <AnimatedPressable
+                  style={styles.actionBtn}
+                  onPress={openDirections}
+                  accessibilityLabel="Directions"
+                >
+                  <MapPin size={16} color={colors.text} />
+                  <Text style={styles.actionText}>Directions</Text>
+                </AnimatedPressable>
+              ) : null}
+            </>
+          }
+          footerAction={
+            canCancel && !cancelQueued ? (
+              <AnimatedPressable
                 onPress={() => void cancel()}
-                loading={acting}
-              />
-            ) : null}
-          </>
-        }
-      />
-    </Screen>
+                disabled={acting}
+                hitSlop={8}
+                accessibilityLabel="Cancel booking"
+              >
+                <Text style={styles.cancelLink}>{acting ? "Cancelling…" : "Cancel booking"}</Text>
+              </AnimatedPressable>
+            ) : null
+          }
+        />
+      </Screen>
+
+      {canPay ? (
+        <View style={[styles.payBar, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+          <View style={styles.payInfo}>
+            {payHeld ? (
+              <Text style={styles.payHint}>Payment resumes when you reconnect</Text>
+            ) : (
+              <>
+                <Text style={styles.payLabel}>Amount due</Text>
+                {dueAmount != null ? (
+                  <Text style={styles.payAmount}>{formatMoney(dueAmount, booking.currency || "PHP")}</Text>
+                ) : null}
+              </>
+            )}
+          </View>
+          <AnimatedPressable
+            style={[styles.payBtn, (payHeld || paying) && styles.payBtnHeld]}
+            onPress={() => void payNow()}
+            disabled={payHeld || paying}
+            accessibilityRole="button"
+            accessibilityLabel={booking.paymentStatus === "pending" ? "Continue payment" : "Pay now"}
+          >
+            <Text style={styles.payBtnText}>
+              {paying ? "Opening…" : booking.paymentStatus === "pending" ? "Continue payment" : "Pay now"}
+            </Text>
+          </AnimatedPressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
+  statusRow: { flexDirection: "row", justifyContent: "flex-end", minHeight: 4 },
+  updated: { color: colors.textMuted, fontSize: 11, fontFamily: fonts.mono },
+  actionBtn: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.white,
+  },
+  actionText: { color: colors.text, fontSize: 14, fontFamily: fonts.monoMedium },
+  cancelLink: {
+    color: colors.danger,
+    fontSize: 13,
+    fontFamily: fonts.mono,
+    textDecorationLine: "underline",
+  },
+  payBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  payInfo: { flex: 1, minWidth: 0 },
+  payLabel: { color: colors.textMuted, fontSize: 11, fontFamily: fonts.mono },
+  payAmount: { color: colors.text, fontSize: 17, fontFamily: fonts.serifMedium },
+  payHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, fontFamily: fonts.mono },
+  payBtn: {
+    minHeight: 48,
+    paddingHorizontal: 26,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  payBtnHeld: { opacity: 0.5 },
+  payBtnText: { color: colors.text, fontSize: 15, fontFamily: fonts.monoMedium },
+});

@@ -12,10 +12,12 @@ import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
 import { AuthProvider } from "@/src/auth/session";
+import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { ToastHost } from "@/src/offline/toast";
 import { ServerStatusGate } from "@/src/server/ServerStatusGate";
 import { ServerStatusProvider } from "@/src/server/server-status";
 import { colors } from "@/src/theme/colors";
@@ -105,13 +107,19 @@ export default function RootLayout() {
         <ThemeProvider value={navTheme}>
           <StatusBar style="dark" />
           <ServerStatusGate />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="server-down" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(customer)" />
-            <Stack.Screen name="(provider)" />
-          </Stack>
+          <View style={{ flex: 1, backgroundColor: colors.bg }}>
+            <OfflineBanner />
+            <View style={{ flex: 1 }}>
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="server-down" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(customer)" />
+                <Stack.Screen name="(provider)" />
+              </Stack>
+              <ToastHost />
+            </View>
+          </View>
         </ThemeProvider>
       </AuthProvider>
     </ServerStatusProvider>

@@ -23,6 +23,7 @@ export class ApiError extends Error {
 
 let tokenGetter: (() => string | null) | null = null;
 let serverUnavailableHandler: ((reason: string) => void) | null = null;
+let serverReachableHandler: (() => void) | null = null;
 let loggedBaseUrl = false;
 
 export function setApiTokenGetter(getter: () => string | null) {
@@ -31,6 +32,11 @@ export function setApiTokenGetter(getter: () => string | null) {
 
 export function setServerUnavailableHandler(handler: ((reason: string) => void) | null) {
   serverUnavailableHandler = handler;
+}
+
+/** Called whenever any request gets an HTTP response back (proves the server is reachable). */
+export function setServerReachableHandler(handler: (() => void) | null) {
+  serverReachableHandler = handler;
 }
 
 /** Rewrite localhost → 10.0.2.2 on Android so emulator can reach the host API over HTTP. */
@@ -122,6 +128,8 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     serverUnavailableHandler?.("network");
     throw new ApiError("Network error — is the Meteor API running?", "NETWORK", 0, error);
   }
+
+  serverReachableHandler?.();
 
   let payload: ApiSuccess<T> | ApiFailure | null = null;
   try {

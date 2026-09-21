@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -41,6 +42,7 @@ import {
   MonoLabel,
   Muted,
 } from "@/src/components/ui";
+import { useDiscoveryDisabledRedirect } from "@/src/hooks/useDiscoveryDisabledRedirect";
 import type { LoyaltyCardView, ProviderProfile, ProviderService } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
@@ -133,6 +135,7 @@ function groupTimes(times: string[]): TimeBucket[] {
 const STICKY_BAR_BASE = 72;
 
 export default function BookScreen() {
+  const discoveryDisabled = useDiscoveryDisabledRedirect("book");
   const { slug, serviceId } = useLocalSearchParams<{ slug: string; serviceId?: string }>();
   const { user } = useSession();
   const insets = useSafeAreaInsets();
@@ -148,6 +151,7 @@ export default function BookScreen() {
   const [slot, setSlot] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
+  const [notesKeyboardHeight, setNotesKeyboardHeight] = useState(0);
   const [loading, setLoading] = useState(true);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -161,6 +165,7 @@ export default function BookScreen() {
   const stickyPad = STICKY_BAR_BASE + Math.max(insets.bottom, 12);
 
   const loadProvider = useCallback(async () => {
+    if (discoveryDisabled) return;
     if (!slug) return;
     setLoading(true);
     setError(null);
@@ -192,7 +197,7 @@ export default function BookScreen() {
     } finally {
       setLoading(false);
     }
-  }, [slug, serviceId]);
+  }, [slug, serviceId, discoveryDisabled]);
 
   useEffect(() => {
     loadProvider();
@@ -318,8 +323,8 @@ export default function BookScreen() {
   };
 
   const openNotesModal = () => {
-    logger.debug("book", "open notes modal");
-    console.log("[book] open notes");
+    logger.debug("book", "open notes modal", { platform: Platform.OS });
+    console.log("[book] open notes — keyboard lift enabled");
     setDraftNotes(notes);
     setShowNotesModal(true);
   };
@@ -330,6 +335,37 @@ export default function BookScreen() {
     setNotes(draftNotes);
     setShowNotesModal(false);
   };
+
+  const closeNotesModal = () => {
+    logger.debug("book", "close notes modal");
+    console.log("[book] close notes");
+    setShowNotesModal(false);
+  };
+
+  // Lift the notes sheet above the keyboard (Android pan mode won't resize the window).
+  useEffect(() => {
+    if (!showNotesModal) {
+      setNotesKeyboardHeight(0);
+      return;
+    }
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      const height = e.endCoordinates?.height ?? 0;
+      logger.debug("book", "notes keyboard show", { height, platform: Platform.OS });
+      console.log("[book] notes keyboard show", height);
+      setNotesKeyboardHeight(height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      logger.debug("book", "notes keyboard hide");
+      console.log("[book] notes keyboard hide");
+      setNotesKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [showNotesModal]);
 
   const onConfirm = async () => {
     if (!user || !provider || !service || !slot) return;
@@ -342,23 +378,30 @@ export default function BookScreen() {
       slot,
       notes: notes.trim() || undefined,
     });
-    console.log("[book] request booking", service.name, date, slot);
+    console.log("[book] request booking", service.name, date, slot, {
+      hasNotes: Boolean(notes.trim()),
+    });
     try {
       const starts = combineLocal(date, slot);
       const ends = new Date(starts.getTime() + service.durationMinutes * 60_000);
+      const bookingNotes = notes.trim() || undefined;
       const booking = await createBooking({
         customerId: user.userId,
         providerId: provider._id,
         serviceName: service.name,
         startsAt: starts.toISOString(),
         endsAt: ends.toISOString(),
+        ...(bookingNotes ? { notes: bookingNotes } : {}),
       });
       logger.info("book", "created", {
         id: booking._id,
         amount: booking.amount,
         loyaltyRewardApplied: booking.loyaltyRewardApplied,
+        hasNotes: Boolean(booking.notes),
       });
-      console.log("[book] created", booking._id, booking.amount);
+      console.log("[book] created", booking._id, booking.amount, {
+        hasNotes: Boolean(booking.notes),
+      });
 
       // Skip the checkmark overlay — land on booking detail so status is visible.
       // When payment is due, pass pay=1 so detail auto-opens PayMongo once.
@@ -401,6 +444,7 @@ export default function BookScreen() {
     }
   };
 
+  if (discoveryDisabled) return <LoadingState />;
   if (loading) return <LoadingState />;
   if (error && !provider) return <ErrorState message={error} onRetry={loadProvider} />;
   if (!provider) return <ErrorState message="Provider not found" />;
@@ -672,14 +716,23 @@ export default function BookScreen() {
         visible={showNotesModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowNotesModal(false)}
+        onRequestClose={closeNotesModal}
       >
         <View style={styles.modalBackdrop}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => setShowNotesModal(false)}
+            onPress={closeNotesModal}
           />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: Math.max(insets.bottom, 20),
+                // Push the whole sheet up so the input/actions stay above the keyboard.
+                marginBottom: notesKeyboardHeight,
+              },
+            ]}
+          >
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Add a note</Text>
             <Muted>Optional — anything the artist should know.</Muted>
@@ -691,13 +744,18 @@ export default function BookScreen() {
               placeholderTextColor={colors.textMuted}
               multiline
               autoFocus
+              maxLength={500}
+              onFocus={() => {
+                logger.debug("book", "notes input focus");
+                console.log("[book] notes input focus");
+              }}
             />
             <View style={styles.sheetActions}>
               <View style={styles.sheetActionFlex}>
                 <Button
                   label="Cancel"
                   variant="secondary"
-                  onPress={() => setShowNotesModal(false)}
+                  onPress={closeNotesModal}
                 />
               </View>
               <View style={styles.sheetActionFlex}>

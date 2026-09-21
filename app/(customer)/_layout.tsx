@@ -1,9 +1,11 @@
 import { Redirect, Tabs } from "expo-router";
 import { CalendarDays, Home, Search, UserRound } from "lucide-react-native";
+import { useEffect } from "react";
 import { useSession } from "@/src/auth/session";
 import { e2eTabBarButton } from "@/src/components/E2eTabBarButton";
 import { LoadingState } from "@/src/components/ui";
 import { TabIcon } from "@/src/components/TabIcon";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { logger } from "@/src/utils/logger";
@@ -21,6 +23,13 @@ const headerOptions = {
 
 export default function CustomerLayout() {
   const { ready, user, role } = useSession();
+  const discoveryDisabled = useProviderOnboardingHome();
+
+  useEffect(() => {
+    if (!discoveryDisabled) return;
+    logger.info("CustomerTabs", "providerOnboardingHome on — hiding Explore tab");
+    console.log("[CustomerTabs] providerOnboardingHome on — hiding Explore tab");
+  }, [discoveryDisabled]);
 
   if (!ready) return <LoadingState />;
   if (!user) return <Redirect href="/(auth)/login" />;
@@ -29,6 +38,7 @@ export default function CustomerLayout() {
   logger.debug("CustomerTabs", "mount lucide tab icons (figma chrome)", {
     tabBarHideOnKeyboard: true,
     messagesTabHidden: true,
+    discoveryDisabled,
   });
 
   return (
@@ -74,6 +84,7 @@ export default function CustomerLayout() {
         name="search"
         options={{
           title: "Explore",
+          href: discoveryDisabled ? null : undefined,
           ...headerOptions,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Search} color={color} focused={focused} name="customer.search" />

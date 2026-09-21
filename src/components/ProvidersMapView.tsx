@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import { Star, X } from "lucide-react-native";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -11,16 +12,29 @@ import {
 } from "react-native";
 import MapView, { Marker, type Region } from "react-native-maps";
 import { listProvidersMap } from "@/src/api/providers";
+import { FilterSheet } from "@/src/components/FilterSheet";
 import {
   Button,
   Chip,
   EmptyState,
   ErrorState,
-  LoadingState,
+  FilterButton,
+  OfflineState,
+  StaleBadge,
 } from "@/src/components/ui";
+import { useUserCoords } from "@/src/hooks/useUserCoords";
+import { savedAgoLabel } from "@/src/offline/cache";
+import { useCachedQuery } from "@/src/offline/useCachedQuery";
 import type { ProviderMapMarker } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
+import {
+  ANY_DISTANCE_KM,
+  DEFAULT_FILTERS,
+  activeFilterCount,
+  filterMarkers,
+  type ExploreFilters,
+} from "@/src/utils/exploreFilters";
 import { formatRating } from "@/src/utils/format";
 import { bboxAround, type UserCoords } from "@/src/utils/location";
 import { logger } from "@/src/utils/logger";
@@ -51,10 +65,13 @@ function regionForUser(coords: UserCoords): Region {
 function MapMarkerPin({
   marker,
   selected,
+  dim,
   onSelect,
 }: {
   marker: ProviderMapMarker;
   selected: boolean;
+  /** Held in place but faded: refetching a new area, or showing saved pins offline. */
+  dim: number;
   onSelect: (marker: ProviderMapMarker) => void;
 }) {
   const [tracksViewChanges, setTracksViewChanges] = useState(true);
@@ -77,6 +94,7 @@ function MapMarkerPin({
   return (
     <Marker
       coordinate={{ latitude: marker.lat, longitude: marker.lng }}
+      opacity={dim}
       tracksViewChanges={tracksViewChanges}
       onPress={(e) => {
         e.stopPropagation();
@@ -132,6 +150,8 @@ export function ProvidersMapView({
   userCoordinate = null,
   showsUserLocation = false,
   centerOnUser = false,
+  filters,
+  onFiltersChange,
 }: {
   /** Used when uncontrolled, or as first value before parent syncs. */
   initialCategory?: string;
@@ -146,15 +166,28 @@ export function ProvidersMapView({
   showsUserLocation?: boolean;
   /** Prefer centering on user instead of fitting all markers. */
   centerOnUser?: boolean;
+  /**
+   * Shared Explore filters. When provided the chip rail gets the Filters button and the sheet
+   * lives here; category, distance and the count badge follow it.
+   */
+  filters?: ExploreFilters;
+  onFiltersChange?: (filters: ExploreFilters) => void;
 }) {
   const mapRef = useRef<MapView | null>(null);
   const [internalCategory, setInternalCategory] = useState(initialCategory);
-  const category = controlledCategory !== undefined ? controlledCategory : internalCategory;
+  const category =
+    filters !== undefined
+      ? filters.category
+      : controlledCategory !== undefined
+        ? controlledCategory
+        : internalCategory;
 
-  const [markers, setMarkers] = useState<ProviderMapMarker[]>([]);
   const [selected, setSelected] = useState<ProviderMapMarker | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const filterCoords =
+    useUserCoords(sheetOpen || (filters?.distanceKm ?? ANY_DISTANCE_KM) < ANY_DISTANCE_KM) ??
+    userCoordinate;
 
   const useUserCenter = Boolean(centerOnUser && userCoordinate);
   const initialRegion = useUserCenter
@@ -164,11 +197,56 @@ export function ProvidersMapView({
   const setCategory = useCallback(
     (next: string) => {
       logger.debug("ProvidersMapView", "category change", { next });
-      if (controlledCategory === undefined) setInternalCategory(next);
+      if (filters && onFiltersChange) onFiltersChange({ ...filters, category: next });
+      else if (controlledCategory === undefined) setInternalCategory(next);
       onCategoryChange?.(next);
     },
-    [controlledCategory, onCategoryChange],
+    [controlledCategory, onCategoryChange, filters, onFiltersChange],
   );
+
+  const bbox =
+    centerOnUser && userCoordinate ? bboxAround(userCoordinate, NEARBY_DELTA) : undefined;
+  const bboxKey = bbox
+    ? [bbox.swLat, bbox.swLng, bbox.neLat, bbox.neLng].map((n) => n.toFixed(3)).join(",")
+    : "all";
+
+  // Markers are cached per (category, bbox): a new area keeps the old pins on screen (dimmed)
+  // while it loads, and offline the last saved pins stay usable.
+  const query = useCachedQuery<ProviderMapMarker[]>({
+    key: `map:${category || "all"}:${bboxKey}`,
+    fetcher: async () => {
+      logger.debug("ProvidersMapView", "load markers", {
+        category: category || undefined,
+        centerOnUser,
+        hasUser: Boolean(userCoordinate),
+        bbox,
+      });
+      const next = await listProvidersMap({
+        category: category || undefined,
+        swLat: bbox?.swLat,
+        swLng: bbox?.swLng,
+        neLat: bbox?.neLat,
+        neLng: bbox?.neLng,
+      });
+      // If nearby bbox returns nothing, fall back to all markers so Home still shows providers.
+      if (bbox && next.length === 0) {
+        logger.warn("ProvidersMapView", "nearby empty — falling back to all markers");
+        return listProvidersMap({ category: category || undefined });
+      }
+      return next;
+    },
+  });
+
+  const markers = useMemo(
+    () => filterMarkers(query.data ?? [], filters ?? DEFAULT_FILTERS, filterCoords),
+    [query.data, filters, filterCoords],
+  );
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
+  const loading = query.loading;
+  const error = query.error;
+  const updating = query.loading || query.refetching;
+  const pinDim = updating ? 0.4 : query.stale ? 0.72 : 1;
 
   const applyCamera = useCallback(
     (items: ProviderMapMarker[]) => {
@@ -180,7 +258,6 @@ export function ProvidersMapView({
           lng: userCoordinate.lng,
           markerCount: items.length,
         });
-        console.log("[ProvidersMapView] centerOnUser", userCoordinate.lat, userCoordinate.lng);
         mapRef.current.animateToRegion(region, 400);
         return;
       }
@@ -198,71 +275,27 @@ export function ProvidersMapView({
     [embedded, useUserCenter, userCoordinate],
   );
 
-  const load = useCallback(async () => {
-    setError(null);
-    setLoading(true);
-    const bbox =
-      centerOnUser && userCoordinate
-        ? bboxAround(userCoordinate, NEARBY_DELTA)
-        : undefined;
-    logger.debug("ProvidersMapView", "load markers", {
-      category: category || undefined,
-      centerOnUser,
-      hasUser: Boolean(userCoordinate),
-      bbox,
-    });
-    console.log("[ProvidersMapView] load markers", {
-      category: category || "all",
-      centerOnUser,
-      bbox: Boolean(bbox),
-    });
-    try {
-      const next = await listProvidersMap({
-        category: category || undefined,
-        swLat: bbox?.swLat,
-        swLng: bbox?.swLng,
-        neLat: bbox?.neLat,
-        neLng: bbox?.neLng,
-      });
-      // If nearby bbox returns nothing, fall back to all markers so Home still shows providers.
-      if (bbox && next.length === 0) {
-        logger.warn("ProvidersMapView", "nearby empty — falling back to all markers");
-        console.log("[ProvidersMapView] nearby empty, fallback all");
-        const all = await listProvidersMap({
-          category: category || undefined,
-        });
-        setMarkers(all);
-        setSelected(null);
-        logger.debug("ProvidersMapView", "markers loaded (fallback)", {
-          count: all.length,
-        });
-      } else {
-        setMarkers(next);
-        setSelected(null);
-        logger.debug("ProvidersMapView", "markers loaded", { count: next.length });
-        console.log("[ProvidersMapView] markers loaded", next.length);
-      }
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Map failed";
-      logger.error("ProvidersMapView", "load failed", message);
-      console.log("[ProvidersMapView] load failed", message);
-      setError(message);
-      setMarkers([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [category, centerOnUser, userCoordinate]);
+  const load = query.refetch;
 
+  // Re-frame only when a fetch lands (or the filter set changes), never on every render.
   useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    if (loading || error) return;
-    if (!useUserCenter && markers.length === 0) return;
-    const id = requestAnimationFrame(() => applyCamera(markers));
+    if (updating || error) return;
+    if (!useUserCenter && markersRef.current.length === 0) return;
+    const id = requestAnimationFrame(() => applyCamera(markersRef.current));
     return () => cancelAnimationFrame(id);
-  }, [loading, error, markers, applyCamera, useUserCenter]);
+  }, [updating, error, query.data, filters?.distanceKm, applyCamera, useUserCenter]);
+
+  useEffect(() => {
+    setSelected((cur) => (cur && markers.some((m) => m._id === cur._id) ? cur : null));
+  }, [markers]);
+
+  const filterCount = filters ? activeFilterCount(filters) : 0;
+  const countFor = useCallback(
+    (draft: ExploreFilters) =>
+      // Category is filtered server-side, so a different category has no cached count.
+      draft.category === category ? filterMarkers(query.data ?? [], draft, filterCoords).length : null,
+    [category, query.data, filterCoords],
+  );
 
   const selectMarker = useCallback((marker: ProviderMapMarker) => {
     logger.debug("ProvidersMapView", "select marker", {
@@ -312,6 +345,7 @@ export function ProvidersMapView({
             key={m._id}
             marker={m}
             selected={selected?._id === m._id}
+            dim={pinDim}
             onSelect={selectMarker}
           />
         ))}
@@ -334,6 +368,20 @@ export function ProvidersMapView({
               />
             ))}
           </ScrollView>
+          {filters && onFiltersChange ? (
+            <FilterButton round count={filterCount} onPress={() => setSheetOpen(true)} />
+          ) : null}
+        </View>
+      ) : null}
+
+      {updating ? (
+        <View style={styles.updatingPill} pointerEvents="none">
+          <ActivityIndicator size="small" color={colors.accent} />
+          <Text style={styles.updatingText}>Updating this area…</Text>
+        </View>
+      ) : query.stale && markers.length > 0 ? (
+        <View style={styles.stalePill} pointerEvents="none">
+          <StaleBadge label={savedAgoLabel(query.savedAt)} />
         </View>
       ) : null}
 
@@ -341,22 +389,24 @@ export function ProvidersMapView({
         style={[styles.countBadge, embedded && styles.countBadgeEmbedded]}
         pointerEvents="none"
       >
-        <Text style={styles.countText}>
-          <Text style={styles.countBold}>{markers.length}</Text>
-          {" providers in this area"}
-        </Text>
+        {updating ? (
+          <Text style={styles.countText}>Counting providers…</Text>
+        ) : (
+          <Text style={styles.countText}>
+            <Text style={styles.countBold}>{markers.length}</Text>
+            {" providers in this area"}
+          </Text>
+        )}
         {error ? <Text style={styles.countError}>{error}</Text> : null}
       </View>
 
-      {loading ? (
-        <View style={styles.stateOverlay}>
-          <LoadingState label="Loading map data…" />
-        </View>
-      ) : null}
-
       {!loading && error && markers.length === 0 ? (
         <View style={styles.stateOverlay}>
-          <ErrorState message={error} onRetry={load} />
+          {query.offline ? (
+            <OfflineState onRetry={load} body="The map can't refresh without a connection." />
+          ) : (
+            <ErrorState message={error} onRetry={load} />
+          )}
         </View>
       ) : null}
 
@@ -364,6 +414,35 @@ export function ProvidersMapView({
         <View style={styles.emptyOverlay} pointerEvents="box-none">
           <EmptyState title="No providers on the map" body="Try another category." />
         </View>
+      ) : null}
+
+      {query.stale && query.offline && markers.length > 0 && !selected ? (
+        <View style={styles.offlineCard}>
+          <Text style={styles.offlineCardTitle}>
+            Showing {markers.length} saved pin{markers.length === 1 ? "" : "s"}
+          </Text>
+          <Text style={styles.offlineCardBody}>
+            Panning won&apos;t load new providers until you&apos;re back online. Tapping a pin
+            still opens the saved profile.
+          </Text>
+          <Button label="Retry" variant="secondary" onPress={load} />
+        </View>
+      ) : null}
+
+      {filters && onFiltersChange ? (
+        <FilterSheet
+          visible={sheetOpen}
+          filters={filters}
+          countFor={countFor}
+          noun="providers"
+          hasLocation={filterCoords !== null}
+          hide={{ price: true, availability: true }}
+          onApply={(next) => {
+            onFiltersChange(next);
+            setSheetOpen(false);
+          }}
+          onClose={() => setSheetOpen(false)}
+        />
       ) : null}
 
       {selected ? (
@@ -447,10 +526,44 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     zIndex: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   chipsScroll: {
-    maxWidth: "100%",
+    flex: 1,
+    minWidth: 0,
   },
+  updatingPill: {
+    position: "absolute",
+    top: 70,
+    alignSelf: "center",
+    zIndex: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.text,
+    borderRadius: 999,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  updatingText: { color: colors.white, fontSize: 11, fontFamily: fonts.mono },
+  stalePill: { position: "absolute", top: 70, left: 12, zIndex: 20 },
+  offlineCard: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 16,
+    zIndex: 40,
+    backgroundColor: colors.bg,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    gap: 10,
+  },
+  offlineCardTitle: { fontSize: 15, color: colors.text, fontFamily: fonts.serif },
+  offlineCardBody: { fontSize: 12, lineHeight: 18, color: colors.textMuted, fontFamily: fonts.mono },
   chipsRow: {
     flexDirection: "row",
     gap: 8,

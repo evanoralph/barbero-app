@@ -2,11 +2,13 @@ import { formatMoney } from '@/src/utils/format';
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ArrowLeft, ChevronRight, Clock, Star } from "lucide-react-native";
+import { ArrowLeft, Bookmark, ChevronRight, Clock, Share2, Star } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Pressable,
+  ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -18,7 +20,6 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import spinnerGold from "@/assets/lottie/spinner-gold.json";
 import { addFavorite, listFavoriteIds, removeFavorite } from "@/src/api/favorites";
 import { getProvider, getProviderReviews } from "@/src/api/providers";
 import { getLoyaltyCard } from "@/src/api/loyalty";
@@ -26,10 +27,14 @@ import { LoyaltyStampBanner } from "@/src/components/LoyaltyStampBanner";
 import { useSession } from "@/src/auth/session";
 import { AnimatedHeroScroll } from "@/src/components/animated/AnimatedHeroScroll";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
-import { LottieView } from "@/src/components/animated/LottieView";
 import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { PortfolioGrid, type PortfolioTile } from "@/src/components/PortfolioGrid";
 import { PortfolioLightbox } from "@/src/components/PortfolioLightbox";
+import { Skeleton, StaleBadge } from "@/src/components/ui";
+import { savedAgoLabel } from "@/src/offline/cache";
+import { useCachedQuery } from "@/src/offline/useCachedQuery";
+import { recordViewed } from "@/src/utils/recentlyViewed";
+import { SERVICE_TYPES, serviceType, type ServiceType } from "@/src/utils/serviceType";
 import type { LoyaltyCardView, ProviderProfile, Review } from "@/src/types/api";
 import { fonts } from "@/src/theme/fonts";
 import { formatRating } from "@/src/utils/format";
@@ -81,13 +86,64 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
   const isPreview = mode === "preview";
   const insets = useSafeAreaInsets();
   const { user } = useSession();
-  const [provider, setProvider] = useState<ProviderProfile | null>(null);
-  const [reviews, setReviews] = useState<Review[]>([]);
   const [favorited, setFavorited] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [loyaltyCard, setLoyaltyCard] = useState<LoyaltyCardView | null>(null);
+  const [serviceFilter, setServiceFilter] = useState<"all" | ServiceType>("all");
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+
+  // Profile + reviews are cached per slug so the screen keeps its shape while loading and
+  // stays readable (booking held) when the connection drops.
+  const query = useCachedQuery<{ profile: ProviderProfile; reviews: Review[] }>({
+    key: slug ? `provider:${slug}` : null,
+    fetcher: async () => {
+      logger.debug(scope, "load profile", { mode, slug });
+      const [profile, reviews] = await Promise.all([
+        getProvider(slug),
+        getProviderReviews(slug).catch((e) => {
+          logger.warn(scope, "reviews load failed", e);
+          return [] as Review[];
+        }),
+      ]);
+      logger.debug(scope, "loaded", {
+        mode,
+        slug,
+        services: profile.services.length,
+        portfolio: profile.portfolio.length,
+        reviews: reviews.length,
+      });
+      return { profile, reviews };
+    },
+  });
+  const provider = query.data?.profile ?? null;
+  const reviews = query.data?.reviews ?? [];
+  const loading = query.loading;
+  const error = slug ? query.error : "Missing provider slug";
+  const load = query.refetch;
+  // Network failed but we still have the last saved profile.
+  const savedOffline = query.stale && query.offline && provider !== null;
+
+  // Feeds Home's "Recently viewed" rail (customer browsing only, not the owner's preview).
+  useEffect(() => {
+    if (isPreview || !provider) return;
+    void recordViewed(provider);
+  }, [isPreview, provider]);
+
+  useEffect(() => {
+    if (isPreview || !provider?._id) {
+      setFavorited(false);
+      return;
+    }
+    let cancelled = false;
+    listFavoriteIds()
+      .then((favs) => {
+        if (!cancelled) setFavorited(favs.providerIds.includes(provider._id));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isPreview, provider?._id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,54 +153,6 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
       };
     }, [mode, scope, slug]),
   );
-
-  const load = useCallback(async () => {
-    if (!slug) {
-      setError("Missing provider slug");
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    logger.debug(scope, "load profile", { mode, slug });
-    try {
-      const [profile, revsResult] = await Promise.all([
-        getProvider(slug),
-        getProviderReviews(slug).catch((e) => {
-          logger.warn(scope, "reviews load failed", e);
-          return [] as Review[];
-        }),
-      ]);
-      setProvider(profile);
-      setReviews(revsResult);
-
-      if (!isPreview) {
-        const favs = await listFavoriteIds().catch(() => ({
-          providerIds: [] as string[],
-        }));
-        setFavorited(favs.providerIds.includes(profile._id));
-      } else {
-        setFavorited(false);
-      }
-
-      logger.debug(scope, "loaded", {
-        mode,
-        slug,
-        services: profile.services.length,
-        portfolio: profile.portfolio.length,
-        reviews: revsResult.length,
-      });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load provider");
-      logger.warn(scope, "load failed", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [isPreview, mode, scope, slug]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   useEffect(() => {
     if (isPreview || !user || !provider?._id || !provider.loyaltyProgram?.enabled) {
@@ -266,10 +274,41 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
 
   if (loading) {
     return (
-      <View style={[styles.screenRoot, styles.centerState, { paddingTop: insets.top }]}>
+      <View style={styles.screenRoot}>
         <StatusBar style="dark" />
-        <LottieView source={spinnerGold} style={styles.loadingLottie} />
-        <Text style={styles.emptyHint}>Loading…</Text>
+        <View style={[styles.backBtn, { top: backTop }]}>
+          <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2} />
+        </View>
+        <View style={[styles.skelCover, { height: COVER_HEIGHT + insets.top }]}>
+          <Skeleton style={StyleSheet.absoluteFill} />
+        </View>
+        <View style={styles.skelBody}>
+          <View style={styles.skelIdentity}>
+            <View style={styles.avatarRing}>
+              <Skeleton style={styles.skelAvatar} />
+            </View>
+            <View style={styles.skelIdentityText}>
+              <Skeleton style={{ height: 22, width: "76%", borderRadius: 5 }} />
+              <Skeleton style={{ height: 11, width: "40%", borderRadius: 4 }} />
+            </View>
+          </View>
+          <View style={{ gap: 8 }}>
+            <Skeleton style={styles.skelLine} />
+            <Skeleton style={[styles.skelLine, { width: "92%" }]} />
+            <Skeleton style={[styles.skelLine, { width: "58%" }]} />
+          </View>
+          <View style={styles.skelTiles}>
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} style={styles.skelTile} />
+            ))}
+          </View>
+          <Skeleton style={{ height: 64 }} />
+          <Skeleton style={{ height: 64 }} />
+        </View>
+        <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+          <Skeleton style={{ flex: 1, height: 30, borderRadius: 6 }} />
+          <Skeleton style={{ width: 160, height: 52 }} />
+        </View>
       </View>
     );
   }
@@ -289,7 +328,26 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
   const avatarUri = (provider.avatar || "").trim();
   const firstName = provider.name.split(" ")[0] || provider.name;
 
+  const selectedService =
+    provider.services.find((s) => s.id === selectedServiceId) ?? provider.services[0];
+  const serviceTypes = SERVICE_TYPES.filter((t) =>
+    provider.services.some((s) => serviceType(s.name) === t),
+  );
+  const visibleServices =
+    serviceFilter === "all"
+      ? provider.services
+      : provider.services.filter((s) => serviceType(s.name) === serviceFilter);
+  const bookingHeld = savedOffline || isPreview;
+
+  const shareProfile = () => {
+    logger.debug(scope, "share", { slug: provider.slug });
+    void Share.share({ message: `${provider.name} on Beru — /${provider.slug}` }).catch((e) =>
+      logger.warn(scope, "share failed", e),
+    );
+  };
+
   const goBook = (serviceId?: string) => {
+    if (savedOffline) return;
     if (isPreview) {
       logger.debug(scope, "book ignored in preview", {
         slug: provider.slug,
@@ -318,12 +376,39 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
       >
         <ArrowLeft color="#FFFFFF" size={20} strokeWidth={2} />
       </AnimatedPressable>
+      <View style={[styles.headerActions, { top: backTop }]}>
+        <AnimatedPressable
+          style={styles.headerBtn}
+          onPress={shareProfile}
+          hitSlop={8}
+          accessibilityLabel="Share profile"
+        >
+          <Share2 color="#FFFFFF" size={19} strokeWidth={2} />
+        </AnimatedPressable>
+        <AnimatedPressable
+          style={[
+            styles.headerBtn,
+            favorited && styles.headerBtnActive,
+            isPreview && styles.headerBtnDisabled,
+          ]}
+          onPress={toggleFavorite}
+          hitSlop={8}
+          accessibilityLabel={favorited ? "Unsave" : "Save"}
+        >
+          <Bookmark
+            color={favorited ? theme.text : "#FFFFFF"}
+            fill={favorited ? theme.text : "none"}
+            size={19}
+            strokeWidth={2}
+          />
+        </AnimatedPressable>
+      </View>
       <AnimatedHeroScroll
         scrollY={scrollY}
         style={styles.screenRoot}
-        contentStyle={{ ...styles.content, paddingBottom: 32 + insets.bottom }}
-        refreshing={false}
-        onRefresh={load}
+        contentStyle={{ ...styles.content, paddingBottom: 104 + Math.max(insets.bottom, 12) }}
+        refreshing={query.refreshing}
+        onRefresh={query.refresh}
       >
         <View
           style={[
@@ -378,6 +463,10 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
           </View>
         </View>
 
+        {savedOffline ? (
+          <StaleBadge label={`${savedAgoLabel(query.savedAt)} · prices may have changed`} />
+        ) : null}
+
         {isPreview ? (
           <View style={styles.previewBanner}>
             <Text style={styles.previewBannerText}>
@@ -410,22 +499,6 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
           ) : null}
         </View>
 
-        <AnimatedPressable
-          style={[styles.bookCta, isPreview && styles.bookCtaPreview]}
-          onPress={() => goBook()}
-          accessibilityState={{ disabled: isPreview }}
-        >
-          <Text style={styles.bookCtaText}>Book with {firstName}</Text>
-        </AnimatedPressable>
-
-        <View style={styles.secondaryActions}>
-          <Pressable onPress={toggleFavorite} hitSlop={8}>
-            <Text style={[styles.secondaryLink, isPreview && styles.secondaryLinkPreview]}>
-              {favorited ? "Unsave" : "Save"}
-            </Text>
-          </Pressable>
-        </View>
-
         <Text style={styles.section}>Portfolio</Text>
         {portfolioTiles.length === 0 ? (
           <Text style={styles.emptyHint}>No portfolio items yet</Text>
@@ -440,18 +513,51 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
           />
         )}
 
-        <Text style={styles.section}>Quick Book</Text>
+        <View style={styles.sectionHead}>
+          <Text style={[styles.section, { marginTop: 0 }]}>Quick Book</Text>
+          <Text style={styles.sectionCount}>
+            {provider.services.length} service{provider.services.length === 1 ? "" : "s"}
+          </Text>
+        </View>
+        {serviceTypes.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.railWrap}
+            contentContainerStyle={styles.rail}
+          >
+            {(["all", ...serviceTypes] as const).map((t) => (
+              <Pressable
+                key={t}
+                onPress={() => setServiceFilter(t)}
+                style={[styles.railChip, serviceFilter === t && styles.railChipActive]}
+              >
+                <Text style={[styles.railChipText, serviceFilter === t && styles.railChipTextActive]}>
+                  {t === "all" ? "All" : t === "Haircut" ? "Cuts" : t}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
         {provider.services.length === 0 ? (
           <Text style={styles.emptyHint}>No services listed</Text>
         ) : (
-          <View style={styles.serviceList}>
-            {provider.services.map((s, index) => (
+          <View style={[styles.serviceList, savedOffline && styles.serviceListHeld]}>
+            {visibleServices.map((s, index) => (
               <AnimatedPressable
                 key={s.id}
-                style={[styles.serviceRow, isPreview && styles.serviceRowPreview]}
+                style={[
+                  styles.serviceRow,
+                  isPreview && styles.serviceRowPreview,
+                  selectedService?.id === s.id && styles.serviceRowSelected,
+                ]}
                 entering={staggeredEntering(index)}
-                onPress={() => goBook(s.id)}
-                accessibilityState={{ disabled: isPreview }}
+                onPress={() => {
+                  if (savedOffline) return;
+                  logger.debug(scope, "select service", { id: s.id });
+                  setSelectedServiceId(s.id);
+                }}
+                accessibilityState={{ disabled: savedOffline, selected: selectedService?.id === s.id }}
               >
                 {(() => {
                   const serviceImageUri = (s.image || avatarUri || "").trim();
@@ -481,8 +587,23 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
           </View>
         )}
 
-        <Text style={styles.section}>Reviews</Text>
-        {reviews.length === 0 ? (
+        <View style={styles.reviewsHead}>
+          <Text style={[styles.section, { marginTop: 0 }]}>Reviews</Text>
+          {provider.reviewCount > 0 ? (
+            <View style={styles.ratingPill}>
+              <Star color={theme.gold} size={12} fill={theme.gold} />
+              <Text style={styles.ratingPillValue}>{formatRating(provider.rating)}</Text>
+              <Text style={styles.ratingPillCount}>· {provider.reviewCount}</Text>
+            </View>
+          ) : null}
+        </View>
+        {savedOffline ? (
+          <View style={styles.offlineNote}>
+            <Text style={styles.offlineNoteText}>
+              Reviews and live availability need a connection.
+            </Text>
+          </View>
+        ) : reviews.length === 0 ? (
           <Text style={styles.emptyHint}>No reviews yet</Text>
         ) : (
           reviews.slice(0, 10).map((r) => (
@@ -495,6 +616,29 @@ export function ProviderProfileView({ slug, mode, onBack }: Props) {
           ))
         )}
       </AnimatedHeroScroll>
+
+      <View style={[styles.stickyBar, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+        <View style={styles.stickyInfo}>
+          {savedOffline ? (
+            <Text style={styles.stickyHint}>Booking resumes when you reconnect</Text>
+          ) : selectedService ? (
+            <>
+              <Text style={styles.stickyLabel} numberOfLines={1}>
+                {selectedService.name} · {selectedService.durationMinutes} min
+              </Text>
+              <Text style={styles.stickyPrice}>{formatMoney(selectedService.price)}</Text>
+            </>
+          ) : null}
+        </View>
+        <AnimatedPressable
+          style={[styles.bookCta, bookingHeld && styles.bookCtaPreview]}
+          onPress={() => goBook(selectedService?.id)}
+          disabled={savedOffline}
+          accessibilityState={{ disabled: bookingHeld }}
+        >
+          <Text style={styles.bookCtaText}>Book with {firstName}</Text>
+        </AnimatedPressable>
+      </View>
 
       <PortfolioLightbox
         items={portfolioTiles}
@@ -683,8 +827,8 @@ const styles = StyleSheet.create({
     backgroundColor: theme.gold,
     borderRadius: 14,
     paddingVertical: 16,
+    paddingHorizontal: 22,
     alignItems: "center",
-    marginTop: 4,
   },
   bookCtaPreview: {
     opacity: 0.55,
@@ -694,22 +838,91 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: fonts.serifMedium,
   },
-  secondaryActions: {
+  headerActions: {
+    position: "absolute",
+    right: 16,
+    zIndex: 20,
     flexDirection: "row",
+    gap: 10,
+  },
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.25)",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    marginTop: -4,
   },
-  secondaryLink: {
-    color: theme.textMuted,
-    fontSize: 13,
-    fontFamily: fonts.mono,
-    textDecorationLine: "underline",
+  headerBtnActive: { backgroundColor: theme.gold, borderColor: theme.gold },
+  headerBtnDisabled: { opacity: 0.55 },
+  sectionHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 10 },
+  sectionCount: { color: theme.textMuted, fontSize: 11, fontFamily: fonts.mono },
+  railWrap: { marginHorizontal: -20, flexGrow: 0 },
+  rail: { paddingHorizontal: 20, gap: 8 },
+  railChip: {
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
   },
-  secondaryLinkPreview: {
-    opacity: 0.55,
+  railChipActive: { backgroundColor: theme.gold, borderColor: theme.gold },
+  railChipText: { color: theme.textMuted, fontSize: 12, fontFamily: fonts.mono },
+  railChipTextActive: { color: theme.text },
+  serviceListHeld: { opacity: 0.55 },
+  serviceRowSelected: { borderColor: theme.gold },
+  reviewsHead: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 10 },
+  ratingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
   },
+  ratingPillValue: { color: theme.text, fontSize: 12, fontFamily: fonts.monoMedium },
+  ratingPillCount: { color: theme.textMuted, fontSize: 12, fontFamily: fonts.mono },
+  offlineNote: {
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 12,
+    backgroundColor: theme.surface,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+  },
+  offlineNoteText: { color: theme.textMuted, fontSize: 11, lineHeight: 16, fontFamily: fonts.mono },
+  stickyBar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: theme.bg,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  stickyInfo: { flex: 1, minWidth: 0 },
+  stickyLabel: { color: theme.textMuted, fontSize: 11, fontFamily: fonts.mono },
+  stickyPrice: { color: theme.text, fontSize: 17, fontFamily: fonts.serifMedium },
+  stickyHint: { color: theme.textMuted, fontSize: 11, lineHeight: 16, fontFamily: fonts.mono },
+  skelCover: { marginTop: 0, backgroundColor: theme.surfaceAlt },
+  skelBody: { paddingHorizontal: 20, gap: 18 },
+  skelIdentity: { flexDirection: "row", alignItems: "flex-end", gap: 14, marginTop: -44 },
+  skelAvatar: { width: "100%", height: "100%", borderRadius: 14 },
+  skelIdentityText: { flex: 1, gap: 8, paddingBottom: 6 },
+  skelLine: { height: 11, width: "100%", borderRadius: 4 },
+  skelTiles: { flexDirection: "row", gap: 10 },
+  skelTile: { width: 132, height: 160, borderRadius: 12 },
   section: {
     color: theme.text,
     fontSize: 24,

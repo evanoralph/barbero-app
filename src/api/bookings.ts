@@ -60,12 +60,28 @@ export function createBooking(input: {
   serviceName: string;
   startsAt: string;
   endsAt: string;
+  notes?: string;
 }) {
+  const notes = input.notes?.trim() || undefined;
+  const { notes: _rawNotes, ...rest } = input;
   logger.info("bookings-api", "createBooking", {
     providerId: input.providerId,
     serviceName: input.serviceName,
+    hasNotes: Boolean(notes),
+    notesLength: notes?.length ?? 0,
   });
-  return apiRequest<Booking>("/bookings", { method: "POST", body: input });
+  console.log("[bookings-api] createBooking", {
+    providerId: input.providerId,
+    serviceName: input.serviceName,
+    hasNotes: Boolean(notes),
+  });
+  return apiRequest<Booking>("/bookings", {
+    method: "POST",
+    body: {
+      ...rest,
+      ...(notes ? { notes } : {}),
+    },
+  });
 }
 
 export function updateBookingStatus(

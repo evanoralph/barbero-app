@@ -1,9 +1,30 @@
 import { formatMoney } from '@/src/utils/format';
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { Bell, ChevronRight, MapPin, Search, Star } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Bell,
+  ChevronRight,
+  Hand,
+  History,
+  MapPin,
+  PenTool,
+  Scissors,
+  Search,
+  Sparkles,
+  Star,
+  type LucideIcon,
+} from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Image,
+  ImageBackground,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import Animated, {
   Extrapolation,
   FadeInDown,
@@ -14,6 +35,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listBookings } from "@/src/api/bookings";
+import { ApiError } from "@/src/api/client";
 import { listCategories } from "@/src/api/categories";
 import {
   establishmentPublicUrl,
@@ -26,15 +48,20 @@ import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { BrandLogo } from "@/src/components/BrandLogo";
 import { EmptyDiscoverIllustration } from "@/src/components/illustrations/EmptyDiscoverIllustration";
 import { PortfolioGrid, type PortfolioTile } from "@/src/components/PortfolioGrid";
+import { ProviderCard } from "@/src/components/ProviderCard";
 import { ProvidersMapView } from "@/src/components/ProvidersMapView";
 import {
+  Chip,
   EmptyState,
   ErrorState,
-  LoadingState,
   MonoLabel,
   Muted,
+  OfflineState,
+  Skeleton,
+  StaleBadge,
   Title,
 } from "@/src/components/ui";
+import { readCache, savedAgoLabel, writeCache } from "@/src/offline/cache";
 import type {
   Booking,
   EstablishmentListItem,
@@ -50,10 +77,38 @@ import {
   type UserCoords,
 } from "@/src/utils/location";
 import { logger } from "@/src/utils/logger";
+import {
+  clearRecentlyViewed,
+  listRecentSearches,
+  listRecentlyViewed,
+  viewedToListItem,
+  type ViewedProvider,
+} from "@/src/utils/recentlyViewed";
+import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 
 /** Swap this URL for a real hero photo asset once available. */
 const HERO_IMAGE_URI =
   "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=900&q=80";
+
+function useDiscoveryPush() {
+  const discoveryDisabled = useProviderOnboardingHome();
+  const pushDiscovery = useCallback(
+    (
+      target: string | { pathname: string; params?: Record<string, string> },
+      label: string,
+    ) => {
+      if (discoveryDisabled) {
+        logger.info("home", "discovery disabled — skip nav", { target, label });
+        console.log("[home] discovery disabled — skip nav", label, target);
+        return;
+      }
+      // expo-router accepts string paths and typed href objects
+      router.push(target as never);
+    },
+    [discoveryDisabled],
+  );
+  return { discoveryDisabled, pushDiscovery };
+}
 
 function formatNextApptDate(iso: string): { month: string; day: string } {
   const d = new Date(iso);
@@ -112,7 +167,69 @@ function sortProvidersByDistance(
 
 const AnimatedImageBackground = Animated.createAnimatedComponent(ImageBackground);
 
+const NEARBY_RADIUS_KM = 5;
+const BROWSE_COLS = 4;
+const BROWSE_GAP = 10;
+const HOME_CACHE_KEY = "home:v1";
+
+/** Everything Home renders from the network, saved so the screen still opens offline. */
+type HomeSnapshot = {
+  categories: ServiceCategory[];
+  providers: ProviderListItem[];
+  allProviders: ProviderListItem[];
+  bookings: Booking[];
+  salons: EstablishmentListItem[];
+};
+
+function categoryIcon(slug: string): LucideIcon {
+  const key = slug.toLowerCase();
+  if (key.includes("tattoo")) return PenTool;
+  if (key.includes("nail")) return Hand;
+  if (key.includes("barber") || key.includes("hair")) return Scissors;
+  return Sparkles;
+}
+
+function NearbyCard({
+  provider,
+  km,
+  onOpen,
+  onBook,
+}: {
+  provider: ProviderListItem;
+  km: number;
+  onOpen: () => void;
+  onBook: () => void;
+}) {
+  const imageUri = (provider.coverImage || provider.avatar || "").trim();
+  return (
+    <Pressable style={styles.nearCard} onPress={onOpen} accessibilityLabel={`View ${provider.name}`}>
+      {imageUri ? (
+        <Image source={{ uri: imageUri }} style={styles.nearImage} />
+      ) : (
+        <View style={[styles.nearImage, styles.nearFallback]}>
+          <Text style={styles.avatarLetter}>{provider.name.slice(0, 1).toUpperCase()}</Text>
+        </View>
+      )}
+      <View style={styles.nearBody}>
+        <Text style={styles.nearName} numberOfLines={1}>
+          {provider.name}
+        </Text>
+        <View style={styles.nearMeta}>
+          <Star color={colors.accent} size={11} fill={colors.accent} />
+          <Text style={styles.nearMetaText}>
+            {provider.rating.toFixed(1)} · {km < 10 ? km.toFixed(1) : Math.round(km)} km
+          </Text>
+        </View>
+        <AnimatedPressable style={styles.nearBook} onPress={onBook} accessibilityLabel={`Book ${provider.name}`}>
+          <Text style={styles.nearBookText}>Book</Text>
+        </AnimatedPressable>
+      </View>
+    </Pressable>
+  );
+}
+
 function HeroBanner({ scrollY }: { scrollY: SharedValue<number> }) {
+  const { pushDiscovery } = useDiscoveryPush();
   console.log("[home] hero banner render");
   const animatedStyle = useAnimatedStyle(() => {
     const scale = interpolate(scrollY.value, [-120, 0], [1.15, 1], Extrapolation.CLAMP);
@@ -135,7 +252,7 @@ function HeroBanner({ scrollY }: { scrollY: SharedValue<number> }) {
           style={styles.heroCta}
           onPress={() => {
             console.log("[home] tap hero cta");
-            router.push("/(customer)/search");
+            pushDiscovery("/(customer)/search", "hero-cta");
           }}
           accessibilityLabel="Book now"
         >
@@ -153,6 +270,7 @@ function FeaturedProviderCard({
   provider: ProviderListItem;
   index: number;
 }) {
+  const { pushDiscovery } = useDiscoveryPush();
   const imageUri = (provider.coverImage || provider.avatar || "").trim();
   return (
     <AnimatedPressable
@@ -160,7 +278,7 @@ function FeaturedProviderCard({
       entering={staggeredEntering(index)}
       onPress={() => {
         console.log("[home] featured card press", provider.slug);
-        router.push(`/(customer)/provider/${provider.slug}`);
+        pushDiscovery(`/(customer)/provider/${provider.slug}`, "featured-card");
       }}
       accessibilityLabel={`View ${provider.name}`}
     >
@@ -188,7 +306,7 @@ function FeaturedProviderCard({
           style={styles.featBookBtn}
           onPress={() => {
             console.log("[home] featured book press", provider.slug);
-            router.push(`/(customer)/book/${provider.slug}`);
+            pushDiscovery(`/(customer)/book/${provider.slug}`, "featured-book");
           }}
           accessibilityLabel={`Book ${provider.name}`}
         >
@@ -252,6 +370,7 @@ function FeaturedSalonCard({
 
 export default function CustomerHome() {
   const insets = useSafeAreaInsets();
+  const { pushDiscovery } = useDiscoveryPush();
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [providers, setProviders] = useState<ProviderListItem[]>([]);
   const [featuredSalons, setFeaturedSalons] = useState<EstablishmentListItem[]>([]);
@@ -261,9 +380,25 @@ export default function CustomerHome() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
+  const [stale, setStale] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [offlineFail, setOfflineFail] = useState(false);
+  const hasDataRef = useRef(false);
+  const { width: screenWidth } = useWindowDimensions();
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [viewed, setViewed] = useState<ViewedProvider[]>([]);
+
+  // Re-read on focus so a profile you just opened shows up when you come back.
+  useFocusEffect(
+    useCallback(() => {
+      void listRecentSearches().then(setRecentSearches);
+      void listRecentlyViewed().then(setViewed);
+    }, []),
+  );
 
   const load = useCallback(async () => {
     setError(null);
+    setOfflineFail(false);
     logger.debug("home", "load");
     console.log("[home] load start");
     try {
@@ -325,6 +460,30 @@ export default function CustomerHome() {
         console.log("[home] featured salons soft-fail", salonsResult.reason);
       }
 
+      const snapshot: HomeSnapshot = {
+        categories:
+          catsResult.status === "fulfilled"
+            ? [...catsResult.value].sort((a, b) => a.sortOrder - b.sortOrder)
+            : [],
+        providers:
+          featuredResult.status === "fulfilled"
+            ? featuredResult.value
+            : allResult.status === "fulfilled"
+              ? allResult.value.slice(0, 8)
+              : [],
+        allProviders:
+          allResult.status === "fulfilled"
+            ? allResult.value
+            : featuredResult.status === "fulfilled"
+              ? featuredResult.value
+              : [],
+        bookings: bookingsResult.status === "fulfilled" ? bookingsResult.value : [],
+        salons: salonsResult.status === "fulfilled" ? salonsResult.value : [],
+      };
+      hasDataRef.current = true;
+      setStale(false);
+      void writeCache(HOME_CACHE_KEY, snapshot).then(setSavedAt);
+
       logger.debug("home", "loaded", {
         categories:
           catsResult.status === "fulfilled" ? catsResult.value.length : 0,
@@ -336,8 +495,14 @@ export default function CustomerHome() {
       });
       console.log("[home] load ok");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load home");
       logger.warn("home", "load failed", e);
+      if (hasDataRef.current) {
+        // Keep showing what we have; it is now known to be out of date.
+        setStale(true);
+      } else {
+        setError(e instanceof Error ? e.message : "Failed to load home");
+        setOfflineFail(e instanceof ApiError && e.code === "NETWORK");
+      }
       console.log("[home] load failed", e);
     } finally {
       setLoading(false);
@@ -356,6 +521,26 @@ export default function CustomerHome() {
       lng: coords?.lng,
     });
     console.log("[home] loadLocation done", coords ? "ok" : "none");
+  }, []);
+
+  // Paint the last saved Home immediately; the network load below replaces it.
+  useEffect(() => {
+    let cancelled = false;
+    void readCache<HomeSnapshot>(HOME_CACHE_KEY).then((hit) => {
+      if (cancelled || !hit || hasDataRef.current) return;
+      hasDataRef.current = true;
+      setCategories(hit.data.categories);
+      setProviders(hit.data.providers);
+      setAllProviders(hit.data.allProviders);
+      setBookings(hit.data.bookings);
+      setFeaturedSalons(hit.data.salons);
+      setSavedAt(hit.savedAt);
+      setStale(true);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -409,6 +594,44 @@ export default function CustomerHome() {
     return sorted;
   }, [bookAgainProviders, providers, userCoords]);
 
+  const nearby = useMemo(() => {
+    if (!userCoords) return [];
+    return allProviders
+      .filter((p) => Number.isFinite(p.location?.lat) && Number.isFinite(p.location?.lng))
+      .map((p) => ({ p, km: distanceKm(userCoords, { lat: p.location.lat, lng: p.location.lng }) }))
+      .filter((x) => x.km <= NEARBY_RADIUS_KM)
+      .sort((a, b) => a.km - b.km)
+      .slice(0, 8);
+  }, [allProviders, userCoords]);
+
+  const viewedItems = useMemo(
+    () => viewed.map((v) => providerById.get(v._id) ?? viewedToListItem(v)),
+    [viewed, providerById],
+  );
+
+  const suggestions = useMemo(() => {
+    const list: {
+      key: string;
+      label: string;
+      icon?: React.ReactNode;
+      params: Record<string, string>;
+    }[] = [];
+    if (recentSearches[0]) {
+      list.push({
+        key: "recent",
+        label: recentSearches[0],
+        icon: <History size={12} color={colors.textMuted} />,
+        params: { q: recentSearches[0] },
+      });
+    }
+    list.push(
+      { key: "near", label: "Near me", icon: <MapPin size={12} color={colors.textMuted} />, params: { near: "1" } },
+      { key: "today", label: "Open today", params: { avail: "today" } },
+      { key: "beard", label: "Beard trim", params: { q: "beard trim" } },
+    );
+    return list;
+  }, [recentSearches]);
+
   const showBookAgain = bookAgainProviders.length > 0;
   const showNearYou = !showBookAgain && Boolean(userCoords);
 
@@ -446,8 +669,40 @@ export default function CustomerHome() {
 
   const scrollY = useSharedValue(0);
 
-  if (loading) return <LoadingState label="Loading home…" lottie />;
-  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (loading) {
+    // Same shapes as the real page (header, hero, search, rails) so nothing jumps on load.
+    return (
+      <View style={[styles.content, styles.skelPage, { paddingTop: topInsetPadding }]}>
+        <View style={styles.headerRow}>
+          <Skeleton style={{ height: 40, width: 100 }} />
+          <View style={styles.headerActions}>
+            <Skeleton style={{ height: 22, width: 22, borderRadius: 11 }} />
+            <Skeleton style={{ height: 22, width: 22, borderRadius: 11 }} />
+          </View>
+        </View>
+        <Skeleton style={{ height: 180, marginHorizontal: -20, borderRadius: 0 }} />
+        <Skeleton style={{ height: 52, borderRadius: 12 }} />
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {[80, 72, 92, 84].map((w, i) => (
+            <Skeleton key={i} style={{ height: 34, width: w, borderRadius: 999 }} />
+          ))}
+        </View>
+        <Skeleton style={{ height: 24, width: 140, borderRadius: 6 }} />
+        <View style={{ flexDirection: "row", gap: 12 }}>
+          {[0, 1].map((i) => (
+            <Skeleton key={i} style={{ height: 190, width: 168 }} />
+          ))}
+        </View>
+      </View>
+    );
+  }
+  if (error) {
+    return offlineFail ? (
+      <OfflineState onRetry={load} body="Home isn't saved on this device yet." />
+    ) : (
+      <ErrorState message={error} onRetry={load} />
+    );
+  }
 
   const nextProvider = nextAppointment
     ? providerById.get(nextAppointment.providerId)
@@ -477,7 +732,7 @@ export default function CustomerHome() {
             onPress={() => {
               logger.debug("home", "header map");
               console.log("[home] tap map pin");
-              router.push("/(customer)/map");
+              pushDiscovery("/(customer)/map", "header-map");
             }}
           >
             <MapPin color={colors.text} size={22} strokeWidth={1.75} />
@@ -496,7 +751,169 @@ export default function CustomerHome() {
         </View>
       </Animated.View>
 
+      {stale ? <StaleBadge label={savedAgoLabel(savedAt)} /> : null}
+
       <HeroBanner scrollY={scrollY} />
+
+      <Pressable
+        style={styles.searchBar}
+        onPress={() => {
+          logger.debug("home", "search bar");
+          console.log("[home] tap search");
+          pushDiscovery("/(customer)/search", "search-bar");
+        }}
+      >
+        <Search color={colors.textMuted} size={18} strokeWidth={1.75} />
+        <Text style={styles.searchPlaceholder}>Artists, shops, or services</Text>
+      </Pressable>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.suggestWrap}
+        contentContainerStyle={styles.suggestRow}
+      >
+        {suggestions.map((sg) => (
+          <Chip
+            key={sg.key}
+            label={sg.label}
+            icon={sg.icon}
+            onPress={() => {
+              logger.debug("home", "suggestion", { key: sg.key });
+              pushDiscovery({ pathname: "/(customer)/search", params: sg.params }, `suggestion-${sg.key}`);
+            }}
+          />
+        ))}
+      </ScrollView>
+
+      {nextAppointment && nextDate ? (
+        <Pressable
+          style={styles.nextCard}
+          onPress={() => {
+            logger.debug("home", "next appointment", { id: nextAppointment._id });
+            console.log("[home] tap next appointment", nextAppointment._id);
+            router.push(`/(customer)/bookings/${nextAppointment._id}`);
+          }}
+        >
+          <View style={styles.nextDateBlock}>
+            <Text style={styles.nextMonth}>{nextDate.month}</Text>
+            <Text style={styles.nextDay}>{nextDate.day}</Text>
+          </View>
+          <View style={styles.nextBody}>
+            <Text style={styles.nextService} numberOfLines={1}>
+              {nextAppointment.serviceName}
+            </Text>
+            <Text style={styles.nextMeta} numberOfLines={1}>
+              {formatBookingTime(nextAppointment.startsAt)}
+              {nextProvider ? ` · ${nextProvider.name}` : ""}
+            </Text>
+          </View>
+          <ChevronRight color={colors.onImage} size={20} strokeWidth={1.75} />
+        </Pressable>
+      ) : null}
+
+      {nearby.length > 0 ? (
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHead}>
+            <View style={styles.nearTitleRow}>
+              <Text style={styles.featSectionTitle}>Nearby now</Text>
+              <Text style={styles.nearRadius}>within {NEARBY_RADIUS_KM} km</Text>
+            </View>
+            <Pressable
+              onPress={() => pushDiscovery({ pathname: "/(customer)/search", params: { near: "1" } }, "nearby-see-all")}
+            >
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featScroll}
+          >
+            {nearby.map(({ p, km }) => (
+              <NearbyCard
+                key={p._id}
+                provider={p}
+                km={km}
+                onOpen={() => pushDiscovery(`/(customer)/provider/${p.slug}`, "nearby-card")}
+                onBook={() => pushDiscovery(`/(customer)/book/${p.slug}`, "nearby-book")}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {viewedItems.length > 0 ? (
+        <View style={styles.sectionBlock}>
+          <View style={styles.sectionHead}>
+            <Text style={styles.featSectionTitle}>Recently viewed</Text>
+            <Pressable
+              onPress={() => {
+                setViewed([]);
+                void clearRecentlyViewed();
+              }}
+            >
+              <Text style={styles.clearLink}>Clear</Text>
+            </Pressable>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.featScroll}
+          >
+            {viewedItems.map((p) => (
+              <ProviderCard
+                key={p._id}
+                provider={p}
+                variant="portrait"
+                onPress={() => pushDiscovery(`/(customer)/provider/${p.slug}`, "recently-viewed")}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      <View style={styles.sectionBlock}>
+        <MonoLabel>Browse</MonoLabel>
+        {categories.length === 0 ? (
+          <Muted>No categories yet.</Muted>
+        ) : (
+          <View style={styles.browseGrid}>
+            {categories.map((c, index) => {
+              const count = categoryCounts.get(c.slug.toLowerCase()) ?? 0;
+              const Icon = categoryIcon(c.slug);
+              const tile = Math.floor((screenWidth - 40 - BROWSE_GAP * (BROWSE_COLS - 1)) / BROWSE_COLS);
+              return (
+                <AnimatedPressable
+                  key={c.slug}
+                  style={[styles.browseTile, { width: tile }]}
+                  entering={staggeredEntering(index)}
+                  accessibilityLabel={`${c.name}${count > 0 ? `, ${count} providers` : ""}`}
+                  onPress={() => {
+                    logger.debug("home", "browse category", { slug: c.slug });
+                    pushDiscovery(
+                      { pathname: "/(customer)/search", params: { category: c.slug } },
+                      "browse-category",
+                    );
+                  }}
+                >
+                  <View style={[styles.browseIconBox, { width: tile, height: tile }]}>
+                    <Icon size={26} color={colors.text} strokeWidth={1.75} />
+                    {count > 0 ? (
+                      <View style={styles.browseBadge}>
+                        <Text style={styles.browseBadgeText}>{count}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.browseLabel} numberOfLines={1}>
+                    {c.name}
+                  </Text>
+                </AnimatedPressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
 
       <View style={styles.mapWrap}>
         <ProvidersMapView
@@ -508,18 +925,6 @@ export default function CustomerHome() {
         />
       </View>
 
-      <Pressable
-        style={styles.searchBar}
-        onPress={() => {
-          logger.debug("home", "search bar");
-          console.log("[home] tap search");
-          router.push("/(customer)/search");
-        }}
-      >
-        <Search color={colors.textMuted} size={18} strokeWidth={1.75} />
-        <Text style={styles.searchPlaceholder}>Artists, shops, or services</Text>
-      </Pressable>
-
       {providers.length > 0 && (
         <View style={styles.sectionBlock}>
           <View style={styles.sectionHead}>
@@ -527,7 +932,7 @@ export default function CustomerHome() {
             <Pressable
               onPress={() => {
                 console.log("[home] featured see all");
-                router.push("/(customer)/search");
+                pushDiscovery("/(customer)/search", "featured-see-all");
               }}
             >
               <Text style={styles.seeAll}>See all</Text>
@@ -562,71 +967,6 @@ export default function CustomerHome() {
         </View>
       )}
 
-      {nextAppointment && nextDate ? (
-        <Pressable
-          style={styles.nextCard}
-          onPress={() => {
-            logger.debug("home", "next appointment", { id: nextAppointment._id });
-            console.log("[home] tap next appointment", nextAppointment._id);
-            router.push(`/(customer)/bookings/${nextAppointment._id}`);
-          }}
-        >
-          <View style={styles.nextDateBlock}>
-            <Text style={styles.nextMonth}>{nextDate.month}</Text>
-            <Text style={styles.nextDay}>{nextDate.day}</Text>
-          </View>
-          <View style={styles.nextBody}>
-            <Text style={styles.nextService} numberOfLines={1}>
-              {nextAppointment.serviceName}
-            </Text>
-            <Text style={styles.nextMeta} numberOfLines={1}>
-              {formatBookingTime(nextAppointment.startsAt)}
-              {nextProvider ? ` · ${nextProvider.name}` : ""}
-            </Text>
-          </View>
-          <ChevronRight color={colors.onImage} size={20} strokeWidth={1.75} />
-        </Pressable>
-      ) : null}
-
-      <View style={styles.sectionBlock}>
-        <MonoLabel>Browse</MonoLabel>
-        {categories.length === 0 ? (
-          <Muted>No categories yet.</Muted>
-        ) : (
-          <View style={styles.browseList}>
-            {categories.map((c, index) => {
-              const count = categoryCounts.get(c.slug.toLowerCase()) ?? 0;
-              const num = String(index + 1).padStart(2, "0");
-              return (
-                <AnimatedPressable
-                  key={c.slug}
-                  style={styles.browseRow}
-                  entering={staggeredEntering(index)}
-                  onPress={() => {
-                    logger.debug("home", "browse category", { slug: c.slug });
-                    console.log("[home] tap browse", c.slug);
-                    router.push({
-                      pathname: "/(customer)/search",
-                      params: { category: c.slug },
-                    });
-                  }}
-                >
-                  <Text style={styles.browseLeft}>
-                    <Text style={styles.browseNum}>{num} </Text>
-                    <Text style={styles.browseName}>{c.name}</Text>
-                  </Text>
-                  {count > 0 ? (
-                    <Text style={styles.browseCount}>{count}</Text>
-                  ) : (
-                    <ChevronRight color={colors.textMuted} size={18} strokeWidth={1.75} />
-                  )}
-                </AnimatedPressable>
-              );
-            })}
-          </View>
-        )}
-      </View>
-
       <View style={styles.sectionBlock}>
         <View style={styles.sectionHead}>
           <Title style={styles.sectionTitle}>
@@ -636,7 +976,7 @@ export default function CustomerHome() {
             onPress={() => {
               logger.debug("home", "see all artists");
               console.log("[home] tap see all");
-              router.push("/(customer)/search");
+              pushDiscovery("/(customer)/search", "see-all-artists");
             }}
           >
             <Text style={styles.seeAll}>See all</Text>
@@ -660,7 +1000,7 @@ export default function CustomerHome() {
                     onPress={() => {
                       logger.debug("home", "open provider", { slug: p.slug });
                       console.log("[home] tap provider row", p.slug);
-                      router.push(`/(customer)/provider/${p.slug}`);
+                      pushDiscovery(`/(customer)/provider/${p.slug}`, "provider-row");
                     }}
                   >
                     {avatarUri ? (
@@ -694,7 +1034,7 @@ export default function CustomerHome() {
                       onPress={() => {
                         logger.debug("home", "book again", { slug: p.slug });
                         console.log("[home] tap book", p.slug);
-                        router.push(`/(customer)/book/${p.slug}`);
+                        pushDiscovery(`/(customer)/book/${p.slug}`, "book-again");
                       }}
                     >
                       <Text style={styles.bookBtnText}>Book</Text>
@@ -716,7 +1056,9 @@ export default function CustomerHome() {
             const match = providers.find((p) => p._id === item.id);
             logger.debug("home", "recent work", { id: item.id, slug: match?.slug });
             console.log("[home] tap recent work", item.id);
-            if (match) router.push(`/(customer)/provider/${match.slug}`);
+            if (match) {
+              pushDiscovery(`/(customer)/provider/${match.slug}`, "recent-work");
+            }
           }}
         />
       </View>
@@ -725,6 +1067,34 @@ export default function CustomerHome() {
 }
 
 const styles = StyleSheet.create({
+  suggestWrap: { marginHorizontal: -20, marginTop: -8, flexGrow: 0 },
+  suggestRow: { paddingHorizontal: 20, gap: 8 },
+  nearTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  nearRadius: { color: colors.textMuted, fontSize: 11, fontFamily: fonts.mono },
+  clearLink: { color: colors.textMuted, fontSize: 12, fontFamily: fonts.mono },
+  nearCard: {
+    width: 168,
+    borderRadius: 14,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  nearImage: { width: "100%", height: 96, backgroundColor: colors.surfaceAlt },
+  nearFallback: { alignItems: "center", justifyContent: "center" },
+  nearBody: { padding: 10, gap: 5 },
+  nearName: { color: colors.text, fontSize: 14, fontFamily: fonts.serifMedium },
+  nearMeta: { flexDirection: "row", alignItems: "center", gap: 5 },
+  nearMetaText: { color: colors.textMuted, fontSize: 11, fontFamily: fonts.mono },
+  nearBook: {
+    marginTop: 4,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    alignItems: "center",
+  },
+  nearBookText: { color: colors.text, fontSize: 12, fontFamily: fonts.monoMedium },
   content: { paddingTop: 10, gap: 18, paddingBottom: 28 },
   headerRow: {
     flexDirection: "row",
@@ -801,34 +1171,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.mono,
   },
-  browseList: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  browseRow: {
-    flexDirection: "row",
+  skelPage: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: 20 },
+  browseGrid: { flexDirection: "row", flexWrap: "wrap", gap: BROWSE_GAP, rowGap: 16 },
+  browseTile: { alignItems: "center", gap: 8 },
+  browseIconBox: {
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
   },
-  browseLeft: { flex: 1, minWidth: 0 },
-  browseNum: {
-    color: colors.textMuted,
-    fontSize: 15,
-    fontFamily: fonts.mono,
+  browseBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 22,
+    height: 22,
+    paddingHorizontal: 6,
+    borderRadius: 999,
+    backgroundColor: colors.accent,
+    borderWidth: 2,
+    borderColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  browseName: {
-    color: colors.text,
-    fontSize: 18,
-    fontFamily: fonts.serifMedium,
-  },
-  browseCount: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontFamily: fonts.mono,
-  },
+  browseBadgeText: { color: colors.text, fontSize: 11, lineHeight: 13, fontFamily: fonts.monoMedium },
+  browseLabel: { color: colors.text, fontSize: 11, fontFamily: fonts.mono },
   providerList: { gap: 14 },
   providerRow: {
     flexDirection: "row",

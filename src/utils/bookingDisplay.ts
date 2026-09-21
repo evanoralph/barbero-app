@@ -101,3 +101,16 @@ export function paymentStatusColor(status: BookingPaymentStatus): string {
       return colors.textMuted;
   }
 }
+
+/** "Today" / "Tomorrow" / "In 4 days" for an upcoming appointment; null once it has started. */
+export function startsInLabel(iso?: string | null, now = Date.now()): string | null {
+  if (!iso) return null;
+  const start = new Date(iso);
+  if (Number.isNaN(start.getTime()) || start.getTime() < now) return null;
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const today = new Date(new Date(now).getFullYear(), new Date(now).getMonth(), new Date(now).getDate()).getTime();
+  const days = Math.round((startDay - today) / 86_400_000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return `In ${days} days`;
+}

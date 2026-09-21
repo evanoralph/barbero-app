@@ -10,6 +10,7 @@ import { authMe, login as apiLogin, logout as apiLogout } from "@/src/api/auth";
 import { setApiTokenGetter } from "@/src/api/client";
 import { clearToken, loadToken, saveToken } from "@/src/auth/token";
 import { resumeMobileDdp, signOutMobileDdp } from "@/src/meteor/session";
+import { clearCache } from "@/src/offline/cache";
 import type { AuthMe, LoginResponse } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
 import { registerPushToken } from "@/src/utils/push";
@@ -144,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logger.warn("session", "logout API failed (clearing local anyway)", error);
     }
     await clearToken();
+    await clearCache();
     setToken(null);
     setUser(null);
     await signOutMobileDdp();

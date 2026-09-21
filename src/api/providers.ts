@@ -23,6 +23,8 @@ export function listProviders(params?: {
   sort?: "rating" | "name" | "newest";
   featured?: boolean;
   premium?: boolean;
+  /** "today" | "week" — forwarded to the API; omit for anytime. */
+  availability?: "today" | "week";
 }) {
   logger.debug("providers-api", "listProviders", params);
   return apiRequest<ProviderListItem[]>("/providers", {
@@ -33,6 +35,7 @@ export function listProviders(params?: {
       sort: params?.sort,
       featured: params?.featured,
       premium: params?.premium,
+      availability: params?.availability,
     },
   });
 }

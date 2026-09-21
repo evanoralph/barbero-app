@@ -321,6 +321,8 @@ export type Booking = {
   loyaltyRewardApplied?: boolean;
   loyaltyDiscountPercent?: number;
   amountBeforeDiscount?: number;
+  /** Optional customer note / special request at booking time. */
+  notes?: string;
   createdAt: string;
   updatedAt: string;
   customer?: { userId: string; name: string; avatar?: string };

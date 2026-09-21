@@ -11,16 +11,18 @@ import {
   View,
 } from "react-native";
 import { listBookings, updateBookingStatus } from "@/src/api/bookings";
+import { ApiError } from "@/src/api/client";
 import { getMyProvider } from "@/src/api/providers";
 import {
   Button,
   EmptyState,
   ErrorState,
   Field,
-  LoadingState,
   MonoLabel,
   Muted,
+  OfflineState,
   Screen,
+  Skeleton,
   Title,
 } from "@/src/components/ui";
 import type { Booking, BookingStatus, ProviderProfile } from "@/src/types/api";
@@ -145,6 +147,7 @@ export default function ProviderBookingsScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [offlineFail, setOfflineFail] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<BookingTab>("upcoming");
   const [query, setQuery] = useState("");
@@ -155,6 +158,7 @@ export default function ProviderBookingsScreen() {
 
   const loadPage = useCallback(async (nextPage: number, mode: "replace" | "append") => {
     setError(null);
+    setOfflineFail(false);
     logger.debug("provider-bookings", "list", { page: nextPage, mode, limit: PAGE_SIZE });
     console.log("[provider-bookings] list", nextPage, mode);
     try {
@@ -178,6 +182,7 @@ export default function ProviderBookingsScreen() {
       console.log("[provider-bookings] list ok", batch.length);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
+      setOfflineFail(e instanceof ApiError && e.code === "NETWORK");
       logger.error("provider-bookings", "list failed", e);
       console.log("[provider-bookings] list failed", e);
     } finally {
@@ -350,9 +355,25 @@ export default function ProviderBookingsScreen() {
     });
   };
 
-  if (loading) return <LoadingState />;
+  if (loading) {
+    // Row-shaped placeholders instead of a centred spinner, so the layout doesn't jump.
+    return (
+      <Screen contentStyle={styles.content}>
+        <Skeleton style={{ height: 34, width: 180 }} />
+        <Skeleton style={{ height: 44, borderRadius: 12 }} />
+        <Skeleton style={{ height: 64, borderRadius: 999 }} />
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} style={{ height: 68 }} />
+        ))}
+      </Screen>
+    );
+  }
   if (error && items.length === 0) {
-    return <ErrorState message={error} onRetry={() => loadPage(1, "replace")} />;
+    return offlineFail ? (
+      <OfflineState onRetry={() => loadPage(1, "replace")} />
+    ) : (
+      <ErrorState message={error} onRetry={() => loadPage(1, "replace")} />
+    );
   }
 
   return (
@@ -650,6 +671,11 @@ export default function ProviderBookingsScreen() {
             : tab === "pending"
               ? "END OF PENDING"
               : "END OF PAST"}
+        </Muted>
+      ) : null}
+      {items.length > 0 ? (
+        <Muted style={styles.endLabel}>
+          {`PAGE ${page} · ${PAGE_SIZE} PER REQUEST`}
         </Muted>
       ) : null}
     </Screen>

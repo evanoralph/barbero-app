@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><meta name="design_doc_mode" content="canvas"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"><style>
+body{margin:0;background:#EFEDE9;font-family:"DM Mono",ui-monospace,monospace;-webkit-font-smoothing:antialiased}
+a{color:#A67B2E}a:hover{color:#0A0A0A}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px "DM Mono",monospace;padding:3px 7px;background:#0A0A0A;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:500 15px/1.2 "Playfair Display",serif;color:#0A0A0A}
+.dv-opts{display:flex;flex-wrap:wrap;gap:30px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:500 10.5px "DM Mono",monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#0A0A0A;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 "DM Mono",monospace;color:rgba(0,0,0,.55);max-width:820px}
+.dv-opt:target .dv-oid{background:#C9973A;color:#0A0A0A}
+.dv-next{margin:26px 0 0;font:400 11.5px/1.6 "DM Mono",monospace;color:rgba(0,0,0,.5)}
+.ph{width:390px;height:788px;background:#FFFFFF;border:1px solid rgba(0,0,0,.14);border-radius:18px;overflow:hidden;position:relative;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.ico{display:inline-block;flex:none;background:currentColor}
+@keyframes shimmer{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+</style></helmet>
+
+<section class="dv-turn" id="t5">
+<div class="dv-thd"><a class="dv-tid" href="#t5">5</a><span class="dv-tname">Home — suggestions, nearby, recent</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="5a">
+<div class="dv-olabel" style="max-width:420px"><a class="dv-oid" href="#5a">5a</a>Home with three new modules under the existing hero: suggestion chips wired to the search bar, a Nearby now rail carrying distance and next free slot, and Recently viewed using the portrait card. Full page.</div>
+<div class="ph" style="height:1180px">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:18px;padding:10px 20px 28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;min-height:52px">
+        <img src="assets/logo/beru-logo.png" alt="Beru" style="height:46px;width:100px;object-fit:contain" />
+        <div style="display:flex;align-items:center;gap:16px">
+          <i class="ico" style="width:22px;height:22px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat"></i>
+          <i class="ico" style="width:22px;height:22px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/bell.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/bell.svg) center/contain no-repeat"></i>
+        </div>
+      </div>
+
+      <div style="height:180px;margin:0 -20px;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#2A2724 0 8px,#221F1C 8px 16px)">
+        <div style="position:absolute;inset:0;background:rgba(10,10,10,.52);display:flex;flex-direction:column;justify-content:flex-end;padding:0 20px 20px;gap:6px">
+          <div style="font:500 11px 'DM Mono',monospace;color:#C9973A;letter-spacing:2px">BARBERO</div>
+          <div style="font:700 26px/32px 'Playfair Display',serif;color:#FFFFFF">Look sharp,<br />feel confident.</div>
+          <div style="align-self:flex-start;margin-top:6px;background:#C9973A;border-radius:999px;padding:9px 18px;font:500 13px 'DM Mono',monospace;color:#FFFFFF">Book now</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #E5E5E5;background:#FAFAFA;border-radius:12px;padding:14px">
+        <i class="ico" style="width:18px;height:18px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="font:400 14px 'DM Mono',monospace;color:#6B6B6B">Artists, shops, or services</span>
+      </div>
+
+      <div style="margin:-8px -20px 0;padding:0 20px;display:flex;gap:8px;overflow:hidden">
+        <div onClick="{{ s1 }}" style="cursor:pointer;flex:none;display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ s1Bg }};border-color:{{ s1Bg }};color:{{ s1Fg }}"><i class="ico" style="width:12px;height:12px;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat"></i>skin fade</div>
+        <div onClick="{{ s2 }}" style="cursor:pointer;flex:none;display:flex;align-items:center;gap:6px;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ s2Bg }};border-color:{{ s2Bg }};color:{{ s2Fg }}"><i class="ico" style="width:12px;height:12px;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat"></i>Near me</div>
+        <div onClick="{{ s3 }}" style="cursor:pointer;flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ s3Bg }};border-color:{{ s3Bg }};color:{{ s3Fg }}">Open today</div>
+        <div onClick="{{ s4 }}" style="cursor:pointer;flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ s4Bg }};border-color:{{ s4Bg }};color:{{ s4Fg }}">Beard trim</div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:14px;background:#0A0A0A;border-radius:14px;padding:16px">
+        <div style="min-width:48px;text-align:center"><div style="font:500 11px 'DM Mono',monospace;color:#FFFFFF;letter-spacing:1px">SEP</div><div style="font:700 28px/32px 'Playfair Display',serif;color:#FFFFFF">25</div></div>
+        <div style="flex:1;min-width:0"><div style="font:500 17px 'Playfair Display',serif;color:#FFFFFF">Skin fade + beard trim</div><div style="font:400 12px 'DM Mono',monospace;color:rgba(255,255,255,.72);margin-top:4px">2:00 PM · Marco Villanueva</div></div>
+        <i class="ico" style="width:20px;height:20px;color:#FFFFFF;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat"></i>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="display:flex;align-items:baseline;gap:8px"><div style="font:700 22px 'Playfair Display',serif;color:#0A0A0A">Nearby now</div><div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">within 5 km</div></div>
+          <div style="font:400 12px 'DM Mono',monospace;color:#C9973A">See all</div>
+        </div>
+        <div style="margin:0 -20px;padding:0 20px;display:flex;gap:12px;overflow:hidden">
+          <div style="flex:none;width:168px;border:1px solid #E5E5E5;border-radius:14px;overflow:hidden;background:#FAFAFA">
+            <div style="height:96px;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)"></div>
+            <div style="padding:10px;display:flex;flex-direction:column;gap:5px">
+              <div style="font:500 14px 'Playfair Display',serif;color:#0A0A0A">Marco Villanueva</div>
+              <div style="display:flex;align-items:center;gap:5px;font:400 11px 'DM Mono',monospace;color:#6B6B6B"><span style="color:#C9973A">★</span>4.9 · 1.2 km</div>
+              <div style="font:500 11px 'DM Mono',monospace;color:#16A34A">Next free 3:30 PM</div>
+              <div style="margin-top:4px;border:1px solid #C9973A;border-radius:999px;padding:6px 0;text-align:center;font:500 12px 'DM Mono',monospace;color:#0A0A0A">Book</div>
+            </div>
+          </div>
+          <div style="flex:none;width:168px;border:1px solid #E5E5E5;border-radius:14px;overflow:hidden;background:#FAFAFA">
+            <div style="height:96px;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)"></div>
+            <div style="padding:10px;display:flex;flex-direction:column;gap:5px">
+              <div style="font:500 14px 'Playfair Display',serif;color:#0A0A0A">Cut &amp; Co.</div>
+              <div style="display:flex;align-items:center;gap:5px;font:400 11px 'DM Mono',monospace;color:#6B6B6B"><span style="color:#C9973A">★</span>4.7 · 2.4 km</div>
+              <div style="font:500 11px 'DM Mono',monospace;color:#D97706">Next free tomorrow</div>
+              <div style="margin-top:4px;border:1px solid #C9973A;border-radius:999px;padding:6px 0;text-align:center;font:500 12px 'DM Mono',monospace;color:#0A0A0A">Book</div>
+            </div>
+          </div>
+          <div style="flex:none;width:168px;border:1px solid #E5E5E5;border-radius:14px;overflow:hidden;background:#FAFAFA">
+            <div style="height:96px;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)"></div>
+            <div style="padding:10px"><div style="font:500 14px 'Playfair Display',serif;color:#0A0A0A">Ink Lab</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font:700 22px 'Playfair Display',serif;color:#0A0A0A">Recently viewed</div>
+          <div style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">Clear</div>
+        </div>
+        <div style="margin:0 -20px;padding:0 20px;display:flex;gap:12px;overflow:hidden">
+          <div style="flex:none;width:112px;height:148px;border:1px solid #E5E5E5;border-radius:14px;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))"><div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Ink Lab</div><div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">tattoo · ★ 5.0</div></div>
+          </div>
+          <div style="flex:none;width:112px;height:148px;border:1px solid #E5E5E5;border-radius:14px;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))"><div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Marco V.</div><div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.9</div></div>
+          </div>
+          <div style="flex:none;width:112px;height:148px;border:1px solid #E5E5E5;border-radius:14px;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))"><div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Cut &amp; Co.</div><div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.7</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Browse</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="position:relative;width:100%;aspect-ratio:1;border:1px solid #E5E5E5;border-radius:16px;background:#FAFAFA;display:flex;align-items:center;justify-content:center">
+              <i class="ico" style="width:26px;height:26px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/scissors.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/scissors.svg) center/contain no-repeat"></i>
+              <span style="position:absolute;top:-6px;right:-6px;box-sizing:border-box;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#C9973A;border:2px solid #FFFFFF;color:#0A0A0A;font:500 11px/1 'DM Mono',monospace;display:flex;align-items:center;justify-content:center">24</span>
+            </div>
+            <span style="font:400 11px 'DM Mono',monospace;color:#0A0A0A">Barbers</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="position:relative;width:100%;aspect-ratio:1;border:1px solid #E5E5E5;border-radius:16px;background:#FAFAFA;display:flex;align-items:center;justify-content:center">
+              <i class="ico" style="width:26px;height:26px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/pen-tool.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/pen-tool.svg) center/contain no-repeat"></i>
+              <span style="position:absolute;top:-6px;right:-6px;box-sizing:border-box;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#C9973A;border:2px solid #FFFFFF;color:#0A0A0A;font:500 11px/1 'DM Mono',monospace;display:flex;align-items:center;justify-content:center">11</span>
+            </div>
+            <span style="font:400 11px 'DM Mono',monospace;color:#0A0A0A">Tattoo</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="position:relative;width:100%;aspect-ratio:1;border:1px solid #E5E5E5;border-radius:16px;background:#FAFAFA;display:flex;align-items:center;justify-content:center">
+              <i class="ico" style="width:26px;height:26px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/hand.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/hand.svg) center/contain no-repeat"></i>
+              <span style="position:absolute;top:-6px;right:-6px;box-sizing:border-box;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#C9973A;border:2px solid #FFFFFF;color:#0A0A0A;font:500 11px/1 'DM Mono',monospace;display:flex;align-items:center;justify-content:center">8</span>
+            </div>
+            <span style="font:400 11px 'DM Mono',monospace;color:#0A0A0A">Nails</span>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+            <div style="position:relative;width:100%;aspect-ratio:1;border:1px solid #E5E5E5;border-radius:16px;background:#FAFAFA;display:flex;align-items:center;justify-content:center">
+              <i class="ico" style="width:26px;height:26px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/sparkles.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/sparkles.svg) center/contain no-repeat"></i>
+              <span style="position:absolute;top:-6px;right:-6px;box-sizing:border-box;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#C9973A;border:2px solid #FFFFFF;color:#0A0A0A;font:500 11px/1 'DM Mono',monospace;display:flex;align-items:center;justify-content:center">15</span>
+            </div>
+            <span style="font:400 11px 'DM Mono',monospace;color:#0A0A0A">Salon</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="5b">
+<div class="dv-olabel" style="max-width:420px"><a class="dv-oid" href="#5b">5b</a>Same three modules, denser: suggestions live in the tapped search field as a recent/popular list, Nearby is a list with distance and slot instead of a rail, and Recently viewed collapses to avatars.</div>
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:16px;padding:12px 20px 20px">
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #0A0A0A;background:#FFFFFF;border-radius:12px;padding:13px 14px">
+        <i class="ico" style="width:18px;height:18px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="flex:1;font:400 14px 'DM Mono',monospace;color:#0A0A0A">|</span>
+        <span style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">Cancel</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:2px;text-transform:uppercase;padding-bottom:8px">Recent</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #E5E5E5"><i class="ico" style="width:15px;height:15px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat"></i><span style="flex:1;font:400 14px 'DM Mono',monospace;color:#0A0A0A">skin fade</span><i class="ico" style="width:13px;height:13px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat"></i></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #E5E5E5"><i class="ico" style="width:15px;height:15px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat"></i><span style="flex:1;font:400 14px 'DM Mono',monospace;color:#0A0A0A">marco villanueva</span><i class="ico" style="width:13px;height:13px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat"></i></div>
+        <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:2px;text-transform:uppercase;padding:18px 0 8px">Popular near you</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Beard trim</div>
+          <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Kids cut</div>
+          <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Fine line tattoo</div>
+          <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Gel nails</div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:baseline;justify-content:space-between;padding-top:4px"><div style="font:700 22px 'Playfair Display',serif;color:#0A0A0A">Nearby now</div><div style="font:400 12px 'DM Mono',monospace;color:#C9973A">Map</div></div>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:-6px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:48px;height:48px;border-radius:24px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 18px 'Playfair Display',serif;color:#0A0A0A">M</div>
+          <div style="flex:1;min-width:0"><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">Marco Villanueva</div><div style="display:flex;align-items:center;gap:5px;margin-top:3px;font:400 12px 'DM Mono',monospace;color:#6B6B6B">1.2 km<span style="color:#C9973A">★</span>4.9 · free 3:30 PM</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span style="font:500 11px 'DM Mono',monospace;color:#C9973A">from ₱650</span><span style="border:1px solid #C9973A;border-radius:999px;padding:7px 14px;font:500 12px 'DM Mono',monospace;color:#0A0A0A">Book</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:48px;height:48px;border-radius:24px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 18px 'Playfair Display',serif;color:#0A0A0A">C</div>
+          <div style="flex:1;min-width:0"><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">Cut &amp; Co.</div><div style="display:flex;align-items:center;gap:5px;margin-top:3px;font:400 12px 'DM Mono',monospace;color:#6B6B6B">2.4 km<span style="color:#C9973A">★</span>4.7 · free tomorrow</div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px"><span style="font:500 11px 'DM Mono',monospace;color:#C9973A">from ₱480</span><span style="border:1px solid #C9973A;border-radius:999px;padding:7px 14px;font:500 12px 'DM Mono',monospace;color:#0A0A0A">Book</span></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;padding-top:4px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Recently viewed</div>
+        <div style="display:flex;gap:16px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:60px"><div style="width:56px;height:56px;border-radius:28px;border:2px solid #C9973A;background:#F3F3F3"></div><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;text-align:center">Ink Lab</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:60px"><div style="width:56px;height:56px;border-radius:28px;border:1px solid #E5E5E5;background:#F3F3F3"></div><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;text-align:center">Marco V.</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:60px"><div style="width:56px;height:56px;border-radius:28px;border:1px solid #E5E5E5;background:#F3F3F3"></div><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;text-align:center">Cut &amp; Co.</span></div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:60px"><div style="width:56px;height:56px;border-radius:28px;border:1px solid #E5E5E5;background:#F3F3F3"></div><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;text-align:center">Nadia</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "keep <a class="dv-oid" href="#5a">5a</a>'s rails but use <a class="dv-oid" href="#5b">5b</a>'s search list" · "add Book again to <a class="dv-oid" href="#5a">5a</a>" · "show the home skeleton"</p>
+</section>
+
+<section class="dv-turn" id="t4">
+<div class="dv-thd"><a class="dv-tid" href="#t4">4</a><span class="dv-tname">Booking detail — updated</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="4a">
+<div class="dv-olabel"><a class="dv-oid" href="#4a">4a</a>Booking detail with the action stack resolved: Pay now becomes a sticky bar with the amount, View provider and Message sit side by side, Cancel drops to a quiet link, and the Details card collapses into one footer line.</div>
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:14px 20px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #E5E5E5">
+      <i class="ico" style="width:20px;height:20px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat"></i>
+      <div style="flex:1;font:500 18px 'Playfair Display',serif;color:#0A0A0A">Booking</div>
+      <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">Updated just now</div>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:14px 20px 0;display:flex;flex-direction:column;gap:14px">
+      <div style="border:1px solid #16A34A;border-left:4px solid #16A34A;border-radius:16px;padding:16px;background:#FFFFFF;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="font:400 11px 'DM Mono',monospace;color:#16A34A;letter-spacing:1.2px;text-transform:uppercase">Confirmed</div>
+          <div style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">Fri, Sep 25, 2026</div>
+        </div>
+        <div style="font:500 28px 'Playfair Display',serif;color:#0A0A0A;margin-top:2px">2:00 PM – 3:00 PM</div>
+        <div style="font:400 20px 'Playfair Display',serif;color:#0A0A0A;margin-top:4px">Skin fade + beard trim</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:4px">
+          <div style="font:400 13px 'DM Mono',monospace;color:#6B6B6B">60 min</div>
+          <div style="font:500 16px 'Playfair Display',serif;color:#A67B2E">₱950</div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:rgba(201,151,58,.16)"><i class="ico" style="width:12px;height:12px;color:#A67B2E;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat"></i><span style="font:500 11px 'DM Mono',monospace;color:#A67B2E">In 4 days</span></div>
+        </div>
+      </div>
+
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Provider</div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+          <div style="width:56px;height:56px;border-radius:28px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 20px 'Playfair Display',serif;color:#0A0A0A">M</div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+            <div style="font:500 17px 'Playfair Display',serif;color:#0A0A0A">Marco Villanueva</div>
+            <div style="font:400 14px/20px 'DM Mono',monospace;color:#6B6B6B">5th Ave, Makati</div>
+            <div style="font:400 14px/20px 'DM Mono',monospace;color:#6B6B6B">@marco-villanueva</div>
+          </div>
+          <i class="ico" style="width:18px;height:18px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat"></i>
+        </div>
+      </div>
+
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Notes</div>
+        <div style="font:400 14px/20px 'DM Mono',monospace;color:#6B6B6B;margin-top:6px">Fade to skin on the sides, scissor on top. Beard lined and softened.</div>
+      </div>
+
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px">
+        <div style="flex:1;min-width:0">
+          <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Payment</div>
+          <div style="margin-top:8px;display:flex;align-items:baseline;gap:8px"><span style="font:600 15px system-ui,sans-serif;color:#6B6B6B">Not paid</span><span style="font:600 15px system-ui,sans-serif;color:#0A0A0A">· ₱950 due</span></div>
+          <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;margin-top:4px">Pay online or settle at the shop</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <div style="flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;border:1px solid #E5E5E5;background:#FFFFFF"><i class="ico" style="width:16px;height:16px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/message-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/message-circle.svg) center/contain no-repeat"></i><span style="font:500 14px 'DM Mono',monospace;color:#0A0A0A">Message</span></div>
+        <div style="flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;border:1px solid #E5E5E5;background:#FFFFFF"><i class="ico" style="width:16px;height:16px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat"></i><span style="font:500 14px 'DM Mono',monospace;color:#0A0A0A">Directions</span></div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:2px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">ID bk_7Y2K9 · booked Sep 18</div>
+        <div style="font:400 13px 'DM Mono',monospace;color:#D4183D;text-decoration:underline">Cancel booking</div>
+      </div>
+    </div>
+    <div style="border-top:1px solid #E5E5E5;background:#FFFFFF;padding:12px 20px 20px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0"><div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">Amount due</div><div style="font:500 17px 'Playfair Display',serif;color:#0A0A0A">₱950</div></div>
+      <div style="flex:none;min-height:48px;display:flex;align-items:center;padding:0 26px;border-radius:12px;background:#C9973A;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Pay now</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="4b">
+<div class="dv-olabel"><a class="dv-oid" href="#4b">4b</a>Booking detail offline — the cached booking stays fully readable, payment and cancel are held, and a cancel tapped offline queues with the toast from <a class="dv-oid" href="#1f">1f</a>.</div>
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="background:#0A0A0A;padding:10px 20px;display:flex;align-items:center;gap:9px">
+      <i class="ico" style="width:15px;height:15px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat"></i>
+      <span style="flex:1;font:400 11px 'DM Mono',monospace;color:#FFFFFF">Offline · 1 change waiting to send</span>
+      <span style="font:500 11px 'DM Mono',monospace;color:#C9973A">Retry</span>
+    </div>
+    <div style="padding:14px 20px 12px;display:flex;align-items:center;gap:14px;border-bottom:1px solid #E5E5E5">
+      <i class="ico" style="width:20px;height:20px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat"></i>
+      <div style="flex:1;font:500 18px 'Playfair Display',serif;color:#0A0A0A">Booking</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#F3F3F3;border:1px solid #E5E5E5"><i class="ico" style="width:11px;height:11px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Saved 8 min ago</span></div>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:14px 20px 0;display:flex;flex-direction:column;gap:14px">
+      <div style="border:1px solid #D97706;border-left:4px solid #D97706;border-radius:16px;padding:16px;background:#FFFFFF;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="font:400 11px 'DM Mono',monospace;color:#D97706;letter-spacing:1.2px;text-transform:uppercase">Cancelling…</div>
+          <div style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">Fri, Sep 25, 2026</div>
+        </div>
+        <div style="font:500 28px 'Playfair Display',serif;color:#0A0A0A;margin-top:2px">2:00 PM – 3:00 PM</div>
+        <div style="font:400 20px 'Playfair Display',serif;color:#0A0A0A;margin-top:4px">Skin fade + beard trim</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding:9px 11px;border-radius:10px;background:#FAFAFA;border:1px solid #E5E5E5">
+          <i class="ico" style="width:13px;height:13px;color:#D97706;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat"></i>
+          <span style="flex:1;font:400 11px/16px 'DM Mono',monospace;color:#6B6B6B">Cancellation queued — Marco is told as soon as you reconnect</span>
+          <span style="font:500 11px 'DM Mono',monospace;color:#A67B2E">Undo</span>
+        </div>
+      </div>
+
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Provider</div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+          <div style="width:56px;height:56px;border-radius:28px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 20px 'Playfair Display',serif;color:#0A0A0A">M</div>
+          <div style="flex:1;min-width:0"><div style="font:500 17px 'Playfair Display',serif;color:#0A0A0A">Marco Villanueva</div><div style="font:400 14px/20px 'DM Mono',monospace;color:#6B6B6B">5th Ave, Makati</div></div>
+        </div>
+      </div>
+
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Appointment</div>
+        <div style="font:600 15px system-ui,sans-serif;color:#0A0A0A;margin-top:8px">Fri, Sep 25, 2026 · 60 minutes</div>
+      </div>
+
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;opacity:.55">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Payment</div>
+        <div style="margin-top:8px;font:600 15px system-ui,sans-serif;color:#6B6B6B">Not paid · ₱950 due</div>
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;margin-top:4px">Online payment needs a connection</div>
+      </div>
+
+      <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">ID bk_7Y2K9 · booked Sep 18</div>
+    </div>
+    <div style="border-top:1px solid #E5E5E5;background:#FFFFFF;padding:12px 20px 20px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0;font:400 11px/16px 'DM Mono',monospace;color:#6B6B6B">Payment resumes when you reconnect</div>
+      <div style="flex:none;min-height:48px;display:flex;align-items:center;padding:0 26px;border-radius:12px;background:#C9973A;opacity:.5;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Pay now</div>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "add a reschedule flow to <a class="dv-oid" href="#4a">4a</a>" · "show the provider-side booking detail" · "confirm dialog before cancel"</p>
+</section>
+
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Artist profile — updated</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel" style="max-width:420px"><a class="dv-oid" href="#3a">3a</a>Shown full-page so the whole scroll reads at once. Profile with four changes: Save moves to a header button (was a small underlined link), Quick Book gets a service-type rail, Reviews gain a rating summary, and the gold CTA becomes a sticky bottom bar carrying the selected service.</div>
+<div class="ph" style="height:1195px">
+  <div style="position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column">
+    <div style="flex:1;overflow:hidden;position:relative">
+      <div style="height:260px;position:relative;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 8px,#EAEAEA 8px 16px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;height:180px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,.45) 50%,#FFFFFF)"></div>
+        <div style="position:absolute;left:16px;top:16px;width:40px;height:40px;border-radius:20px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center"><i class="ico" style="width:20px;height:20px;color:#FFFFFF;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat"></i></div>
+        <div style="position:absolute;right:16px;top:16px;display:flex;gap:10px">
+          <div style="width:40px;height:40px;border-radius:20px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center"><i class="ico" style="width:19px;height:19px;color:#FFFFFF;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/share.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/share.svg) center/contain no-repeat"></i></div>
+          <div style="width:40px;height:40px;border-radius:20px;background:#C9973A;border:1px solid #C9973A;display:flex;align-items:center;justify-content:center"><i class="ico" style="width:19px;height:19px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/bookmark.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/bookmark.svg) center/contain no-repeat"></i></div>
+        </div>
+      </div>
+      <div style="position:relative;z-index:1;padding:0 20px;margin-top:-44px;display:flex;gap:14px;align-items:flex-end">
+        <div style="width:84px;height:84px;border-radius:18px;border:2px solid #C9973A;padding:2px;background:#FFFFFF;flex:none">
+          <div style="width:100%;height:100%;border-radius:14px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:400 30px 'Playfair Display',serif;color:#C9973A">M</div>
+        </div>
+        <div style="flex:1;min-width:0;padding-bottom:4px;display:flex;flex-direction:column;gap:4px">
+          <div style="font:500 28px/1.1 'Playfair Display',serif;color:#0A0A0A;letter-spacing:-.3px">Marco Villanueva</div>
+          <div style="font:400 13px 'DM Mono',monospace;color:#C9973A;letter-spacing:.3px">Barber</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+            <span style="color:#C9973A;font-size:13px">★</span>
+            <span style="font:400 13px 'DM Mono',monospace;color:#0A0A0A">4.9</span>
+            <span style="font:400 13px 'DM Mono',monospace;color:#6B6B6B">(128) · Makati</span>
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px 20px 0;font:400 14px/22px 'DM Mono',monospace;color:#6B6B6B">Twelve years behind the chair. Skin fades, scissor work and beard sculpting, by appointment only.</div>
+      <div style="padding:14px 20px 0;display:flex;flex-wrap:wrap;gap:8px">
+        <div style="padding:7px 12px;border-radius:999px;border:1px solid #E5E5E5;background:#FAFAFA;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Fades</div>
+        <div style="padding:7px 12px;border-radius:999px;border:1px solid #E5E5E5;background:#FAFAFA;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Beard</div>
+        <div style="padding:7px 12px;border-radius:999px;border:1px solid #E5E5E5;background:#FAFAFA;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Scissor cut</div>
+        <div style="padding:7px 12px;border-radius:999px;border:1px solid rgba(201,151,58,.16);background:rgba(201,151,58,.16);font:400 12px 'DM Mono',monospace;color:#C9973A">Premium</div>
+      </div>
+      <div style="padding:22px 20px 0;font:500 24px 'Playfair Display',serif;color:#0A0A0A">Portfolio</div>
+      <div style="padding:12px 0 0 20px;display:flex;gap:10px;overflow:hidden">
+        <div style="flex:none;width:132px;height:160px;border-radius:12px;border:1px solid #E5E5E5;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)"></div>
+        <div style="flex:none;width:132px;height:160px;border-radius:12px;border:1px solid #E5E5E5;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)"></div>
+        <div style="flex:none;width:132px;height:160px;border-radius:12px;border:1px solid #E5E5E5;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)"></div>
+      </div>
+      <div style="padding:22px 20px 0;display:flex;align-items:baseline;justify-content:space-between">
+        <div style="font:500 24px 'Playfair Display',serif;color:#0A0A0A">Quick Book</div>
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">6 services</div>
+      </div>
+      <div style="padding:12px 0 0 20px;display:flex;gap:8px;overflow:hidden">
+        <div onClick="{{ svcAll }}" style="cursor:pointer;flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ svcAllBg }};border-color:{{ svcAllBg }};color:{{ svcAllFg }}">All</div>
+        <div onClick="{{ svcCuts }}" style="cursor:pointer;flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ svcCutsBg }};border-color:{{ svcCutsBg }};color:{{ svcCutsFg }}">Cuts</div>
+        <div onClick="{{ svcBeard }}" style="cursor:pointer;flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ svcBeardBg }};border-color:{{ svcBeardBg }};color:{{ svcBeardFg }}">Beard</div>
+        <div onClick="{{ svcColor }}" style="cursor:pointer;flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ svcColorBg }};border-color:{{ svcColorBg }};color:{{ svcColorFg }}">Color</div>
+      </div>
+      <div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px;background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:12px">
+          <div style="width:40px;height:40px;border-radius:20px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:400 16px 'Playfair Display',serif;color:#C9973A">M</div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font:500 15px 'Playfair Display',serif;color:#0A0A0A">Skin fade</div>
+            <div style="display:flex;align-items:center;gap:4px"><i class="ico" style="width:12px;height:12px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat"></i><span style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">45 min</span></div>
+          </div>
+          <div style="font:500 15px 'DM Mono',monospace;color:#C9973A">₱650</div>
+          <i class="ico" style="width:18px;height:18px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat"></i>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:12px">
+          <div style="width:40px;height:40px;border-radius:20px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:400 16px 'Playfair Display',serif;color:#C9973A">M</div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:3px">
+            <div style="font:500 15px 'Playfair Display',serif;color:#0A0A0A">Scissor cut</div>
+            <div style="display:flex;align-items:center;gap:4px"><i class="ico" style="width:12px;height:12px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat"></i><span style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">60 min</span></div>
+          </div>
+          <div style="font:500 15px 'DM Mono',monospace;color:#C9973A">₱850</div>
+          <i class="ico" style="width:18px;height:18px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/chevron-right.svg) center/contain no-repeat"></i>
+        </div>
+      </div>
+      <div style="padding:22px 20px 0;display:flex;align-items:center;gap:14px">
+        <div style="font:500 24px 'Playfair Display',serif;color:#0A0A0A">Reviews</div>
+        <div style="display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:#FAFAFA;border:1px solid #E5E5E5"><span style="color:#C9973A;font-size:12px">★</span><span style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">4.9</span><span style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">· 128</span></div>
+      </div>
+      <div style="padding:12px 20px 24px;display:flex;flex-direction:column;gap:10px">
+        <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px">
+          <div style="font:500 14px 'Playfair Display',serif;color:#0A0A0A">Joseph R. · ★ 5</div>
+          <div style="font:400 13px/20px 'DM Mono',monospace;color:#6B6B6B">Cleanest fade I've had in Manila. Booked again on the spot.</div>
+        </div>
+      </div>
+    </div>
+    <div style="border-top:1px solid #E5E5E5;background:#FFFFFF;padding:12px 20px 20px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0"><div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">Skin fade · 45 min</div><div style="font:500 17px 'Playfair Display',serif;color:#0A0A0A">₱650</div></div>
+      <div style="flex:none;padding:16px 22px;border-radius:14px;background:#C9973A;font:500 16px 'Playfair Display',serif;color:#FFFFFF">Book with Marco</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a>Profile loading and offline — the cover, identity block and service rows keep their shape while loading (today it's a centred spinner), and offline the cached profile stays readable with booking disabled.</div>
+<div style="display:flex;gap:18px">
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden">
+    <div style="height:260px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite;position:relative">
+      <div style="position:absolute;left:16px;top:16px;width:40px;height:40px;border-radius:20px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center"><i class="ico" style="width:20px;height:20px;color:#FFFFFF;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat"></i></div>
+    </div>
+    <div style="position:relative;z-index:1;padding:0 20px;margin-top:-44px;display:flex;gap:14px;align-items:flex-end">
+      <div style="width:84px;height:84px;border-radius:18px;border:2px solid #E5E5E5;padding:2px;background:#FFFFFF;flex:none"><div style="width:100%;height:100%;border-radius:14px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite"></div></div>
+      <div style="flex:1;padding-bottom:6px;display:flex;flex-direction:column;gap:8px">
+        <div style="height:22px;width:76%;border-radius:5px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite"></div>
+        <div style="height:11px;width:40%;border-radius:4px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .15s infinite"></div>
+      </div>
+    </div>
+    <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:8px">
+      <div style="height:11px;width:100%;border-radius:4px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite"></div>
+      <div style="height:11px;width:92%;border-radius:4px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .1s infinite"></div>
+      <div style="height:11px;width:58%;border-radius:4px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .2s infinite"></div>
+    </div>
+    <div style="padding:18px 0 0 20px;display:flex;gap:10px;overflow:hidden">
+      <div style="flex:none;width:132px;height:160px;border-radius:12px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite"></div>
+      <div style="flex:none;width:132px;height:160px;border-radius:12px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .15s infinite"></div>
+      <div style="flex:none;width:132px;height:160px;border-radius:12px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .3s infinite"></div>
+    </div>
+    <div style="padding:18px 20px 0;display:flex;flex-direction:column;gap:10px">
+      <div style="height:64px;border-radius:14px;border:1px solid #E5E5E5;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite"></div>
+      <div style="height:64px;border-radius:14px;border:1px solid #E5E5E5;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .15s infinite"></div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid #E5E5E5;padding:12px 20px 20px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;height:30px;border-radius:6px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite"></div>
+      <div style="flex:none;width:160px;height:52px;border-radius:14px;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .2s infinite"></div>
+    </div>
+  </div>
+</div>
+
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden">
+    <div style="background:#0A0A0A;padding:10px 20px;display:flex;align-items:center;gap:9px">
+      <i class="ico" style="width:15px;height:15px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat"></i>
+      <span style="flex:1;font:400 11px 'DM Mono',monospace;color:#FFFFFF">Offline · saved profile</span>
+      <span style="font:500 11px 'DM Mono',monospace;color:#C9973A">Retry</span>
+    </div>
+    <div style="flex:1;overflow:hidden">
+      <div style="height:220px;position:relative;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 8px,#EAEAEA 8px 16px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;height:150px;background:linear-gradient(to bottom,transparent,rgba(255,255,255,.45) 50%,#FFFFFF)"></div>
+        <div style="position:absolute;left:16px;top:16px;width:40px;height:40px;border-radius:20px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center"><i class="ico" style="width:20px;height:20px;color:#FFFFFF;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-left.svg) center/contain no-repeat"></i></div>
+      </div>
+      <div style="position:relative;z-index:1;padding:0 20px;margin-top:-44px;display:flex;gap:14px;align-items:flex-end">
+        <div style="width:84px;height:84px;border-radius:18px;border:2px solid #C9973A;padding:2px;background:#FFFFFF;flex:none"><div style="width:100%;height:100%;border-radius:14px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:400 30px 'Playfair Display',serif;color:#C9973A">M</div></div>
+        <div style="flex:1;min-width:0;padding-bottom:4px;display:flex;flex-direction:column;gap:4px">
+          <div style="font:500 28px/1.1 'Playfair Display',serif;color:#0A0A0A;letter-spacing:-.3px">Marco Villanueva</div>
+          <div style="font:400 13px 'DM Mono',monospace;color:#C9973A">Barber</div>
+        </div>
+      </div>
+      <div style="padding:14px 20px 0"><div style="display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:#F3F3F3;border:1px solid #E5E5E5"><i class="ico" style="width:12px;height:12px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Saved 2 days ago · prices may have changed</span></div></div>
+      <div style="padding:14px 20px 0;font:400 14px/22px 'DM Mono',monospace;color:#6B6B6B">Twelve years behind the chair. Skin fades, scissor work and beard sculpting, by appointment only.</div>
+      <div style="padding:22px 20px 0;font:500 24px 'Playfair Display',serif;color:#0A0A0A">Quick Book</div>
+      <div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:10px;opacity:.55">
+        <div style="display:flex;align-items:center;gap:12px;background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:12px">
+          <div style="width:40px;height:40px;border-radius:20px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:400 16px 'Playfair Display',serif;color:#C9973A">M</div>
+          <div style="flex:1;min-width:0"><div style="font:500 15px 'Playfair Display',serif;color:#0A0A0A">Skin fade</div><div style="font:400 12px 'DM Mono',monospace;color:#6B6B6B;margin-top:3px">45 min</div></div>
+          <div style="font:500 15px 'DM Mono',monospace;color:#C9973A">₱650</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:12px">
+          <div style="width:40px;height:40px;border-radius:20px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:400 16px 'Playfair Display',serif;color:#C9973A">M</div>
+          <div style="flex:1;min-width:0"><div style="font:500 15px 'Playfair Display',serif;color:#0A0A0A">Scissor cut</div><div style="font:400 12px 'DM Mono',monospace;color:#6B6B6B;margin-top:3px">60 min</div></div>
+          <div style="font:500 15px 'DM Mono',monospace;color:#C9973A">₱850</div>
+        </div>
+      </div>
+      <div style="padding:14px 20px 0"><div style="border:1px solid #E5E5E5;border-radius:12px;background:#FAFAFA;padding:11px 13px;font:400 11px/16px 'DM Mono',monospace;color:#6B6B6B">Reviews and live availability need a connection.</div></div>
+    </div>
+    <div style="border-top:1px solid #E5E5E5;background:#FFFFFF;padding:12px 20px 20px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0;font:400 11px/16px 'DM Mono',monospace;color:#6B6B6B">Booking resumes when you reconnect</div>
+      <div style="flex:none;padding:16px 22px;border-radius:14px;background:#C9973A;opacity:.5;font:500 16px 'Playfair Display',serif;color:#FFFFFF">Book with Marco</div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "make the sticky bar show next available slot" · "apply <a class="dv-oid" href="#3a">3a</a>'s header buttons to the booking screen" · "show the provider's own public preview"</p>
+</section>
+
+<section class="dv-turn" id="t2">
+<div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Map — same filter, fetch and offline system</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="2a">
+<div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Map with filters — the chip rail keeps its place, the sheet from <a class="dv-oid" href="#1a">1a</a> sits behind the same badge button, and the count badge reports what the current bbox request returned.</div>
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:12px 20px 10px;border-bottom:1px solid #E5E5E5;background:#FFFFFF;display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div>
+      <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:10px;padding:3px">
+        <div style="padding:7px 14px;border-radius:8px;font:400 12px 'DM Mono',monospace;color:#6B6B6B;text-transform:uppercase;letter-spacing:.6px">List</div>
+        <div style="padding:7px 14px;border-radius:8px;background:#FFFFFF;border:1px solid #E5E5E5;font:500 12px 'DM Mono',monospace;color:#0A0A0A;text-transform:uppercase;letter-spacing:.6px">Map</div>
+      </div>
+    </div>
+    <div style="flex:1;position:relative;background:#F7F6F4;background-image:linear-gradient(#EBE9E5 1px,transparent 1px),linear-gradient(90deg,#EBE9E5 1px,transparent 1px),linear-gradient(115deg,transparent 46%,#E3E0DA 46%,#E3E0DA 49%,transparent 49%);background-size:46px 46px,46px 46px,100% 100%">
+      <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;align-items:center;z-index:20">
+        <div style="flex:1;min-width:0;display:flex;gap:8px;padding:6px 8px;background:rgba(255,255,255,.95);border:1px solid #E5E5E5;border-radius:999px;overflow:hidden">
+          <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;font:400 12px 'DM Mono',monospace;color:#6B6B6B">All</div>
+          <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Barber</div>
+          <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;font:400 12px 'DM Mono',monospace;color:#6B6B6B">Tattoo</div>
+        </div>
+        <div onClick="{{ openSheet }}" style="position:relative;flex:none;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #0A0A0A;background:#0A0A0A;border-radius:999px">
+          <i class="ico" style="width:18px;height:18px;color:#FFFFFF;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/sliders-horizontal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/sliders-horizontal.svg) center/contain no-repeat"></i>
+          <span style="position:absolute;top:-6px;right:-6px;box-sizing:border-box;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#C9973A;border:2px solid #FFFFFF;color:#0A0A0A;font:500 11px/1 'DM Mono',monospace;display:flex;align-items:center;justify-content:center">{{ fcount }}</span>
+        </div>
+      </div>
+
+      <div style="position:absolute;top:150px;left:56px;display:flex;flex-direction:column;align-items:center">
+        <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:999px;padding:5px 8px;box-shadow:0 2px 4px rgba(0,0,0,.15)">
+          <div style="width:22px;height:22px;border-radius:11px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 10px 'DM Mono',monospace;color:#C9973A">C</div>
+          <div style="display:flex;align-items:center;gap:3px"><span style="color:#0A0A0A">★</span><span style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">4.7</span></div>
+        </div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #FFFFFF;margin-top:-1px"></div>
+      </div>
+      <div style="position:absolute;top:236px;left:212px;display:flex;flex-direction:column;align-items:center">
+        <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #C9973A;border-radius:999px;padding:5px 8px;box-shadow:0 2px 4px rgba(0,0,0,.15)">
+          <div style="width:22px;height:22px;border-radius:11px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 10px 'DM Mono',monospace;color:#C9973A">I</div>
+          <div style="display:flex;align-items:center;gap:3px"><span style="color:#0A0A0A">★</span><span style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">5.0</span></div>
+        </div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #FFFFFF;margin-top:-1px"></div>
+      </div>
+      <div style="position:absolute;top:318px;left:104px;display:flex;flex-direction:column;align-items:center;z-index:10">
+        <div style="display:flex;align-items:center;gap:6px;background:#0A0A0A;border:1px solid #0A0A0A;border-radius:999px;padding:5px 8px;box-shadow:0 2px 6px rgba(0,0,0,.25)">
+          <div style="width:22px;height:22px;border-radius:11px;background:#2A2A2A;display:flex;align-items:center;justify-content:center;font:500 10px 'DM Mono',monospace;color:#C9973A">M</div>
+          <div style="display:flex;align-items:center;gap:3px"><span style="color:#FFFFFF">★</span><span style="font:500 12px 'DM Mono',monospace;color:#FFFFFF">4.9</span></div>
+        </div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #0A0A0A;margin-top:-1px"></div>
+      </div>
+
+      <div style="position:absolute;bottom:16px;left:12px;max-width:60%;background:rgba(255,255,255,.95);border:1px solid #E5E5E5;border-radius:10px;padding:10px 14px;font:400 13px 'DM Mono',monospace;color:#6B6B6B"><span style="font-weight:500;color:#0A0A0A">12</span> providers in this area</div>
+
+      <div style="position:absolute;left:12px;right:12px;bottom:72px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px;box-shadow:0 4px 10px rgba(0,0,0,.12)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0;display:flex;align-items:center;gap:12px">
+            <div style="width:56px;height:56px;border-radius:10px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 10px 'DM Mono',monospace;color:#C9973A">M</div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+              <div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">Marco Villanueva</div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="background:#F3F3F3;border-radius:6px;padding:2px 8px;font:400 11px 'DM Mono',monospace;color:#6B6B6B;text-transform:capitalize">barber</div>
+                <span style="font-size:12px;color:#6B6B6B">·</span>
+                <span style="color:#0A0A0A;font-size:12px">★</span>
+                <span style="font:400 13px 'DM Mono',monospace;color:#0A0A0A">4.9</span>
+              </div>
+            </div>
+          </div>
+          <div style="padding:4px"><i class="ico" style="width:18px;height:18px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat"></i></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid #E5E5E5;background:#FFFFFF;font:500 15px 'DM Mono',monospace;color:#0A0A0A">View Profile</div>
+          <div style="flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:#C9973A;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Book</div>
+        </div>
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="2b">
+<div class="dv-olabel"><a class="dv-oid" href="#2b">2b</a>Map fetching + offline — left: markers loading for a new bbox, pins held in place and dimmed instead of a blanking overlay. Right: offline, saved pins with the stale badge and a bbox that can't refresh.</div>
+<div style="display:flex;gap:18px">
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:12px 20px 10px;border-bottom:1px solid #E5E5E5;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div>
+      <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:10px;padding:3px">
+        <div style="padding:7px 14px;border-radius:8px;font:400 12px 'DM Mono',monospace;color:#6B6B6B;text-transform:uppercase;letter-spacing:.6px">List</div>
+        <div style="padding:7px 14px;border-radius:8px;background:#FFFFFF;border:1px solid #E5E5E5;font:500 12px 'DM Mono',monospace;color:#0A0A0A;text-transform:uppercase;letter-spacing:.6px">Map</div>
+      </div>
+    </div>
+    <div style="flex:1;position:relative;background:#F7F6F4;background-image:linear-gradient(#EBE9E5 1px,transparent 1px),linear-gradient(90deg,#EBE9E5 1px,transparent 1px);background-size:46px 46px,46px 46px">
+      <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;padding:6px 8px;background:rgba(255,255,255,.95);border:1px solid #E5E5E5;border-radius:999px;overflow:hidden;z-index:20">
+        <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#6B6B6B">All</div>
+        <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Tattoo</div>
+        <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#6B6B6B">Nails</div>
+      </div>
+      <div style="position:absolute;top:70px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:#0A0A0A;border-radius:999px;padding:8px 14px;z-index:20">
+        <span style="width:11px;height:11px;border:2px solid #3A3A3A;border-top-color:#C9973A;border-radius:999px;display:inline-block"></span>
+        <span style="font:400 11px 'DM Mono',monospace;color:#FFFFFF">Updating this area…</span>
+      </div>
+      <div style="position:absolute;inset:0;opacity:.4">
+        <div style="position:absolute;top:150px;left:56px;display:flex;flex-direction:column;align-items:center">
+          <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:999px;padding:5px 8px"><div style="width:22px;height:22px;border-radius:11px;background:#F3F3F3"></div><div style="width:24px;height:10px;border-radius:4px;background:#E5E5E5"></div></div>
+          <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #FFFFFF;margin-top:-1px"></div>
+        </div>
+        <div style="position:absolute;top:246px;left:208px;display:flex;flex-direction:column;align-items:center">
+          <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:999px;padding:5px 8px"><div style="width:22px;height:22px;border-radius:11px;background:#F3F3F3"></div><div style="width:24px;height:10px;border-radius:4px;background:#E5E5E5"></div></div>
+          <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #FFFFFF;margin-top:-1px"></div>
+        </div>
+        <div style="position:absolute;top:330px;left:118px;display:flex;flex-direction:column;align-items:center">
+          <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:999px;padding:5px 8px"><div style="width:22px;height:22px;border-radius:11px;background:#F3F3F3"></div><div style="width:24px;height:10px;border-radius:4px;background:#E5E5E5"></div></div>
+          <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #FFFFFF;margin-top:-1px"></div>
+        </div>
+      </div>
+      <div style="position:absolute;bottom:16px;left:12px;max-width:60%;background:rgba(255,255,255,.95);border:1px solid #E5E5E5;border-radius:10px;padding:10px 14px;font:400 13px 'DM Mono',monospace;color:#6B6B6B">Counting providers…</div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="background:#0A0A0A;padding:10px 20px;display:flex;align-items:center;gap:9px">
+      <i class="ico" style="width:15px;height:15px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat"></i>
+      <span style="flex:1;font:400 11px 'DM Mono',monospace;color:#FFFFFF">Offline · map won't refresh</span>
+      <span style="font:500 11px 'DM Mono',monospace;color:#C9973A">Retry</span>
+    </div>
+    <div style="padding:12px 20px 10px;border-bottom:1px solid #E5E5E5;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div>
+      <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:10px;padding:3px">
+        <div style="padding:7px 14px;border-radius:8px;font:400 12px 'DM Mono',monospace;color:#6B6B6B;text-transform:uppercase;letter-spacing:.6px">List</div>
+        <div style="padding:7px 14px;border-radius:8px;background:#FFFFFF;border:1px solid #E5E5E5;font:500 12px 'DM Mono',monospace;color:#0A0A0A;text-transform:uppercase;letter-spacing:.6px">Map</div>
+      </div>
+    </div>
+    <div style="flex:1;position:relative;background:#F4F3F1;background-image:linear-gradient(#EAE8E4 1px,transparent 1px),linear-gradient(90deg,#EAE8E4 1px,transparent 1px);background-size:46px 46px,46px 46px">
+      <div style="position:absolute;top:12px;left:12px;right:12px;display:flex;gap:8px;padding:6px 8px;background:rgba(255,255,255,.95);border:1px solid #E5E5E5;border-radius:999px;overflow:hidden;opacity:.6;z-index:20">
+        <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#6B6B6B">All</div>
+        <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Barber</div>
+        <div style="flex:none;padding:8px 14px;border-radius:999px;border:1px solid #E5E5E5;font:400 12px 'DM Mono',monospace;color:#6B6B6B">Tattoo</div>
+      </div>
+      <div style="position:absolute;top:70px;left:12px;display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:999px;background:#F3F3F3;border:1px solid #E5E5E5;z-index:20">
+        <i class="ico" style="width:12px;height:12px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat"></i>
+        <span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Saved 12 min ago</span>
+      </div>
+      <div style="position:absolute;top:158px;left:56px;display:flex;flex-direction:column;align-items:center;opacity:.72">
+        <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:999px;padding:5px 8px"><div style="width:22px;height:22px;border-radius:11px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 10px 'DM Mono',monospace;color:#C9973A">C</div><div style="display:flex;align-items:center;gap:3px"><span style="color:#0A0A0A">★</span><span style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">4.7</span></div></div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #FFFFFF;margin-top:-1px"></div>
+      </div>
+      <div style="position:absolute;top:262px;left:196px;display:flex;flex-direction:column;align-items:center;opacity:.72">
+        <div style="display:flex;align-items:center;gap:6px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:999px;padding:5px 8px"><div style="width:22px;height:22px;border-radius:11px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 10px 'DM Mono',monospace;color:#C9973A">M</div><div style="display:flex;align-items:center;gap:3px"><span style="color:#0A0A0A">★</span><span style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">4.9</span></div></div>
+        <div style="width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #FFFFFF;margin-top:-1px"></div>
+      </div>
+      <div style="position:absolute;left:12px;right:12px;bottom:16px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="font:400 15px 'Playfair Display',serif;color:#0A0A0A">Showing 8 saved pins</div>
+        <div style="font:400 12px/18px 'DM Mono',monospace;color:#6B6B6B">Panning won't load new providers until you're back online. Tapping a pin still opens the saved profile.</div>
+        <div style="min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid #E5E5E5;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Retry</div>
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "cluster the pins when zoomed out" · "put <a class="dv-oid" href="#2a">2a</a>'s filter button on the Home map embed" · "add a Search this area button"</p>
+</section>
+
+<section class="dv-turn" id="t1">
+<div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Filters, fetching states, offline — on the current Beru screens</span></div>
+<div class="dv-opts">
+
+<div class="dv-opt" id="1a">
+<div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Explore — one Filters button with a count badge, full-screen sheet. Tap Filters in the left frame to open it there too.</div>
+<div style="display:flex;gap:18px">
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A;letter-spacing:-.2px">Explore</div>
+      <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:10px;padding:3px">
+        <div style="padding:7px 14px;border-radius:8px;background:#FFFFFF;border:1px solid #E5E5E5;font:500 12px 'DM Mono',monospace;color:#0A0A0A;text-transform:uppercase;letter-spacing:.6px">List</div>
+        <div style="padding:7px 14px;border-radius:8px;font:400 12px 'DM Mono',monospace;color:#6B6B6B;text-transform:uppercase;letter-spacing:.6px">Map</div>
+      </div>
+    </div>
+    <div style="padding:10px 20px 0;font:400 14px/20px 'DM Mono',monospace;color:#6B6B6B">Browse artists by style, category, or name.</div>
+    <div style="padding:14px 20px 0;display:flex;gap:10px;align-items:center">
+      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:10px;border:1px solid #E5E5E5;border-radius:12px;padding:12px 14px;background:#FFFFFF">
+        <i class="ico" style="width:17px;height:17px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="font:400 15px 'DM Mono',monospace;color:#6B6B6B;white-space:nowrap">Search styles, tags…</span>
+      </div>
+      <div onClick="{{ openSheet }}" style="position:relative;flex:none;cursor:pointer;width:48px;height:48px;display:flex;align-items:center;justify-content:center;border:1px solid #0A0A0A;background:#0A0A0A;border-radius:12px">
+        <i class="ico" style="width:18px;height:18px;color:#FFFFFF;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/sliders-horizontal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/sliders-horizontal.svg) center/contain no-repeat"></i>
+        <span style="position:absolute;top:-7px;right:-7px;box-sizing:border-box;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#C9973A;border:2px solid #FFFFFF;color:#0A0A0A;font:500 11px/1 'DM Mono',monospace;display:flex;align-items:center;justify-content:center">{{ fcount }}</span>
+      </div>
+    </div>
+    <div style="padding:12px 20px 0;display:flex;gap:8px;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Barber <span style="opacity:.55">✕</span></div>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Under ₱800 <span style="opacity:.55">✕</span></div>
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;font:400 12px 'DM Mono',monospace;color:#6B6B6B">+2 more</div>
+    </div>
+    <div style="padding:14px 20px 8px;display:flex;align-items:baseline;justify-content:space-between">
+      <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">18 artists</div>
+      <div onClick="{{ clearAll }}" style="cursor:pointer;font:400 11px 'DM Mono',monospace;color:#A67B2E">Clear all</div>
+    </div>
+    <div style="flex:1;padding:0 20px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;top:10px;right:10px;background:#C9973A;padding:3px 8px;border-radius:999px;font:500 10px 'DM Mono',monospace;color:#0A0A0A">Featured</div>
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Marco Villanueva</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.9</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">Makati · from ₱650</div>
+        </div>
+      </div>
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Cut &amp; Co. Poblacion</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.7</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">Makati · from ₱480</div>
+        </div>
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:.4px">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A;letter-spacing:.4px">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:.4px">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:.4px">Account</span></div>
+    </div>
+  </div>
+  <div style="position:absolute;inset:0;background:rgba(10,10,10,.55);opacity:0;pointer-events:none;transition:opacity .2s;opacity:{{ sheetOverlay }};pointer-events:{{ sheetEvents }}" onClick="{{ closeSheet }}"></div>
+  <div style="position:absolute;left:0;right:0;bottom:0;height:640px;background:#FFFFFF;border-radius:20px 20px 0 0;border-top:1px solid #E5E5E5;transform:translateY(660px);transition:transform .26s cubic-bezier(.2,.8,.2,1);transform:{{ sheetTransform }};display:flex;flex-direction:column">
+    <div style="padding:14px 0 6px;display:flex;justify-content:center"><div style="width:38px;height:4px;border-radius:999px;background:#E5E5E5"></div></div>
+    <div style="padding:6px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E5E5E5">
+      <div style="font:400 24px 'Playfair Display',serif;color:#0A0A0A">Filters</div>
+      <div onClick="{{ closeSheet }}" style="cursor:pointer"><i class="ico" style="width:20px;height:20px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat"></i></div>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:18px 20px;display:flex;flex-direction:column;gap:22px">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Category</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div onClick="{{ catAll }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ catAllBg }};border-color:{{ catAllBg }};color:{{ catAllFg }}">All</div>
+          <div onClick="{{ catBarber }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ catBarberBg }};border-color:{{ catBarberBg }};color:{{ catBarberFg }}">Barber</div>
+          <div onClick="{{ catTattoo }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ catTattooBg }};border-color:{{ catTattooBg }};color:{{ catTattooFg }}">Tattoo</div>
+          <div onClick="{{ catNails }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ catNailsBg }};border-color:{{ catNailsBg }};color:{{ catNailsFg }}">Nails</div>
+          <div onClick="{{ catSalon }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ catSalonBg }};border-color:{{ catSalonBg }};color:{{ catSalonFg }}">Salon</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Price</div>
+          <div style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">{{ priceLabel }}</div>
+        </div>
+        <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:12px;padding:3px">
+          <div onClick="{{ price1 }}" style="cursor:pointer;flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 13px 'DM Mono',monospace;color:#6B6B6B;background:{{ price1Bg }};color:{{ price1Fg }}">₱</div>
+          <div onClick="{{ price2 }}" style="cursor:pointer;flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 13px 'DM Mono',monospace;color:#6B6B6B;background:{{ price2Bg }};color:{{ price2Fg }}">₱₱</div>
+          <div onClick="{{ price3 }}" style="cursor:pointer;flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 13px 'DM Mono',monospace;color:#6B6B6B;background:{{ price3Bg }};color:{{ price3Fg }}">₱₱₱</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Distance</div>
+          <div style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">{{ distLabel }}</div>
+        </div>
+        <input type="range" min="1" max="25" value="{{ dist }}" onInput="{{ setDist }}" style="width:100%;accent-color:#C9973A" />
+        <div style="display:flex;align-items:center;gap:7px">
+          <i class="ico" style="width:14px;height:14px;color:#A67B2E;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/map-pin.svg) center/contain no-repeat"></i>
+          <span style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">From your location · Makati</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Availability</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div onClick="{{ availAny }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ availAnyBg }};border-color:{{ availAnyBg }};color:{{ availAnyFg }}">Anytime</div>
+          <div onClick="{{ availToday }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ availTodayBg }};border-color:{{ availTodayBg }};color:{{ availTodayFg }}">Today</div>
+          <div onClick="{{ availWeek }}" style="cursor:pointer;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ availWeekBg }};border-color:{{ availWeekBg }};color:{{ availWeekFg }}">This week</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:14px 20px 22px;border-top:1px solid #E5E5E5;display:flex;gap:10px;align-items:center;background:#FFFFFF">
+      <div onClick="{{ clearAll }}" style="cursor:pointer;padding:14px 18px;border-radius:12px;border:1px solid #E5E5E5;font:500 13px 'DM Mono',monospace;color:#0A0A0A">Reset</div>
+      <div onClick="{{ closeSheet }}" style="cursor:pointer;flex:1;text-align:center;padding:14px 0;border-radius:12px;background:#C9973A;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Show {{ resultCount }} artists</div>
+    </div>
+  </div>
+</div>
+
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;background:#FFFFFF">
+    <div style="padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #E5E5E5">
+      <div style="font:400 26px 'Playfair Display',serif;color:#0A0A0A">Filters</div>
+      <i class="ico" style="width:20px;height:20px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/x.svg) center/contain no-repeat"></i>
+    </div>
+    <div style="flex:1;padding:18px 20px;display:flex;flex-direction:column;gap:22px;overflow:hidden">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Category</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace">All</div>
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;color:#0A0A0A;font:400 12px 'DM Mono',monospace">Barber</div>
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Tattoo</div>
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Nails</div>
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Salon</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Price</div><div style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">₱400 – ₱800</div></div>
+        <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:12px;padding:3px">
+          <div style="flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 13px 'DM Mono',monospace;color:#6B6B6B">₱</div>
+          <div style="flex:1;text-align:center;padding:10px 0;border-radius:9px;background:#0A0A0A;color:#FFFFFF;font:500 13px 'DM Mono',monospace">₱₱</div>
+          <div style="flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 13px 'DM Mono',monospace;color:#6B6B6B">₱₱₱</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Distance</div><div style="font:500 12px 'DM Mono',monospace;color:#0A0A0A">Within 5 km</div></div>
+        <div style="height:4px;border-radius:999px;background:#E5E5E5;position:relative"><div style="position:absolute;left:0;top:0;bottom:0;width:20%;background:#C9973A;border-radius:999px"></div><div style="position:absolute;left:20%;top:-7px;width:18px;height:18px;border-radius:999px;background:#FFFFFF;border:2px solid #C9973A;margin-left:-9px"></div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">Availability</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Anytime</div>
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;color:#0A0A0A;font:400 12px 'DM Mono',monospace">Today</div>
+          <div style="padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace">This week</div>
+        </div>
+      </div>
+      <div style="margin-top:auto;display:flex;align-items:flex-start;gap:9px;padding:12px 14px;border:1px solid #E5E5E5;border-radius:12px;background:#FAFAFA">
+        <i class="ico" style="width:15px;height:15px;margin-top:2px;color:#A67B2E;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/info.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/info.svg) center/contain no-repeat"></i>
+        <div style="font:400 11px/17px 'DM Mono',monospace;color:#6B6B6B">Counts update as you pick, from the cached result set. The request only fires when you tap Show.</div>
+      </div>
+    </div>
+    <div style="padding:14px 20px 22px;border-top:1px solid #E5E5E5;display:flex;gap:10px;align-items:center">
+      <div style="padding:14px 18px;border-radius:12px;border:1px solid #E5E5E5;font:500 13px 'DM Mono',monospace;color:#0A0A0A">Reset</div>
+      <div style="flex:1;text-align:center;padding:14px 0;border-radius:12px;background:#C9973A;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Show 12 artists</div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1b">
+<div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Explore — inline expandable panel under the search field. Tap the row to expand.</div>
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:14px 20px 0"><div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div></div>
+    <div style="padding:14px 20px 0">
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #E5E5E5;border-radius:12px;padding:12px 14px">
+        <i class="ico" style="width:17px;height:17px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="font:400 15px 'DM Mono',monospace;color:#6B6B6B">Search styles, tags…</span>
+      </div>
+    </div>
+    <div onClick="{{ togglePanel }}" style="cursor:pointer;margin:12px 20px 0;display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid #E5E5E5;border-radius:12px;background:#FAFAFA">
+      <div style="display:flex;align-items:center;gap:9px">
+        <i class="ico" style="width:16px;height:16px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/sliders-horizontal.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/sliders-horizontal.svg) center/contain no-repeat"></i>
+        <span style="font:500 13px 'DM Mono',monospace;color:#0A0A0A">Refine</span>
+        <span style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">{{ panelSummary }}</span>
+      </div>
+      <span style="font:400 12px 'DM Mono',monospace;color:#6B6B6B">{{ panelCaret }}</span>
+    </div>
+    <div style="margin:0 20px;overflow:hidden;transition:max-height .28s ease,opacity .2s;max-height:0px;opacity:0;max-height:{{ panelHeight }};opacity:{{ panelOpacity }}">
+      <div style="padding:16px 0 4px;display:flex;flex-direction:column;gap:18px">
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.6px;text-transform:uppercase">Category</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <div style="padding:8px 13px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;color:#0A0A0A;font:400 12px 'DM Mono',monospace">Barber</div>
+            <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Tattoo</div>
+            <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Nails</div>
+            <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Salon</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px">
+          <div style="flex:1;display:flex;flex-direction:column;gap:9px">
+            <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.6px;text-transform:uppercase">Price</div>
+            <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:10px;padding:3px">
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:8px;font:500 12px 'DM Mono',monospace;color:#6B6B6B">₱</div>
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:8px;background:#0A0A0A;color:#FFFFFF;font:500 12px 'DM Mono',monospace">₱₱</div>
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:8px;font:500 12px 'DM Mono',monospace;color:#6B6B6B">₱₱₱</div>
+            </div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:9px">
+            <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.6px;text-transform:uppercase">Distance</div>
+            <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:10px;padding:3px">
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:8px;background:#0A0A0A;color:#FFFFFF;font:500 12px 'DM Mono',monospace">5km</div>
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:8px;font:500 12px 'DM Mono',monospace;color:#6B6B6B">10km</div>
+              <div style="flex:1;text-align:center;padding:8px 0;border-radius:8px;font:500 12px 'DM Mono',monospace;color:#6B6B6B">Any</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.6px;text-transform:uppercase">Availability</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Anytime</div>
+            <div style="padding:8px 13px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;color:#0A0A0A;font:400 12px 'DM Mono',monospace">Today</div>
+            <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">This week</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 20px 8px;font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">12 artists · sorted by rating</div>
+    <div style="flex:1;padding:0 20px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Marco Villanueva</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.9</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">Makati · from ₱650</div>
+        </div>
+      </div>
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Cut &amp; Co. Poblacion</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.7</div>
+        </div>
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1c">
+<div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Explore — quick-filters only, no sheet. One horizontal rail of committed chips; sort moves into a trailing pill.</div>
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:14px 20px 0"><div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div></div>
+    <div style="padding:14px 20px 0">
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #E5E5E5;border-radius:12px;padding:12px 14px">
+        <i class="ico" style="width:17px;height:17px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="font:400 15px 'DM Mono',monospace;color:#6B6B6B">Search styles, tags…</span>
+      </div>
+    </div>
+    <div style="padding:14px 0 0 20px;display:flex;gap:8px;overflow:hidden">
+      <div onClick="{{ q1 }}" style="cursor:pointer;flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ q1Bg }};border-color:{{ q1Bg }};color:{{ q1Fg }}">Near me</div>
+      <div onClick="{{ q2 }}" style="cursor:pointer;flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ q2Bg }};border-color:{{ q2Bg }};color:{{ q2Fg }}">Today</div>
+      <div onClick="{{ q3 }}" style="cursor:pointer;flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ q3Bg }};border-color:{{ q3Bg }};color:{{ q3Fg }}">Under ₱800</div>
+      <div onClick="{{ q4 }}" style="cursor:pointer;flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;color:#6B6B6B;font:400 12px 'DM Mono',monospace;background:{{ q4Bg }};border-color:{{ q4Bg }};color:{{ q4Fg }}">Top rated</div>
+    </div>
+    <div style="padding:12px 0 0 20px;display:flex;gap:8px;overflow:hidden">
+      <div style="flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Barber</div>
+      <div style="flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Tattoo</div>
+      <div style="flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Nails</div>
+      <div style="flex:none;padding:9px 14px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Salon</div>
+    </div>
+    <div style="padding:16px 20px 10px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">{{ qCount }} artists</div>
+      <div style="display:flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid #E5E5E5;border-radius:999px">
+        <i class="ico" style="width:13px;height:13px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-up-down.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/arrow-up-down.svg) center/contain no-repeat"></i>
+        <span style="font:400 11px 'DM Mono',monospace;color:#0A0A0A">Rating</span>
+      </div>
+    </div>
+    <div style="flex:1;padding:0 20px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;top:10px;right:10px;background:#FFFFFF;padding:3px 8px;border-radius:999px;font:500 10px 'DM Mono',monospace;color:#0A0A0A">Premium</div>
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Ink Lab Manila</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">tattoo · ★ 5.0</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">Poblacion · from ₱2,500</div>
+        </div>
+      </div>
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Marco Villanueva</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.9</div>
+        </div>
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1d">
+<div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Bookings — status segmented control replaces the chip row; service type as a second rail. Left: customer. Right: the provider screen as it exists today (Upcoming / Pending / Past, week strip, day stats, accept–decline rows), with paged loading made explicit.</div>
+<div style="display:flex;gap:18px">
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:16px 20px 0"><div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Your bookings</div></div>
+    <div style="padding:14px 20px 0">
+      <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:12px;padding:3px">
+        <div onClick="{{ bUpcoming }}" style="cursor:pointer;flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 12px 'DM Mono',monospace;color:#6B6B6B;background:{{ bUpcomingBg }};color:{{ bUpcomingFg }}">Upcoming</div>
+        <div onClick="{{ bPast }}" style="cursor:pointer;flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 12px 'DM Mono',monospace;color:#6B6B6B;background:{{ bPastBg }};color:{{ bPastFg }}">Past</div>
+        <div onClick="{{ bCancelled }}" style="cursor:pointer;flex:1;text-align:center;padding:10px 0;border-radius:9px;font:500 12px 'DM Mono',monospace;color:#6B6B6B;background:{{ bCancelledBg }};color:{{ bCancelledFg }}">Cancelled</div>
+      </div>
+    </div>
+    <div style="padding:12px 0 0 20px;display:flex;gap:8px;overflow:hidden">
+      <div style="flex:none;padding:8px 13px;border-radius:999px;border:1px solid #0A0A0A;background:#0A0A0A;color:#FFFFFF;font:400 12px 'DM Mono',monospace">All services</div>
+      <div style="flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Haircut</div>
+      <div style="flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Beard</div>
+      <div style="flex:none;padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Color</div>
+    </div>
+    <div style="padding:14px 20px 10px;font:400 14px 'DM Mono',monospace;color:#6B6B6B">{{ bCount }}</div>
+    <div style="flex:1;padding:0 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div style="flex:1;font:500 16px 'Playfair Display',serif;color:#0A0A0A">Skin fade + beard trim</div>
+          <div style="border:1px solid #16A34A;border-radius:999px;padding:4px 10px;font:500 11px 'DM Mono',monospace;color:#16A34A;letter-spacing:.3px">Confirmed</div>
+        </div>
+        <div style="font:500 14px system-ui,sans-serif;color:#0A0A0A">Marco Villanueva</div>
+        <div style="font:400 13px/18px 'DM Mono',monospace;color:#6B6B6B">Fri, Sep 25, 2026</div>
+        <div style="font:400 13px/18px 'DM Mono',monospace;color:#6B6B6B">2:00 PM – 3:00 PM</div>
+      </div>
+      <div style="background:#FAFAFA;border:1px solid #E5E5E5;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div style="flex:1;font:500 16px 'Playfair Display',serif;color:#0A0A0A">Classic cut</div>
+          <div style="border:1px solid #D97706;border-radius:999px;padding:4px 10px;font:500 11px 'DM Mono',monospace;color:#D97706">Pending</div>
+        </div>
+        <div style="font:500 14px system-ui,sans-serif;color:#0A0A0A">Cut &amp; Co. Poblacion</div>
+        <div style="font:400 13px/18px 'DM Mono',monospace;color:#6B6B6B">Tue, Sep 29, 2026</div>
+        <div style="font:400 13px/18px 'DM Mono',monospace;color:#6B6B6B">11:30 AM – 12:15 PM</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:9px;padding:14px 0;font:400 11px 'DM Mono',monospace;color:#6B6B6B">
+        <span style="width:12px;height:12px;border:2px solid #E5E5E5;border-top-color:#C9973A;border-radius:999px;display:inline-block"></span>
+        Loading more…
+      </div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:8px 20px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="flex:1">
+        <div style="font:400 30px/1.15 'Playfair Display',serif;color:#0A0A0A;letter-spacing:-.2px">Bookings</div>
+        <div style="font:400 13px/19px 'DM Mono',monospace;color:#6B6B6B;margin-top:2px">September 2026</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px">
+        <i class="ico" style="width:22px;height:22px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <i class="ico" style="width:22px;height:22px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i>
+      </div>
+    </div>
+    <div style="padding:14px 20px 0">
+      <div style="display:flex;gap:4px;background:#F3F3F3;border-radius:12px;padding:4px">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 0;border-radius:10px;background:#FFFFFF;border:1px solid #E5E5E5;font:500 13px 'DM Mono',monospace;color:#0A0A0A">Upcoming</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 0;border-radius:10px;font:500 13px 'DM Mono',monospace;color:#6B6B6B">Pending <span style="min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#D97706;color:#FFFFFF;font:500 10px/18px 'DM Mono',monospace;text-align:center">3</span></div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px 0;border-radius:10px;font:500 13px 'DM Mono',monospace;color:#6B6B6B">Past</div>
+      </div>
+    </div>
+    <div style="padding:14px 0 0 20px;display:flex;gap:8px;overflow:hidden">
+      <div style="flex:none;width:52px;height:64px;border-radius:999px;border:1px solid #0A0A0A;background:#0A0A0A;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:400 10px 'DM Mono',monospace;color:#FFFFFF">MON</div><div style="font:500 16px 'Playfair Display',serif;color:#FFFFFF">21</div></div>
+      <div style="flex:none;width:52px;height:64px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">TUE</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">22</div></div>
+      <div style="flex:none;width:52px;height:64px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">WED</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">23</div></div>
+      <div style="flex:none;width:52px;height:64px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">THU</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">24</div></div>
+      <div style="flex:none;width:52px;height:64px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">FRI</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">25</div></div>
+      <div style="flex:none;width:52px;height:64px;border-radius:999px;border:1px solid #E5E5E5;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px"><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">SAT</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">26</div></div>
+    </div>
+    <div style="padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="flex:1;display:flex;gap:16px">
+        <div><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:.6px">BOOKED</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">4</div></div>
+        <div><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:.6px">HOURS</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">3.5</div></div>
+        <div><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:.6px">EXPECTED</div><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">₱4,200</div></div>
+      </div>
+      <div style="border:1px solid #E5E5E5;border-radius:10px;padding:10px 12px;background:#FFFFFF;font:500 12px 'DM Mono',monospace;color:#0A0A0A">Block time</div>
+    </div>
+    <div style="flex:1;padding:14px 20px 0;display:flex;flex-direction:column;gap:10px;overflow:hidden">
+      <div style="border:1px solid #E5E5E5;border-left:3px solid #D97706;border-radius:14px;background:#FFFFFF;overflow:hidden">
+        <div style="display:flex;align-items:center;padding-right:8px">
+          <div style="flex:1;display:flex;align-items:center;gap:10px;padding:12px;min-width:0">
+            <div style="width:58px"><div style="font:500 13px 'DM Mono',monospace;color:#0A0A0A">9:00 AM</div><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;margin-top:2px">45 MIN</div></div>
+            <div style="width:40px;height:40px;border-radius:20px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 15px 'Playfair Display',serif;color:#0A0A0A">J</div>
+            <div style="flex:1;min-width:0"><div style="font:500 15px 'Playfair Display',serif;color:#0A0A0A">Joseph Reyes</div><div style="font:400 12px 'DM Mono',monospace;color:#6B6B6B;margin-top:2px">Skin fade · ₱650</div></div>
+            <div style="font:500 10px 'DM Mono',monospace;color:#D97706;letter-spacing:.6px">PENDING</div>
+          </div>
+          <div style="width:36px;height:36px;border-radius:18px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;margin-right:4px"><i class="ico" style="width:18px;height:18px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/message-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/message-circle.svg) center/contain no-repeat"></i></div>
+        </div>
+        <div style="display:flex;gap:8px;padding:0 12px 12px">
+          <div style="flex:1;text-align:center;padding:11px 0;border-radius:10px;border:1px solid #E5E5E5;background:#FFFFFF;font:500 13px 'DM Mono',monospace;color:#0A0A0A">Decline</div>
+          <div style="flex:1;text-align:center;padding:11px 0;border-radius:10px;background:#C9973A;font:500 13px 'DM Mono',monospace;color:#0A0A0A">Accept</div>
+        </div>
+      </div>
+      <div style="border:1px solid #E5E5E5;border-left:3px solid #16A34A;border-radius:14px;background:#FFFFFF;display:flex;align-items:center;padding-right:8px">
+        <div style="flex:1;display:flex;align-items:center;gap:10px;padding:12px;min-width:0">
+          <div style="width:58px"><div style="font:500 13px 'DM Mono',monospace;color:#0A0A0A">11:00 AM</div><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;margin-top:2px">30 MIN</div></div>
+          <div style="width:40px;height:40px;border-radius:20px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;font:500 15px 'Playfair Display',serif;color:#0A0A0A">A</div>
+          <div style="flex:1;min-width:0"><div style="font:500 15px 'Playfair Display',serif;color:#0A0A0A">Alex Tan</div><div style="font:400 12px 'DM Mono',monospace;color:#6B6B6B;margin-top:2px">Beard sculpt · ₱400</div></div>
+          <div style="width:8px;height:8px;border-radius:4px;background:#16A34A"></div>
+        </div>
+        <div style="width:36px;height:36px;border-radius:18px;background:#F3F3F3;display:flex;align-items:center;justify-content:center;margin-right:4px"><i class="ico" style="width:18px;height:18px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/message-circle.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/message-circle.svg) center/contain no-repeat"></i></div>
+      </div>
+      <div style="min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid #E5E5E5;background:#FFFFFF;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Load more</div>
+    </div>
+    <div style="padding:12px 20px 14px;text-align:center;font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:.8px">Page 1 of 3 · 20 per request</div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Dashboard</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock-3.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock-3.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Hours</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Profile</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1e">
+<div class="dv-olabel"><a class="dv-oid" href="#1e">1e</a>Messages — segmented Unread / Upcoming / All above the existing hairline rows, search stays in the header.</div>
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:14px 20px 18px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 26px 'Playfair Display',serif;color:#0A0A0A;letter-spacing:-.2px">Messages</div>
+      <i class="ico" style="width:20px;height:20px;color:#0A0A0A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+    </div>
+    <div style="padding:0 20px 16px">
+      <div style="display:flex;background:#F3F3F3;border:1px solid #E5E5E5;border-radius:12px;padding:3px">
+        <div onClick="{{ mAll }}" style="cursor:pointer;flex:1;text-align:center;padding:9px 0;border-radius:9px;font:500 12px 'DM Mono',monospace;color:#6B6B6B;background:{{ mAllBg }};color:{{ mAllFg }}">All</div>
+        <div onClick="{{ mUnread }}" style="cursor:pointer;flex:1;text-align:center;padding:9px 0;border-radius:9px;font:500 12px 'DM Mono',monospace;color:#6B6B6B;background:{{ mUnreadBg }};color:{{ mUnreadFg }}">Unread · 2</div>
+        <div onClick="{{ mUpcoming }}" style="cursor:pointer;flex:1;text-align:center;padding:9px 0;border-radius:9px;font:500 12px 'DM Mono',monospace;color:#6B6B6B;background:{{ mUpcomingBg }};color:{{ mUpcomingFg }}">Upcoming</div>
+      </div>
+    </div>
+    <div style="padding:0 20px 10px;font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:2px;text-transform:uppercase">Upcoming appointments</div>
+    <div style="border-bottom:1px solid #E5E5E5">
+      <div style="display:flex;gap:12px;padding:14px 20px;align-items:center;border-top:1px solid #E5E5E5">
+        <div style="position:relative"><div style="width:44px;height:44px;border-radius:22px;background:#FAFAFA;border:1px solid #E5E5E5;display:flex;align-items:center;justify-content:center;font:500 12px 'DM Mono',monospace;color:#0A0A0A">MV</div><div style="position:absolute;right:-1px;bottom:0;width:11px;height:11px;border-radius:6px;background:#16A34A;border:2px solid #FFFFFF"></div></div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">Marco Villanueva</div><div style="font:400 10px 'DM Mono',monospace;color:#A67B2E">12m</div></div>
+          <div style="font:400 9px 'DM Mono',monospace;letter-spacing:1px;color:#A67B2E;margin:3px 0 2px">FRI SEP 25 · 2:00 PM · SKIN FADE</div>
+          <div style="font:500 13px system-ui,sans-serif;color:#0A0A0A">See you Friday — bring a reference photo</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;padding:14px 20px;align-items:center;border-top:1px solid #E5E5E5">
+        <div style="width:44px;height:44px;border-radius:22px;background:#FAFAFA;border:1px solid #E5E5E5;display:flex;align-items:center;justify-content:center;font:500 12px 'DM Mono',monospace;color:#0A0A0A">CC</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">Cut &amp; Co.</div><div style="font:400 10px 'DM Mono',monospace;color:#A67B2E">2h</div></div>
+          <div style="font:400 9px 'DM Mono',monospace;letter-spacing:1px;color:#A67B2E;margin:3px 0 2px">TUE SEP 29 · 11:30 AM · CLASSIC CUT</div>
+          <div style="font:400 13px system-ui,sans-serif;color:#6B6B6B">Confirmed, see you then.</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:24px 20px 10px;font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:2px;text-transform:uppercase">Earlier</div>
+    <div style="border-bottom:1px solid #E5E5E5">
+      <div style="display:flex;gap:12px;padding:14px 20px;align-items:center;border-top:1px solid #E5E5E5">
+        <div style="width:44px;height:44px;border-radius:22px;background:#FAFAFA;border:1px solid #E5E5E5;display:flex;align-items:center;justify-content:center;font:500 12px 'DM Mono',monospace;color:#0A0A0A">IL</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font:500 16px 'Playfair Display',serif;color:#0A0A0A">Ink Lab Manila</div><div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">3d</div></div>
+          <div style="font:400 9px 'DM Mono',monospace;letter-spacing:1px;color:#6B6B6B;margin:3px 0 2px">SEP 18 · COMPLETED · HALF SLEEVE</div>
+          <div style="font:400 13px system-ui,sans-serif;color:#6B6B6B">Thanks! Aftercare sheet is attached.</div>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="padding:0 20px 26px;text-align:center;font:400 11px/17px 'DM Mono',monospace;color:#6B6B6B">Chats open from a booking, so every thread stays tied to an appointment.</div>
+  </div>
+</div>
+</div>
+
+<div class="dv-opt" id="1f">
+<div class="dv-olabel"><a class="dv-oid" href="#1f">1f</a>Offline — banner + stale badge (screens stay usable), queued-action toast, and the per-screen offline empty state. Toggle the connection to see the first frame switch.</div>
+<div style="display:flex;gap:18px">
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="background:#0A0A0A;padding:10px 20px;display:flex;align-items:center;gap:9px;transition:opacity .2s;opacity:{{ bannerOpacity }};height:{{ bannerHeight }};overflow:hidden">
+      <i class="ico" style="width:15px;height:15px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/wifi-off.svg) center/contain no-repeat"></i>
+      <span style="flex:1;font:400 11px 'DM Mono',monospace;color:#FFFFFF">Offline · showing saved results</span>
+      <span onClick="{{ toggleOnline }}" style="cursor:pointer;font:500 11px 'DM Mono',monospace;color:#C9973A">Retry</span>
+    </div>
+    <div style="padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div>
+      <div onClick="{{ toggleOnline }}" style="cursor:pointer;font:400 10px 'DM Mono',monospace;color:#A67B2E;border:1px solid #E5E5E5;border-radius:999px;padding:6px 10px">{{ connLabel }}</div>
+    </div>
+    <div style="padding:14px 20px 0">
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #E5E5E5;border-radius:12px;padding:12px 14px">
+        <i class="ico" style="width:17px;height:17px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="font:400 15px 'DM Mono',monospace;color:#6B6B6B">Search styles, tags…</span>
+      </div>
+    </div>
+    <div style="padding:14px 20px 0;display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#F3F3F3;border:1px solid #E5E5E5">
+        <i class="ico" style="width:12px;height:12px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/history.svg) center/contain no-repeat"></i>
+        <span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">{{ staleLabel }}</span>
+      </div>
+    </div>
+    <div style="flex:1;padding:14px 20px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden;transition:opacity .2s;opacity:{{ staleOpacity }}">
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Marco Villanueva</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.9</div>
+        </div>
+      </div>
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Cut &amp; Co. Poblacion</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.7</div>
+        </div>
+      </div>
+    </div>
+    <div style="position:absolute;left:16px;right:16px;bottom:80px;background:#0A0A0A;border-radius:12px;padding:13px 15px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 20px rgba(0,0,0,.25)">
+      <i class="ico" style="width:15px;height:15px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat"></i>
+      <div style="flex:1;font:400 12px/17px 'DM Mono',monospace;color:#FFFFFF">Booking request queued — sends when you're back online</div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 34px;gap:16px;text-align:center">
+    <div style="width:210px;height:148px;display:flex;align-items:center;justify-content:center"><img src="assets/logo/beru-logo.png" alt="Beru" style="max-width:100%;max-height:100%;object-fit:contain" /></div>
+    <div style="font:400 28px/1.2 'Playfair Display',serif;color:#0A0A0A">You're offline</div>
+    <div style="font:400 14px/21px 'DM Mono',monospace;color:#6B6B6B">Beru can't reach the server right now. Saved bookings and messages are still here — new results will load when you reconnect.</div>
+    <div style="width:100%;border:1px solid #E5E5E5;border-radius:14px;background:#FAFAFA;padding:14px;display:flex;flex-direction:column;gap:10px;text-align:left">
+      <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.6px;text-transform:uppercase">Waiting to send · 2</div>
+      <div style="display:flex;align-items:center;gap:10px"><i class="ico" style="width:14px;height:14px;color:#D97706;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat"></i><span style="flex:1;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Booking · Skin fade, Fri 2:00 PM</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><i class="ico" style="width:14px;height:14px;color:#D97706;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/clock.svg) center/contain no-repeat"></i><span style="flex:1;font:400 12px 'DM Mono',monospace;color:#0A0A0A">Message · Marco Villanueva</span></div>
+    </div>
+    <div style="width:100%;text-align:center;padding:15px 0;border-radius:12px;background:#C9973A;font:500 15px 'DM Mono',monospace;color:#0A0A0A">Try again</div>
+    <div style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">Last connected 12 minutes ago</div>
+  </div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="1g">
+<div class="dv-olabel"><a class="dv-oid" href="#1g">1g</a>Fetching — skeletons shaped like the real cards, pull-to-refresh with a last-updated line, and paged loading at the bottom. Tap the frame to replay the load.</div>
+<div style="display:flex;gap:18px">
+<div class="ph" onClick="{{ replayLoad }}" style="cursor:pointer">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div>
+      <div style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">{{ refreshLabel }}</div>
+    </div>
+    <div style="padding:14px 20px 0">
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #E5E5E5;border-radius:12px;padding:12px 14px">
+        <i class="ico" style="width:17px;height:17px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="font:400 15px 'DM Mono',monospace;color:#6B6B6B">Search styles, tags…</span>
+      </div>
+    </div>
+    <div style="padding:14px 20px 0;display:flex;gap:8px">
+      <div style="padding:8px 13px;border-radius:999px;border:1px solid #C9973A;background:#C9973A;color:#0A0A0A;font:400 12px 'DM Mono',monospace">Barber</div>
+      <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Tattoo</div>
+      <div style="padding:8px 13px;border-radius:999px;border:1px solid #E5E5E5;color:#6B6B6B;font:400 12px 'DM Mono',monospace">Nails</div>
+    </div>
+    <div style="padding:16px 20px 10px;display:flex;align-items:center;gap:8px;font:400 11px 'DM Mono',monospace;color:#6B6B6B;letter-spacing:1.2px;text-transform:uppercase">{{ fetchStatus }}</div>
+    <div style="flex:1;padding:0 20px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite;position:relative;overflow:hidden">
+        <div style="position:absolute;left:12px;right:80px;bottom:34px;height:14px;border-radius:4px;background:#E5E5E5"></div>
+        <div style="position:absolute;left:12px;width:120px;bottom:16px;height:9px;border-radius:4px;background:#EAEAEA"></div>
+      </div>
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .2s infinite;position:relative;overflow:hidden">
+        <div style="position:absolute;left:12px;right:110px;bottom:34px;height:14px;border-radius:4px;background:#E5E5E5"></div>
+        <div style="position:absolute;left:12px;width:96px;bottom:16px;height:9px;border-radius:4px;background:#EAEAEA"></div>
+      </div>
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;background:#F3F3F3;animation:shimmer 1.4s ease-in-out .4s infinite"></div>
+    </div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="ph">
+  <div style="position:absolute;inset:0;display:flex;flex-direction:column">
+    <div style="padding:14px 20px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="font:400 28px/1.15 'Playfair Display',serif;color:#0A0A0A">Explore</div>
+      <div style="display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:999px;background:#16A34A"></span><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Updated just now</span></div>
+    </div>
+    <div style="padding:14px 20px 0">
+      <div style="display:flex;align-items:center;gap:10px;border:1px solid #E5E5E5;border-radius:12px;padding:12px 14px">
+        <i class="ico" style="width:17px;height:17px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i>
+        <span style="font:400 15px 'DM Mono',monospace;color:#0A0A0A">fade</span>
+      </div>
+    </div>
+    <div style="padding:14px 20px 0;display:flex;align-items:center;gap:8px">
+      <span style="width:11px;height:11px;border:2px solid #E5E5E5;border-top-color:#C9973A;border-radius:999px;display:inline-block"></span>
+      <span style="font:400 11px 'DM Mono',monospace;color:#6B6B6B">Refining results…</span>
+    </div>
+    <div style="flex:1;padding:14px 20px 0;display:flex;flex-direction:column;gap:12px;overflow:hidden;opacity:.45">
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Marco Villanueva</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.9</div>
+        </div>
+      </div>
+      <div style="height:180px;border-radius:14px;border:1px solid #E5E5E5;position:relative;overflow:hidden;background-image:repeating-linear-gradient(45deg,#F3F3F3 0 7px,#EAEAEA 7px 14px)">
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:28px 12px 12px;background:linear-gradient(to bottom,transparent,rgba(10,10,10,.35) 45%,rgba(10,10,10,.82))">
+          <div style="font:500 15px 'Playfair Display',serif;color:#FFFFFF">Cut &amp; Co. Poblacion</div>
+          <div style="font:400 10px 'DM Mono',monospace;color:rgba(255,255,255,.78)">barber · ★ 4.7</div>
+        </div>
+      </div>
+      <div style="height:60px;border-radius:14px;border:1px solid #E5E5E5;background:#F3F3F3;animation:shimmer 1.4s ease-in-out infinite"></div>
+    </div>
+    <div style="padding:14px 20px 18px;text-align:center;font:400 11px 'DM Mono',monospace;color:#6B6B6B">Page 2 of 4 · pull to refresh</div>
+    <div style="height:64px;border-top:1px solid #E5E5E5;background:#FAFAFA;display:flex;align-items:center;justify-content:space-around;padding-top:6px;padding-bottom:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/house.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Home</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#C9973A;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/search.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#C9973A">Explore</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/calendar-days.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Bookings</span></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px"><i class="ico" style="width:22px;height:22px;color:#6B6B6B;-webkit-mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat;mask:url(https://unpkg.com/lucide-static@latest/icons/user-round.svg) center/contain no-repeat"></i><span style="font:400 10px 'DM Mono',monospace;color:#6B6B6B">Account</span></div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+</div>
+<p class="dv-next">Try next: "take <a class="dv-oid" href="#1a">1a</a>'s sheet but keep <a class="dv-oid" href="#1c">1c</a>'s quick rail" · "add the offline banner from <a class="dv-oid" href="#1f">1f</a> to bookings" · "show the Home screen with these states"</p>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1800,&quot;height&quot;:1100}}">
+const GOLD = "#C9973A", INK = "#0A0A0A", WHITE = "#FFFFFF", MUTED = "#6B6B6B";
+
+class Component extends DCLogic {
+  state = {
+    sheetOpen: false,
+    cat: "barber",
+    price: 2,
+    dist: 5,
+    avail: "today",
+    panelOpen: false,
+    quick: { near: true, today: false, cheap: false, top: false },
+    sugg: { s1: false, s2: true, s3: false, s4: false },
+    svc: "all",
+    bTab: "upcoming",
+    mTab: "all",
+    online: false,
+    loading: true,
+  };
+
+  componentDidMount() {
+    this.timer = setInterval(() => this.setState((s) => ({ loading: !s.loading })), 3200);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  pick(on) { return on ? GOLD : WHITE; }
+  fg(on) { return on ? INK : MUTED; }
+  seg(on) { return on ? INK : "transparent"; }
+  segFg(on) { return on ? WHITE : MUTED; }
+
+  renderVals() {
+    const s = this.state;
+    const count = (s.cat !== "" ? 1 : 0) + (s.price !== 0 ? 1 : 0) + (s.dist !== 25 ? 1 : 0) + (s.avail !== "any" ? 1 : 0);
+    const quickCount = Object.values(s.quick).filter(Boolean).length;
+    const catOn = (c) => s.cat === c;
+    const v = {
+      fcount: count,
+      resultCount: Math.max(3, 24 - count * 4 - Math.round(s.dist / 5)),
+      openSheet: () => this.setState({ sheetOpen: true }),
+      closeSheet: () => this.setState({ sheetOpen: false }),
+      sheetTransform: s.sheetOpen ? "translateY(0px)" : "translateY(660px)",
+      sheetOverlay: s.sheetOpen ? 1 : 0,
+      sheetEvents: s.sheetOpen ? "auto" : "none",
+      clearAll: () => this.setState({ cat: "", price: 0, dist: 25, avail: "any" }),
+      priceLabel: ["Any price", "Under ₱400", "₱400 – ₱800", "₱800+"][s.price],
+      distLabel: s.dist >= 25 ? "Any distance" : "Within " + s.dist + " km",
+      dist: s.dist,
+      setDist: (e) => this.setState({ dist: Number(e.target.value) }),
+      togglePanel: () => this.setState((p) => ({ panelOpen: !p.panelOpen })),
+      panelHeight: s.panelOpen ? "360px" : "0px",
+      panelOpacity: s.panelOpen ? 1 : 0,
+      panelCaret: s.panelOpen ? "▴" : "▾",
+      panelSummary: "Barber · ₱₱ · 5km · Today",
+      qCount: 24 - quickCount * 5,
+      bCount: (s.bTab === "upcoming" ? "2 upcoming" : s.bTab === "past" ? "9 past" : "1 cancelled"),
+      mAllBg: this.seg(s.mTab === "all"), mAllFg: this.segFg(s.mTab === "all"),
+      mUnreadBg: this.seg(s.mTab === "unread"), mUnreadFg: this.segFg(s.mTab === "unread"),
+      mUpcomingBg: this.seg(s.mTab === "upcoming"), mUpcomingFg: this.segFg(s.mTab === "upcoming"),
+      mAll: () => this.setState({ mTab: "all" }),
+      mUnread: () => this.setState({ mTab: "unread" }),
+      mUpcoming: () => this.setState({ mTab: "upcoming" }),
+      bUpcomingBg: this.seg(s.bTab === "upcoming"), bUpcomingFg: this.segFg(s.bTab === "upcoming"),
+      bPastBg: this.seg(s.bTab === "past"), bPastFg: this.segFg(s.bTab === "past"),
+      bCancelledBg: this.seg(s.bTab === "cancelled"), bCancelledFg: this.segFg(s.bTab === "cancelled"),
+      bUpcoming: () => this.setState({ bTab: "upcoming" }),
+      bPast: () => this.setState({ bTab: "past" }),
+      bCancelled: () => this.setState({ bTab: "cancelled" }),
+      toggleOnline: () => this.setState((p) => ({ online: !p.online })),
+      connLabel: s.online ? "Simulate offline" : "Simulate online",
+      bannerOpacity: s.online ? 0 : 1,
+      bannerHeight: s.online ? "0px" : "37px",
+      staleLabel: s.online ? "Updated just now" : "Saved 12 min ago",
+      staleOpacity: s.online ? 1 : 0.72,
+      replayLoad: () => this.setState({ loading: true }),
+      fetchStatus: s.loading ? "Searching…" : "18 artists",
+      refreshLabel: s.loading ? "Refreshing" : "Updated just now",
+    };
+    ["All", "Barber", "Tattoo", "Nails", "Salon"].forEach((label) => {
+      const slug = label === "All" ? "" : label.toLowerCase();
+      v["cat" + label] = () => this.setState({ cat: slug });
+      v["cat" + label + "Bg"] = this.pick(catOn(slug));
+      v["cat" + label + "Fg"] = this.fg(catOn(slug));
+    });
+    [1, 2, 3].forEach((n) => {
+      v["price" + n] = () => this.setState({ price: n });
+      v["price" + n + "Bg"] = this.seg(s.price === n);
+      v["price" + n + "Fg"] = this.segFg(s.price === n);
+    });
+    [["Any", "any"], ["Today", "today"], ["Week", "week"]].forEach(([label, key]) => {
+      v["avail" + label] = () => this.setState({ avail: key });
+      v["avail" + label + "Bg"] = this.pick(s.avail === key);
+      v["avail" + label + "Fg"] = this.fg(s.avail === key);
+    });
+    [["All", "all"], ["Cuts", "cuts"], ["Beard", "beard"], ["Color", "color"]].forEach(([label, key]) => {
+      v["svc" + label] = () => this.setState({ svc: key });
+      v["svc" + label + "Bg"] = this.pick(s.svc === key);
+      v["svc" + label + "Fg"] = this.fg(s.svc === key);
+    });
+    [["q1", "near"], ["q2", "today"], ["q3", "cheap"], ["q4", "top"]].forEach(([id, key]) => {
+      v[id] = () => this.setState((p) => ({ quick: { ...p.quick, [key]: !p.quick[key] } }));
+      v[id + "Bg"] = this.pick(s.quick[key]);
+      v[id + "Fg"] = this.fg(s.quick[key]);
+    });
+    ["s1", "s2", "s3", "s4"].forEach((id) => {
+      v[id] = () => this.setState((p) => ({ sugg: { ...p.sugg, [id]: !p.sugg[id] } }));
+      v[id + "Bg"] = this.pick(s.sugg[id]);
+      v[id + "Fg"] = this.fg(s.sugg[id]);
+    });
+    return v;
+  }
+}
+</script>
+</body>
+</html>
