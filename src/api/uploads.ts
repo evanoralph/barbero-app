@@ -1,5 +1,6 @@
 import { apiRequest } from "@/src/api/client";
 import { logger } from "@/src/utils/logger";
+import { normalizeImageForUpload } from "@/src/utils/compressImage";
 
 export type UploadKind =
   | "provider-avatar"
@@ -52,29 +53,37 @@ export async function uploadImageUriToS3(
   kind: UploadKind,
   opts?: {
     mimeType?: string | null;
+    fileName?: string | null;
     serviceId?: string;
     threadId?: string;
     contentLength?: number;
   },
 ): Promise<string> {
-  const contentType = guessContentType(uri, opts?.mimeType);
-  const fileName = fileNameFromUri(uri);
+  // Banner / portfolio / etc. skip crop UI, so iOS HEIC must be re-encoded first.
+  // Avatar often already JPEG via allowsEditing — normalize is a no-op then.
+  const normalized = await normalizeImageForUpload(uri, opts?.mimeType, opts?.fileName);
+  const uploadUri = normalized.uri;
+  const contentType = guessContentType(uploadUri, normalized.mimeType || null);
+  const rawName = opts?.fileName?.trim() || fileNameFromUri(uploadUri);
+  const fileName = rawName.replace(/\.(heic|heif)$/i, ".jpg");
 
   logger.info("uploads", "upload start", {
     kind,
     contentType,
     fileName,
+    convertedFromHeic: normalized.converted,
     threadId: opts?.threadId,
     contentLength: opts?.contentLength,
   });
   console.log("[uploads] upload start", {
     kind,
     contentType,
+    convertedFromHeic: normalized.converted,
     threadId: opts?.threadId,
     contentLength: opts?.contentLength,
   });
 
-  const fileRes = await fetch(uri);
+  const fileRes = await fetch(uploadUri);
   const blob = await fileRes.blob();
   const contentLength = opts?.contentLength ?? blob.size;
 

@@ -1,10 +1,17 @@
-# Log in as seed provider via __DEV__ quick-fill buttons.
+# Log in as seed provider via __DEV__ quick-fill buttons, then login OTP.
 appId: com.beruapp.ai
 ---
 - tapOn: "Provider"
 - tapOn:
     text: "Sign in"
     index: 1
+- extendedWaitUntil:
+    visible: "Enter login code"
+    timeout: 20000
+- tapOn:
+    id: "login-otp-dev-fill"
+- tapOn:
+    id: "login-otp-verify"
 - extendedWaitUntil:
     notVisible: "Dev quick fill"
     timeout: 20000

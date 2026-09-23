@@ -49,6 +49,7 @@ export const ImageUploadField = forwardRef<ImageUploadFieldHandle, ImageUploadFi
   const [pendingAsset, setPendingAsset] = useState<{
     uri: string;
     mimeType?: string | null;
+    fileName?: string | null;
   } | null>(null);
 
   // In manual mode, if the user types/pastes a URL, we clear any pending
@@ -84,10 +85,21 @@ export const ImageUploadField = forwardRef<ImageUploadFieldHandle, ImageUploadFi
       }
 
       const asset = result.assets[0];
-      logger.info("image-upload", "immediate picked", { kind, fileUri: asset.uri });
+      logger.info("image-upload", "immediate picked", {
+        kind,
+        fileUri: asset.uri,
+        mimeType: asset.mimeType ?? null,
+        allowsEditing: kind === "provider-avatar",
+      });
+      console.log("[image-upload] immediate picked", {
+        kind,
+        mimeType: asset.mimeType ?? null,
+        uri: asset.uri.slice(0, 80),
+      });
       setUploading(true);
       const publicUrl = await uploadImageUriToS3(asset.uri, kind, {
         mimeType: asset.mimeType,
+        fileName: asset.fileName,
         serviceId,
       });
       onChange(publicUrl);
@@ -123,8 +135,22 @@ export const ImageUploadField = forwardRef<ImageUploadFieldHandle, ImageUploadFi
       }
 
       const asset = result.assets[0];
-      setPendingAsset({ uri: asset.uri, mimeType: asset.mimeType });
-      logger.info("image-upload", "manual picked (deferred)", { kind, fileUri: asset.uri });
+      setPendingAsset({
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+        fileName: asset.fileName,
+      });
+      logger.info("image-upload", "manual picked (deferred)", {
+        kind,
+        fileUri: asset.uri,
+        mimeType: asset.mimeType ?? null,
+        fileName: asset.fileName ?? null,
+      });
+      console.log("[image-upload] manual picked", {
+        kind,
+        mimeType: asset.mimeType ?? null,
+        fileName: asset.fileName ?? null,
+      });
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Select failed";
       logger.error("image-upload", "manual pick failed", { kind, msg, error });
@@ -146,9 +172,11 @@ export const ImageUploadField = forwardRef<ImageUploadFieldHandle, ImageUploadFi
       logger.info("image-upload", "manual uploadNow: upload start", {
         kind,
         fileUri: pendingAsset.uri,
+        mimeType: pendingAsset.mimeType ?? null,
       });
       const publicUrl = await uploadImageUriToS3(pendingAsset.uri, kind, {
         mimeType: pendingAsset.mimeType,
+        fileName: pendingAsset.fileName,
         serviceId,
       });
       onChange(publicUrl);

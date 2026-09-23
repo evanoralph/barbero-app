@@ -2,9 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,12 +10,12 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMyProvider, listMyPortfolio, updateMyProvider } from "@/src/api/providers";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { EmptyPortfolioIllustration } from "@/src/components/illustrations/EmptyPortfolioIllustration";
-import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import { PortfolioLightbox } from "@/src/components/PortfolioLightbox";
 import type { PortfolioTile } from "@/src/components/PortfolioGrid";
 import {
@@ -55,7 +53,6 @@ function maxVisiblePortfolio(profile: ProviderProfile | null): number | null {
 
 export default function ProviderPortfolioScreen() {
   const insets = useSafeAreaInsets();
-  const hidePlans = useProviderOnboardingHome();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,16 +118,23 @@ export default function ProviderPortfolioScreen() {
     logger.info("provider-portfolio", "form open edit", { id: item.id });
   };
 
-  const load = useCallback(async (opts?: { refresh?: boolean; keepPage?: boolean }) => {
+  const load = useCallback(async (opts?: { refresh?: boolean }) => {
     if (opts?.refresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      const targetPage = opts?.keepPage ? page : 1;
+      // Always use current `page` state — Next/Previous setPage, filters/search reset to 1.
+      logger.debug("provider-portfolio", "load request", {
+        page,
+        q: query,
+        filter,
+        refresh: Boolean(opts?.refresh),
+      });
+      console.log("[provider-portfolio] load request", { page, q: query, filter });
       const [me, paged] = await Promise.all([
         getMyProvider(),
         listMyPortfolio({
-          page: targetPage,
+          page,
           limit: PAGE_SIZE,
           q: query,
           filter,
@@ -155,6 +159,7 @@ export default function ProviderPortfolioScreen() {
         locked,
         isPremium: me.isPremium,
         isFeatured: me.isFeatured,
+        page: paged.page,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load portfolio";
@@ -178,6 +183,17 @@ export default function ProviderPortfolioScreen() {
     }, 300);
     return () => clearTimeout(timer);
   }, [queryInput]);
+
+  // Must run every render (before early returns) — Rules of Hooks. Do not move below loading/error returns.
+  const modalVisible = formMode !== "closed";
+  useEffect(() => {
+    if (!modalVisible) return;
+    logger.debug("provider-portfolio", "keyboard-aware modal open", {
+      formMode,
+      editingId,
+    });
+    console.log("[provider-portfolio] keyboard-aware modal open", { formMode, editingId });
+  }, [modalVisible, formMode, editingId]);
 
   const tiles: PortfolioTile[] = useMemo(
     () =>
@@ -248,7 +264,7 @@ export default function ProviderPortfolioScreen() {
       setProfile(updated);
       setOk(editingId ? "Portfolio item updated" : "Portfolio item added");
       logger.info("provider-portfolio", "refresh after save");
-      await load({ keepPage: true });
+      await load();
       closeForm();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Save failed";
@@ -282,7 +298,7 @@ export default function ProviderPortfolioScreen() {
             setProfile(updated);
             setOk("Portfolio item removed");
             logger.info("provider-portfolio", "refresh after remove", { id: item.id });
-            await load({ keepPage: true });
+            await load();
             if (editingId === item.id) closeForm();
           } catch (e) {
             const msg = e instanceof Error ? e.message : "Remove failed";
@@ -326,7 +342,7 @@ export default function ProviderPortfolioScreen() {
       const updated = await updateMyProvider({ visiblePortfolioIds: next });
       setProfile(updated);
       setOk(makeVisible ? "Photo shown on profile" : "Photo hidden from profile");
-      await load({ keepPage: true });
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update visibility");
       logger.error("provider-portfolio", "toggle visibility failed", e);
@@ -338,7 +354,6 @@ export default function ProviderPortfolioScreen() {
   if (loading) return <LoadingState label="Loading portfolio…" />;
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
 
-  const modalVisible = formMode !== "closed";
   const locked = isProfileLocked(profile);
 
   return (
@@ -357,21 +372,15 @@ export default function ProviderPortfolioScreen() {
         {locked ? (
           <View style={styles.paywallBox}>
             <Text style={styles.paywallTitle}>Subscribe to continue</Text>
-            <Muted>
-              {hidePlans
-                ? "Portfolio edits require an active plan. Plans will be available soon."
-                : "Portfolio edits require an active Pro or Premium plan."}
-            </Muted>
-            {!hidePlans ? (
-              <Button
-                label="View plans"
-                onPress={() => {
-                  logger.info("provider-portfolio", "paywall → subscription");
-                  console.log("[provider-portfolio] paywall CTA → subscription");
-                  router.push("/(provider)/subscription");
-                }}
-              />
-            ) : null}
+            <Muted>Portfolio edits require an active Pro or Premium plan.</Muted>
+            <Button
+              label="View plans"
+              onPress={() => {
+                logger.info("provider-portfolio", "paywall → subscription");
+                console.log("[provider-portfolio] paywall CTA → subscription");
+                router.push("/(provider)/subscription");
+              }}
+            />
           </View>
         ) : null}
 
@@ -419,13 +428,11 @@ export default function ProviderPortfolioScreen() {
             <Muted>No portfolio items yet. Add photos to showcase your work.</Muted>
             {!locked ? (
               <Button label="Add your first item" onPress={openAdd} />
-            ) : !hidePlans ? (
+            ) : (
               <Button
                 label="Subscribe to add photos"
                 onPress={() => router.push("/(provider)/subscription")}
               />
-            ) : (
-              <Muted>Plans will be available soon.</Muted>
             )}
           </View>
         ) : items.length === 0 ? (
@@ -561,10 +568,7 @@ export default function ProviderPortfolioScreen() {
         transparent
         onRequestClose={closeForm}
       >
-        <KeyboardAvoidingView
-          style={styles.modalRoot}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <View style={styles.modalRoot}>
           <Pressable style={styles.modalBackdrop} onPress={closeForm} />
           <View
             style={[
@@ -576,9 +580,10 @@ export default function ProviderPortfolioScreen() {
             <Text style={styles.modalTitle}>
               {formMode === "edit" ? "Edit portfolio item" : "Add portfolio item"}
             </Text>
-            <ScrollView
+            <KeyboardAwareScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              bottomOffset={24}
               contentContainerStyle={{ gap: 12, paddingBottom: 8 }}
             >
               <ImageUploadField
@@ -607,9 +612,9 @@ export default function ProviderPortfolioScreen() {
                 loading={saving}
               />
               <Button label="Cancel" variant="secondary" onPress={closeForm} />
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </>
   );

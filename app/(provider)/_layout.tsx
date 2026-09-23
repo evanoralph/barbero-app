@@ -1,11 +1,33 @@
-import { Redirect, Tabs } from "expo-router";
-import { CalendarDays, Clock3, Home, UserRound } from "lucide-react-native";
+import { Redirect, Tabs, router } from "expo-router";
+import { ArrowLeft, CalendarDays, Clock3, Home, UserRound } from "lucide-react-native";
+import { Pressable } from "react-native";
 import { useSession } from "@/src/auth/session";
 import { e2eTabBarButton } from "@/src/components/E2eTabBarButton";
 import { LoadingState } from "@/src/components/ui";
 import { TabIcon } from "@/src/components/TabIcon";
 import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
+
+function ProviderHeaderBack() {
+  return (
+    <Pressable
+      onPress={() => {
+        logger.debug("ProviderTabs", "header back");
+        console.log("[ProviderTabs] header back");
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace("/(provider)");
+        }
+      }}
+      hitSlop={10}
+      accessibilityLabel="Go back"
+      style={{ marginLeft: 4, padding: 4 }}
+    >
+      <ArrowLeft color={colors.text} size={22} strokeWidth={2} />
+    </Pressable>
+  );
+}
 
 export default function ProviderLayout() {
   const { ready, user, role } = useSession();
@@ -98,6 +120,7 @@ export default function ProviderLayout() {
           title: "Services",
           headerStyle: { backgroundColor: colors.bg },
           headerTintColor: colors.text,
+          headerLeft: () => <ProviderHeaderBack />,
         }}
       />
       <Tabs.Screen
@@ -108,6 +131,7 @@ export default function ProviderLayout() {
           title: "Portfolio",
           headerStyle: { backgroundColor: colors.bg },
           headerTintColor: colors.text,
+          headerLeft: () => <ProviderHeaderBack />,
         }}
       />
       <Tabs.Screen

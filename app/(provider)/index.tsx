@@ -13,7 +13,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { getMyAnalytics, getMyProvider, getProviderReviews } from "@/src/api/providers";
 import { getMySubscription } from "@/src/api/subscription";
 import { PlanBadge, type PlanId } from "@/src/components/PlanBadge";
-import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import {
   Button,
   Card,
@@ -121,7 +120,6 @@ function warnMissingAnalyticsFields(data: ProviderAnalytics) {
 }
 
 export default function ProviderDashboard() {
-  const hidePlans = useProviderOnboardingHome();
   const [range, setRange] = useState<ProviderAnalyticsRange>("30days");
   const [analytics, setAnalytics] = useState<ProviderAnalytics | null>(null);
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
@@ -134,20 +132,12 @@ export default function ProviderDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const quickActions = useMemo(
-    () =>
-      hidePlans
-        ? QUICK_ACTIONS.filter((a) => a.id !== "plan")
-        : QUICK_ACTIONS,
-    [hidePlans],
-  );
+  const quickActions = QUICK_ACTIONS;
 
   useEffect(() => {
-    if (hidePlans) {
-      logger.info("provider-dashboard", "plans hidden (providerOnboardingHome)");
-      console.log("[provider-dashboard] plans hidden — providerOnboardingHome on");
-    }
-  }, [hidePlans]);
+    logger.info("provider-dashboard", "plan CTAs always shown — providerOnboardingHome is web-only");
+    console.log("[provider-dashboard] plan CTAs always shown — providerOnboardingHome is web-only");
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
@@ -269,7 +259,7 @@ export default function ProviderDashboard() {
         />
       </View>
 
-      {hidePlans ? null : isTrialing ? (
+      {isTrialing ? (
         <Pressable
           style={styles.trialBanner}
           onPress={() => {
@@ -292,7 +282,7 @@ export default function ProviderDashboard() {
         </Pressable>
       ) : null}
 
-      {hidePlans ? null : planId === "free" && !isTrialing ? (
+      {planId === "free" && !isTrialing ? (
         <Pressable
           style={styles.renewBanner}
           onPress={() => {

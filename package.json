@@ -1,6 +1,6 @@
 {
   "name": "barbero-app",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "engines": {
     "node": "^20.19.4 || ^22.13.0 || ^24.3.0 || >=25.0.0"
@@ -10,6 +10,8 @@
     "@expo-google-fonts/playfair-display": "^0.4.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
+    "@react-native-firebase/app": "^26.4.0",
+    "@react-native-firebase/messaging": "^26.4.0",
     "expo": "~57.0.10",
     "expo-build-properties": "^57.0.8",
     "expo-constants": "~57.0.8",
@@ -32,6 +34,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.2",
+    "react-native-keyboard-controller": "^1.22.5",
     "react-native-maps": "^1.27.2",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
@@ -62,6 +65,10 @@
     "test:e2e:android": "bash scripts/e2e/run.sh --platform android",
     "test:e2e:smoke": "bash scripts/e2e/run.sh --suite smoke",
     "test:e2e:full": "bash scripts/e2e/run.sh --suite full",
+    "screenshots": "bash scripts/screenshots/capture.sh",
+    "screenshots:ios": "bash scripts/screenshots/capture.sh --platform ios",
+    "screenshots:android": "bash scripts/screenshots/capture.sh --platform android",
+    "screenshots:both": "bash scripts/screenshots/capture.sh --platform both",
     "eas:ci": "eas workflow:run .eas/workflows/ci.yml",
     "eas:preview": "eas workflow:run .eas/workflows/preview.yml",
     "eas:preview:main": "eas workflow:run .eas/workflows/android-preview-main.yml",

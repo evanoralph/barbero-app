@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "play-store-screenshots": {
+      "source": "mobile-dev-ci/play-store-screenshots",
+      "sourceType": "github",
+      "skillPath": "skills/play-store-screenshots/SKILL.md",
+      "computedHash": "cac1e229fe6a41fab0223d96cd75b5375a99caa7ce53af9c613ef1a5502e0c3e"
+    }
+  }
+}

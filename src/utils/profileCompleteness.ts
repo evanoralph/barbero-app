@@ -25,8 +25,17 @@ export function getProfileCompleteness(profile: ProviderProfile): {
     {
       id: "city",
       label: "City",
-      weight: 15,
+      weight: 10,
       done: Boolean(profile.location?.city?.trim()),
+    },
+    {
+      id: "mapPin",
+      label: "Map pin",
+      weight: 10,
+      done:
+        Number.isFinite(profile.location?.lat) &&
+        Number.isFinite(profile.location?.lng) &&
+        !(profile.location?.lat === 0 && profile.location?.lng === 0),
     },
     {
       id: "services",
@@ -41,7 +50,10 @@ export function getProfileCompleteness(profile: ProviderProfile): {
       done: (profile.portfolio?.length ?? 0) > 0,
     },
   ];
-  const percent = checks.reduce((sum, c) => sum + (c.done ? c.weight : 0), 0);
+  const percent = Math.min(
+    100,
+    checks.reduce((sum, c) => sum + (c.done ? c.weight : 0), 0),
+  );
   return {
     percent,
     checks,

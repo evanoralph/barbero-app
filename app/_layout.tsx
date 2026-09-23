@@ -14,9 +14,11 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { Platform, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { AuthProvider } from "@/src/auth/session";
 import { OfflineBanner } from "@/src/components/OfflineBanner";
+import { usePushNotificationNavigation } from "@/src/hooks/usePushNotificationNavigation";
 import { ToastHost } from "@/src/offline/toast";
 import { ServerStatusGate } from "@/src/server/ServerStatusGate";
 import { ServerStatusProvider } from "@/src/server/server-status";
@@ -24,6 +26,12 @@ import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
 
 export { ErrorBoundary } from "expo-router";
+
+/** Lives inside AuthProvider so session + role are available for tap routing. */
+function PushNotificationNavigator() {
+  usePushNotificationNavigation();
+  return null;
+}
 
 SplashScreen.preventAutoHideAsync().catch((error) => {
   logger.warn("root", "SplashScreen.preventAutoHideAsync failed", error);
@@ -75,6 +83,7 @@ export default function RootLayout() {
       appOwnership: Constants.appOwnership,
       isDevice: Constants.isDevice,
     });
+    logger.debug("root", "KeyboardProvider mounted");
   }, []);
 
   useEffect(() => {
@@ -102,26 +111,29 @@ export default function RootLayout() {
   }
 
   return (
-    <ServerStatusProvider>
-      <AuthProvider>
-        <ThemeProvider value={navTheme}>
-          <StatusBar style="dark" />
-          <ServerStatusGate />
-          <View style={{ flex: 1, backgroundColor: colors.bg }}>
-            <OfflineBanner />
-            <View style={{ flex: 1 }}>
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="server-down" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="(customer)" />
-                <Stack.Screen name="(provider)" />
-              </Stack>
-              <ToastHost />
+    <KeyboardProvider>
+      <ServerStatusProvider>
+        <AuthProvider>
+          <PushNotificationNavigator />
+          <ThemeProvider value={navTheme}>
+            <StatusBar style="dark" />
+            <ServerStatusGate />
+            <View style={{ flex: 1, backgroundColor: colors.bg }}>
+              <OfflineBanner />
+              <View style={{ flex: 1 }}>
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="server-down" />
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="(customer)" />
+                  <Stack.Screen name="(provider)" />
+                </Stack>
+                <ToastHost />
+              </View>
             </View>
-          </View>
-        </ThemeProvider>
-      </AuthProvider>
-    </ServerStatusProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </ServerStatusProvider>
+    </KeyboardProvider>
   );
 }

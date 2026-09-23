@@ -1,4 +1,5 @@
-# Log in as seed customer via __DEV__ quick-fill buttons.
+# Log in as seed customer via __DEV__ quick-fill buttons, then login OTP.
+# When MAIL_URL is unset, API returns devCode and "Use dev code" appears.
 # Matches scripts/screenshots/flows (text selectors). Asserts home content
 # ("Book now") rather than tab a11y labels, which can lag after redirect.
 appId: com.beruapp.ai
@@ -7,6 +8,13 @@ appId: com.beruapp.ai
 - tapOn:
     text: "Sign in"
     index: 1
+- extendedWaitUntil:
+    visible: "Enter login code"
+    timeout: 20000
+- tapOn:
+    id: "login-otp-dev-fill"
+- tapOn:
+    id: "login-otp-verify"
 - extendedWaitUntil:
     notVisible: "Dev quick fill"
     timeout: 20000

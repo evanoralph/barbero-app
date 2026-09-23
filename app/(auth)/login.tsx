@@ -1,12 +1,14 @@
 import { Link, Redirect, router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "@/src/api/client";
 import { useSession } from "@/src/auth/session";
 import { BrandLogo } from "@/src/components/BrandLogo";
-import { Button, Field, Muted, Screen } from "@/src/components/ui";
+import { Button, Field, LoadingState, Muted, Screen } from "@/src/components/ui";
 import { colors } from "@/src/theme/colors";
+import { isLoginOtpChallenge } from "@/src/types/api";
+import { resolveCustomerEntryHref } from "@/src/utils/customerRoute";
 import { logger } from "@/src/utils/logger";
 
 const DEV_SEED_LOGINS = {
@@ -21,15 +23,36 @@ const DEV_SEED_LOGINS = {
 } as const;
 
 export default function LoginScreen() {
-  const { ready, user, role, signIn, signOut } = useSession();
+  const { ready, user, role, signIn } = useSession();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [customerHref, setCustomerHref] = useState<
+    "/(auth)/location-permission" | "/(customer)" | null
+  >(null);
 
-  if (ready && user && (role === "customer" || role === "provider")) {
-    return <Redirect href={role === "provider" ? "/(provider)" : "/(customer)"} />;
+  useEffect(() => {
+    if (!ready || !user || role !== "customer") {
+      setCustomerHref(null);
+      return;
+    }
+    let cancelled = false;
+    void resolveCustomerEntryHref().then((href) => {
+      if (!cancelled) setCustomerHref(href);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, role]);
+
+  if (ready && user && role === "provider") {
+    return <Redirect href="/(provider)" />;
+  }
+  if (ready && user && role === "customer") {
+    if (!customerHref) return <LoadingState label="Loading…" />;
+    return <Redirect href={customerHref} />;
   }
 
   const fillDevLogin = (roleKey: keyof typeof DEV_SEED_LOGINS) => {
@@ -46,13 +69,21 @@ export default function LoginScreen() {
     logger.info("login", "submit", { email });
     try {
       const result = await signIn(email, password);
+      if (isLoginOtpChallenge(result)) {
+        logger.info("login-otp", "navigating to verify", { email: result.email });
+        router.push({
+          pathname: "/(auth)/login-verify",
+          params: { email: result.email },
+        });
+        return;
+      }
+      // Legacy path if API ever returns a full session (should not happen with OTP).
       if (
         result.roles.includes("admin") &&
         !result.roles.includes("provider") &&
         !result.roles.includes("customer")
       ) {
         setError("Admin accounts use the web app. Mobile supports customer and provider only.");
-        await signOut();
         return;
       }
       if (
@@ -60,14 +91,18 @@ export default function LoginScreen() {
         !result.roles.includes("provider") &&
         !result.roles.includes("customer")
       ) {
-        setError("Establishment owner accounts use the web shop dashboard. Mobile supports customer and provider only.");
-        await signOut();
+        setError(
+          "Establishment owner accounts use the web shop dashboard. Mobile supports customer and provider only.",
+        );
         return;
       }
       if (result.roles.includes("provider")) {
         router.replace("/(provider)");
       } else {
-        router.replace("/(customer)");
+        const href = await resolveCustomerEntryHref();
+        logger.info("login", "customer post-login route", { href });
+        console.log("[login] customer post-login", href);
+        router.replace(href);
       }
     } catch (e) {
       const msg =

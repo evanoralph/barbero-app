@@ -40,3 +40,14 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase / FCM native config (download from Firebase Console — do not commit secrets)
+google-services.json
+GoogleService-Info.plist
+firebase-service-account.json
+
+# service account
+service-account/
+
+#brag
+brag*

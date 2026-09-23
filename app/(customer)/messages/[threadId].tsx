@@ -1,9 +1,9 @@
-import { router, useFocusEffect, useLocalSearchParams, useNavigation } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getBooking } from "@/src/api/bookings";
 import { ApiError } from "@/src/api/client";
 import { listConversations, markThreadRead } from "@/src/api/conversations";
-import { listMessages, sendMessage } from "@/src/api/messages";
+import { listMessages, MESSAGES_PAGE_SIZE, sendMessage } from "@/src/api/messages";
 import { uploadImageUriToS3 } from "@/src/api/uploads";
 import { useSession } from "@/src/auth/session";
 import {
@@ -11,6 +11,7 @@ import {
   type ThreadBookingCard,
 } from "@/src/components/MessageThreadView";
 import { ErrorState, LoadingState } from "@/src/components/ui";
+import { useSuppressChatPushWhileFocused } from "@/src/hooks/useSuppressChatPushWhileFocused";
 import { mergeMessages } from "@/src/meteor/merge-messages";
 import { applyConversationPatches } from "@/src/meteor/apply-conversation-patches";
 import { useConversationsLive } from "@/src/meteor/use-conversations-live";
@@ -18,27 +19,17 @@ import { useMessagesThreadLive } from "@/src/meteor/use-messages-thread-live";
 import { useTypingIndicator } from "@/src/meteor/use-typing-indicator";
 import type { ConversationListItem, Message } from "@/src/types/api";
 import { bookingIdFromThreadId, normalizeThreadIdParam } from "@/src/types/api";
-import { colors } from "@/src/theme/colors";
 import { logger } from "@/src/utils/logger";
 
 const POLL_MS = 12_000;
-
-const TAB_BAR_HIDDEN = { display: "none" as const };
-const TAB_BAR_VISIBLE = {
-  backgroundColor: colors.bgDeep,
-  borderTopColor: colors.border,
-  borderTopWidth: 1,
-  height: 64,
-  paddingTop: 6,
-  paddingBottom: 8,
-};
 
 export default function CustomerThreadScreen() {
   const { threadId: raw } = useLocalSearchParams<{ threadId: string | string[] }>();
   const threadId = normalizeThreadIdParam(raw);
   const { user } = useSession();
-  const navigation = useNavigation();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -47,25 +38,17 @@ export default function CustomerThreadScreen() {
   const [conversation, setConversation] = useState<ConversationListItem | null>(null);
   const [bookingCard, setBookingCard] = useState<ThreadBookingCard | null>(null);
   const pollBusy = useRef(false);
+  const loadingOlderRef = useRef(false);
 
   useEffect(() => {
     console.log("[messages] threadId param", { raw, threadId });
     logger.debug("messages", "threadId param", { raw, threadId });
   }, [raw, threadId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const parent = navigation.getParent();
-      console.log("[messages] hide tab bar on thread", { threadId });
-      logger.debug("messages", "hide tab bar on thread", { threadId });
-      parent?.setOptions({ tabBarStyle: TAB_BAR_HIDDEN });
-      return () => {
-        console.log("[messages] restore tab bar", { threadId });
-        logger.debug("messages", "restore tab bar", { threadId });
-        parent?.setOptions({ tabBarStyle: TAB_BAR_VISIBLE });
-      };
-    }, [navigation, threadId]),
-  );
+  // Hide in-app banners for this thread while the user is reading it live.
+  useSuppressChatPushWhileFocused(threadId);
+
+  // Tab bar hide/restore lives in messages/_layout so KeyboardStickyView sits at the true bottom.
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -73,15 +56,33 @@ export default function CustomerThreadScreen() {
       if (!opts?.silent) {
         setLoadError(null);
         setError(null);
+        setLoading(true);
       }
       try {
-        const next = await listMessages(threadId);
-        setMessages((prev) => mergeMessages(next, prev));
-        setLoadError(null);
+        const page = await listMessages(threadId, { limit: MESSAGES_PAGE_SIZE });
         if (!opts?.silent) {
-          console.log("[messages] thread loaded", { threadId, count: next.length });
-          logger.debug("messages", "thread loaded", { threadId, count: next.length });
+          // Fresh open: replace with latest page so we don't keep another thread's history.
+          setMessages(page.items);
+          setHasMore(page.hasMore);
+          console.log("[messages] thread loaded (latest page)", {
+            threadId,
+            count: page.items.length,
+            hasMore: page.hasMore,
+          });
+          logger.info("messages", "thread loaded (latest page)", {
+            threadId,
+            count: page.items.length,
+            hasMore: page.hasMore,
+          });
+        } else {
+          // Silent poll: merge latest tail only; keep older pages + hasMore.
+          setMessages((prev) => mergeMessages(prev, page.items));
+          logger.debug("messages", "silent latest-page merge", {
+            threadId,
+            count: page.items.length,
+          });
         }
+        setLoadError(null);
       } catch (e) {
         if (!opts?.silent) {
           setLoadError(e instanceof Error ? e.message : "Failed to load thread");
@@ -94,8 +95,59 @@ export default function CustomerThreadScreen() {
     [threadId],
   );
 
+  const loadOlder = useCallback(async () => {
+    if (!threadId || loadingOlderRef.current) return;
+    const oldest = messages[0];
+    if (!oldest || !hasMore) {
+      logger.debug("messages", "loadOlder skipped", {
+        threadId,
+        hasMore,
+        hasOldest: Boolean(oldest),
+      });
+      return;
+    }
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    console.log("[messages] loadOlder start", {
+      threadId,
+      beforeCreatedAt: oldest.createdAt,
+    });
+    logger.info("messages", "loadOlder start", {
+      threadId,
+      beforeCreatedAt: oldest.createdAt,
+    });
+    try {
+      const page = await listMessages(threadId, {
+        limit: MESSAGES_PAGE_SIZE,
+        beforeCreatedAt: oldest.createdAt,
+      });
+      setMessages((prev) => mergeMessages(prev, page.items));
+      setHasMore(page.hasMore);
+      console.log("[messages] loadOlder done", {
+        threadId,
+        added: page.items.length,
+        hasMore: page.hasMore,
+      });
+      logger.info("messages", "loadOlder done", {
+        threadId,
+        added: page.items.length,
+        hasMore: page.hasMore,
+      });
+    } catch (e) {
+      console.log("[messages] loadOlder failed", e);
+      logger.warn("messages", "loadOlder failed", e);
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlder(false);
+    }
+  }, [threadId, messages, hasMore]);
+
   useEffect(() => {
-    load();
+    setMessages([]);
+    setHasMore(false);
+    setBookingCard(null);
+    setConversation(null);
+    void load();
   }, [load]);
 
   useConversationsLive(
@@ -338,6 +390,9 @@ export default function CustomerThreadScreen() {
       onSendImage={onSendImage}
       sending={sending}
       error={error}
+      hasMore={hasMore}
+      loadingOlder={loadingOlder}
+      onLoadOlder={loadOlder}
       participantName={conversation?.participantName}
       participantAvatar={conversation?.participantAvatar}
       booking={bookingCard}

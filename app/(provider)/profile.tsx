@@ -1,7 +1,9 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Text } from "react-native";
 import { getMyProvider, updateMyProvider } from "@/src/api/providers";
+import { getAccountMe } from "@/src/api/account";
+import type { PlaceDetails } from "@/src/api/geo";
 import { useSession } from "@/src/auth/session";
 import {
   Button,
@@ -14,9 +16,15 @@ import {
   Subtitle,
   Title,
 } from "@/src/components/ui";
+import { NotificationPreferencesSection } from "@/src/components/NotificationPreferencesSection";
 import { ImageUploadField } from "@/src/components/ImageUploadField";
-import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
+import { PhPlacesSearchField } from "@/src/components/PhPlacesSearchField";
+import {
+  ProviderLocationMapPicker,
+  type ProviderLocationCoords,
+} from "@/src/components/ProviderLocationMapPicker";
 import type {
+  AccountProfile,
   ProviderProfile,
   ProviderPromotion,
   UpdateProviderProfileInput,
@@ -37,14 +45,17 @@ function parseOptionalCoord(raw: string): number | undefined | "invalid" {
 
 export default function ProviderProfileScreen() {
   const { signOut } = useSession();
-  const hidePlans = useProviderOnboardingHome();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
+  const [accountPrefs, setAccountPrefs] = useState<
+    AccountProfile["notificationPreferences"] | null
+  >(null);
   const [bio, setBio] = useState("");
   const [responseTime, setResponseTime] = useState("");
   const [avatar, setAvatar] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [city, setCity] = useState("");
   const [address, setAddress] = useState("");
+  const [placeQuery, setPlaceQuery] = useState("");
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
 
@@ -68,6 +79,7 @@ export default function ProviderProfileScreen() {
     setCoverImage(me.coverImage ?? "");
     setCity(me.location?.city ?? "");
     setAddress(me.location?.address ?? "");
+    setPlaceQuery(me.location?.address ?? me.location?.city ?? "");
     setLat(
       me.location?.lat != null && Number.isFinite(me.location.lat)
         ? String(me.location.lat)
@@ -78,6 +90,15 @@ export default function ProviderProfileScreen() {
         ? String(me.location.lng)
         : "",
     );
+    logger.debug("provider-profile", "apply location", {
+      hasAddress: Boolean(me.location?.address),
+      hasCity: Boolean(me.location?.city),
+      hasCoords:
+        me.location?.lat != null &&
+        Number.isFinite(me.location.lat) &&
+        me.location?.lng != null &&
+        Number.isFinite(me.location.lng),
+    });
   }, []);
 
   const load = useCallback(async (opts?: { refresh?: boolean }) => {
@@ -87,6 +108,15 @@ export default function ProviderProfileScreen() {
     try {
       const me = await getMyProvider();
       applyProfile(me);
+      try {
+        const account = await getAccountMe();
+        setAccountPrefs(account.notificationPreferences);
+        logger.info("provider-profile", "account prefs loaded", {
+          prefsPush: account.notificationPreferences.push,
+        });
+      } catch (prefsError) {
+        logger.warn("provider-profile", "account prefs load failed", prefsError);
+      }
       logger.info("provider-profile", "loaded", {
         services: me.services?.length ?? 0,
         portfolio: me.portfolio?.length ?? 0,
@@ -131,6 +161,45 @@ export default function ProviderProfileScreen() {
     }
   };
 
+  const mapCoords = useMemo((): ProviderLocationCoords | null => {
+    const parsedLat = parseOptionalCoord(lat);
+    const parsedLng = parseOptionalCoord(lng);
+    if (
+      parsedLat === "invalid" ||
+      parsedLng === "invalid" ||
+      parsedLat == null ||
+      parsedLng == null
+    ) {
+      return null;
+    }
+    if (parsedLat === 0 && parsedLng === 0) return null;
+    return { lat: parsedLat, lng: parsedLng };
+  }, [lat, lng]);
+
+  const applyPlace = useCallback((place: PlaceDetails) => {
+    const nextAddress = place.label.trim();
+    const nextCity = (place.city ?? "").trim();
+    setAddress(nextAddress);
+    setPlaceQuery(nextAddress);
+    if (nextCity) setCity(nextCity);
+    setLat(String(place.lat));
+    setLng(String(place.lng));
+    logger.info("provider-profile", "place selected", {
+      label: nextAddress,
+      city: nextCity || null,
+      lat: place.lat,
+      lng: place.lng,
+    });
+    console.log("[provider-profile] place selected", nextAddress, place.lat, place.lng);
+  }, []);
+
+  const applyMapPin = useCallback((coords: ProviderLocationCoords) => {
+    setLat(String(coords.lat));
+    setLng(String(coords.lng));
+    logger.info("provider-profile", "map pin set", coords);
+    console.log("[provider-profile] map pin set", coords.lat, coords.lng);
+  }, []);
+
   const saveImageField = async (field: "avatar" | "coverImage", url: string) => {
     const busyKey = field === "avatar" ? "avatar" : "cover";
     logger.info("provider-profile", "save image", {
@@ -169,11 +238,22 @@ export default function ProviderProfileScreen() {
       return;
     }
 
+    const locationPayload = {
+      ...(city.trim() ? { city: city.trim() } : {}),
+      ...(address.trim() ? { address: address.trim() } : {}),
+      ...(parsedLat != null && parsedLng != null
+        ? { lat: parsedLat, lng: parsedLng }
+        : {}),
+    };
+
     logger.debug("provider-profile", "save profile", {
       hasAvatar: Boolean(avatar.trim()),
       hasCover: Boolean(coverImage.trim()),
+      hasAddress: Boolean(locationPayload.address),
+      hasCity: Boolean(locationPayload.city),
       hasCoords: parsedLat != null,
     });
+    console.log("[provider-profile] save profile location", locationPayload);
 
     await mutate(
       "profile",
@@ -182,13 +262,9 @@ export default function ProviderProfileScreen() {
         responseTime,
         avatar: avatar.trim() || undefined,
         coverImage: coverImage.trim() || undefined,
-        location: {
-          city: city.trim() || undefined,
-          address: address.trim() || undefined,
-          ...(parsedLat != null && parsedLng != null
-            ? { lat: parsedLat, lng: parsedLng }
-            : {}),
-        },
+        ...(Object.keys(locationPayload).length > 0
+          ? { location: locationPayload }
+          : {}),
       },
       "Profile saved",
       "saved profile",
@@ -315,21 +391,44 @@ export default function ProviderProfileScreen() {
         kind="provider-cover"
         hideUrlInput
       />
-      <Field label="City" value={city} onChangeText={setCity} />
-      <Field label="Address" value={address} onChangeText={setAddress} />
+      <Subtitle>Location</Subtitle>
+      <Muted>
+        Search a Philippines address, edit the fields, or tap the map to mark your pin.
+      </Muted>
+      <PhPlacesSearchField
+        label="Search address"
+        placeholder="e.g. Makati, Quezon City"
+        value={placeQuery}
+        onChangeText={setPlaceQuery}
+        onPlaceSelected={applyPlace}
+        testID="provider-location-search"
+      />
+      <Field
+        label="Address"
+        value={address}
+        onChangeText={setAddress}
+        placeholder="Street / building"
+      />
+      <Field
+        label="City"
+        value={city}
+        onChangeText={setCity}
+        placeholder="e.g. Manila"
+      />
+      <ProviderLocationMapPicker coords={mapCoords} onChange={applyMapPin} />
       <Field
         label="Latitude"
         value={lat}
         onChangeText={setLat}
         keyboardType="decimal-pad"
-        placeholder="e.g. 40.7128"
+        placeholder="e.g. 14.5995"
       />
       <Field
         label="Longitude"
         value={lng}
         onChangeText={setLng}
         keyboardType="decimal-pad"
-        placeholder="e.g. -74.0060"
+        placeholder="e.g. 120.9842"
       />
       <Muted>Map pin uses lat/lng so customers can find you on the map.</Muted>
       <Button label="Save profile" onPress={saveProfile} loading={busy === "profile"} />
@@ -439,17 +538,26 @@ export default function ProviderProfileScreen() {
         }}
       />
 
-      {!hidePlans ? (
-        <Button
-          label="Subscription plan"
-          variant="secondary"
-          onPress={() => {
-            logger.info("provider-profile", "open subscription");
-            console.log("[provider-profile] open subscription");
-            router.push("/(provider)/subscription");
+      <Button
+        label="Subscription plan"
+        variant="secondary"
+        onPress={() => {
+          logger.info("provider-profile", "open subscription");
+          console.log("[provider-profile] open subscription");
+          router.push("/(provider)/subscription");
+        }}
+      />
+
+      {accountPrefs ? (
+        <NotificationPreferencesSection
+          preferences={accountPrefs}
+          onUpdated={(notificationPreferences) => {
+            setAccountPrefs(notificationPreferences);
+            logger.info("provider-profile", "notification prefs updated in state");
           }}
         />
       ) : null}
+
       <Button
         label="Sign out"
         variant="danger"

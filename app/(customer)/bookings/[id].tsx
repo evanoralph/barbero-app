@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { MapPin, MessageCircle } from "lucide-react-native";
+import { MapPin, MessageCircle, Star } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Linking, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,12 +7,14 @@ import * as WebBrowser from "expo-web-browser";
 import { getBooking, updateBookingStatus } from "@/src/api/bookings";
 import { getProvider } from "@/src/api/providers";
 import { createCheckoutSession } from "@/src/api/payments";
+import { createReview } from "@/src/api/reviews";
 import {
   bookingPaymentsAvailable,
   fetchPublicAppConfig,
 } from "@/src/api/public-config";
 import { ApiError } from "@/src/api/client";
 import { BookingDetailView } from "@/src/components/BookingDetailView";
+import { LeaveBookingReviewModal } from "@/src/components/LeaveBookingReviewModal";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import {
   ErrorState,
@@ -48,6 +50,9 @@ export default function CustomerBookingDetail() {
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const autoPayStartedRef = useRef(false);
 
   const query = useCachedQuery<Loaded>({
@@ -212,6 +217,8 @@ export default function CustomerBookingDetail() {
 
   const canCancel = booking.status === "pending" || booking.status === "confirmed";
   const canMessage = booking.status === "pending" || booking.status === "confirmed";
+  const canReview = booking.status === "completed" && !booking.reviewId;
+  const alreadyReviewed = booking.status === "completed" && Boolean(booking.reviewId);
   const showPaymentUi = bookingPaymentsAvailable({
     paymentsEnabled,
     paymentsDisabled: provider?.paymentsDisabled,
@@ -231,6 +238,42 @@ export default function CustomerBookingDetail() {
       pathname: "/(customer)/messages/[threadId]",
       params: { threadId },
     });
+  };
+
+  const submitReview = async (input: { rating: number; comment: string }) => {
+    setReviewError(null);
+    setReviewSubmitting(true);
+    try {
+      const review = await createReview({
+        providerId: booking.providerId,
+        bookingId: booking._id,
+        rating: input.rating,
+        comment: input.comment,
+      });
+      setOverride({
+        ...booking,
+        reviewId: review._id,
+        updatedAt: new Date().toISOString(),
+      });
+      setReviewOpen(false);
+      showToast("Thanks — review submitted");
+      logger.info("bookings", "review submitted", {
+        bookingId: booking._id,
+        reviewId: review._id,
+      });
+      console.log("[bookings] review submitted", {
+        bookingId: booking._id,
+        reviewId: review._id,
+      });
+      void load();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Failed to submit review";
+      setReviewError(msg);
+      logger.warn("bookings", "review submit failed", e);
+      console.log("[bookings] review submit failed", msg);
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   const dueAmount =
@@ -298,6 +341,27 @@ export default function CustomerBookingDetail() {
                   <Text style={styles.actionText}>Directions</Text>
                 </AnimatedPressable>
               ) : null}
+              {canReview ? (
+                <AnimatedPressable
+                  style={styles.actionBtn}
+                  onPress={() => {
+                    logger.info("bookings", "open leave review", { id: booking._id });
+                    console.log("[bookings] open leave review", booking._id);
+                    setReviewError(null);
+                    setReviewOpen(true);
+                  }}
+                  accessibilityLabel="Leave review"
+                >
+                  <Star size={16} color={colors.text} />
+                  <Text style={styles.actionText}>Leave review</Text>
+                </AnimatedPressable>
+              ) : null}
+              {alreadyReviewed ? (
+                <View style={[styles.actionBtn, styles.actionBtnDisabled]}>
+                  <Star size={16} color={colors.textMuted} />
+                  <Text style={styles.actionTextMuted}>Reviewed</Text>
+                </View>
+              ) : null}
             </>
           }
           footerAction={
@@ -314,6 +378,19 @@ export default function CustomerBookingDetail() {
           }
         />
       </Screen>
+
+      <LeaveBookingReviewModal
+        visible={reviewOpen}
+        providerName={provider?.name}
+        submitting={reviewSubmitting}
+        error={reviewError}
+        onClose={() => {
+          if (reviewSubmitting) return;
+          console.log("[bookings] close leave review");
+          setReviewOpen(false);
+        }}
+        onSubmit={(input) => void submitReview(input)}
+      />
 
       {canPay ? (
         <View style={[styles.payBar, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
@@ -363,6 +440,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   actionText: { color: colors.text, fontSize: 14, fontFamily: fonts.monoMedium },
+  actionBtnDisabled: { opacity: 0.7 },
+  actionTextMuted: { color: colors.textMuted, fontSize: 14, fontFamily: fonts.monoMedium },
   cancelLink: {
     color: colors.danger,
     fontSize: 13,

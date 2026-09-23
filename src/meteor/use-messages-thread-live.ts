@@ -8,11 +8,31 @@ type DdpMessageDoc = {
   threadId?: string;
   senderId?: string;
   body?: string;
+  imageUrl?: string;
   createdAt?: string;
 };
 
 function mapDoc(doc: DdpMessageDoc): Message | null {
-  if (!doc.id || !doc.threadId || !doc.senderId || !doc.body || !doc.createdAt) {
+  if (!doc.id || !doc.threadId || !doc.senderId || !doc.createdAt) {
+    logger.debug("ddp", "messages.thread skip doc missing fields", {
+      id: doc.id,
+      threadId: doc.threadId,
+      senderId: doc.senderId,
+      hasCreatedAt: Boolean(doc.createdAt),
+    });
+    return null;
+  }
+  // Image-only messages store body as "" — allow empty string, require body or imageUrl.
+  if (typeof doc.body !== "string") {
+    logger.debug("ddp", "messages.thread skip doc missing body", {
+      id: doc.id,
+    });
+    return null;
+  }
+  if (!doc.body.trim() && !doc.imageUrl) {
+    logger.debug("ddp", "messages.thread skip empty body without image", {
+      id: doc.id,
+    });
     return null;
   }
   return {
@@ -20,6 +40,7 @@ function mapDoc(doc: DdpMessageDoc): Message | null {
     threadId: doc.threadId,
     senderId: doc.senderId,
     body: doc.body,
+    ...(doc.imageUrl ? { imageUrl: doc.imageUrl } : {}),
     createdAt: doc.createdAt,
   };
 }

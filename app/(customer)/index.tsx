@@ -49,7 +49,7 @@ import { BrandLogo } from "@/src/components/BrandLogo";
 import { EmptyDiscoverIllustration } from "@/src/components/illustrations/EmptyDiscoverIllustration";
 import { PortfolioGrid, type PortfolioTile } from "@/src/components/PortfolioGrid";
 import { ProviderCard } from "@/src/components/ProviderCard";
-import { ProvidersMapView } from "@/src/components/ProvidersMapView";
+import { PhPlacesSearchField } from "@/src/components/PhPlacesSearchField";
 import {
   Chip,
   EmptyState,
@@ -68,9 +68,18 @@ import type {
   ProviderListItem,
   ServiceCategory,
 } from "@/src/types/api";
+import { updateAccountMe } from "@/src/api/account";
+import type { PlaceDetails } from "@/src/api/geo";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import { formatBookingTime } from "@/src/utils/bookingDisplay";
+import {
+  getDiscoveryLocation,
+  nearbyWithExpandRadius,
+  NEARBY_PRIMARY_RADIUS_KM,
+  setDiscoveryLocation,
+  type DiscoveryLocation,
+} from "@/src/utils/discoveryLocation";
 import {
   distanceKm,
   requestUserCoords,
@@ -84,30 +93,23 @@ import {
   viewedToListItem,
   type ViewedProvider,
 } from "@/src/utils/recentlyViewed";
-import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
-
-/** Swap this URL for a real hero photo asset once available. */
-const HERO_IMAGE_URI =
-  "https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=900&q=80";
+/** Local hero asset — bear on the right leaves room for copy on the left. */
+const HERO_IMAGE = require("../../assets/images/hero-image.png");
 
 function useDiscoveryPush() {
-  const discoveryDisabled = useProviderOnboardingHome();
   const pushDiscovery = useCallback(
     (
       target: string | { pathname: string; params?: Record<string, string> },
       label: string,
     ) => {
-      if (discoveryDisabled) {
-        logger.info("home", "discovery disabled — skip nav", { target, label });
-        console.log("[home] discovery disabled — skip nav", label, target);
-        return;
-      }
+      logger.debug("home", "push discovery", { label, target });
+      console.log("[home] push discovery", label, target);
       // expo-router accepts string paths and typed href objects
       router.push(target as never);
     },
-    [discoveryDisabled],
+    [],
   );
-  return { discoveryDisabled, pushDiscovery };
+  return { pushDiscovery };
 }
 
 function formatNextApptDate(iso: string): { month: string; day: string } {
@@ -167,7 +169,6 @@ function sortProvidersByDistance(
 
 const AnimatedImageBackground = Animated.createAnimatedComponent(ImageBackground);
 
-const NEARBY_RADIUS_KM = 5;
 const BROWSE_COLS = 4;
 const BROWSE_GAP = 10;
 const HOME_CACHE_KEY = "home:v1";
@@ -228,38 +229,61 @@ function NearbyCard({
   );
 }
 
+/** Visible hero height. Inner layer is taller so scroll parallax never exposes a strip. */
+const HERO_HEIGHT = 180;
+/** Extra pixels above/below the clip so translateY + scale never flash a gap. */
+const HERO_PARALLAX_BLEED = 28;
+
 function HeroBanner({ scrollY }: { scrollY: SharedValue<number> }) {
   const { pushDiscovery } = useDiscoveryPush();
-  console.log("[home] hero banner render");
+  // Clip stays fixed; only the inner layer transforms. Applying scale/translate
+  // on the same node as overflow:hidden moves the whole rect and leaves a
+  // ghost rectangle overlapping content below.
+  //
+  // Inner layer is HERO_HEIGHT + 2*BLEED and starts shifted up by BLEED so
+  // downward parallax never reveals the clip background (the occasional grey gap).
+  console.log("[home] hero banner render", {
+    source: "local-hero-image",
+    clipMode: "fixed-wrapper",
+    heroHeight: HERO_HEIGHT,
+    parallaxBleed: HERO_PARALLAX_BLEED,
+    flushUnderHeader: true,
+  });
   const animatedStyle = useAnimatedStyle(() => {
-    const scale = interpolate(scrollY.value, [-120, 0], [1.15, 1], Extrapolation.CLAMP);
-    const opacity = interpolate(scrollY.value, [0, 160], [1, 0.85], Extrapolation.CLAMP);
-    const translateY = interpolate(scrollY.value, [0, 160], [0, 24], Extrapolation.CLAMP);
-    return { transform: [{ scale }, { translateY }], opacity };
+    const scale = interpolate(scrollY.value, [-120, 0], [1.12, 1], Extrapolation.CLAMP);
+    // Parallax lag inside the oversized layer — bleed absorbs the shift.
+    const translateY = interpolate(
+      scrollY.value,
+      [0, 160],
+      [0, HERO_PARALLAX_BLEED],
+      Extrapolation.CLAMP,
+    );
+    return { transform: [{ translateY }, { scale }] };
   });
   return (
-    <AnimatedImageBackground
-      source={{ uri: HERO_IMAGE_URI }}
-      style={[styles.heroBanner, animatedStyle]}
-      imageStyle={styles.heroImage}
-      resizeMode="cover"
-      accessibilityLabel="Hero banner"
-    >
-      <View style={styles.heroOverlay}>
-        <Text style={styles.heroEyebrow}>BARBERO</Text>
-        <Text style={styles.heroHeadline}>Look sharp,{"\n"}feel confident.</Text>
-        <Pressable
-          style={styles.heroCta}
-          onPress={() => {
-            console.log("[home] tap hero cta");
-            pushDiscovery("/(customer)/search", "hero-cta");
-          }}
-          accessibilityLabel="Book now"
-        >
-          <Text style={styles.heroCtaText}>Book now</Text>
-        </Pressable>
-      </View>
-    </AnimatedImageBackground>
+    <View style={styles.heroClip} accessibilityLabel="Hero banner">
+      <AnimatedImageBackground
+        source={HERO_IMAGE}
+        style={[styles.heroBanner, animatedStyle]}
+        imageStyle={styles.heroImage}
+        resizeMode="cover"
+      >
+        <View style={styles.heroOverlay}>
+          <Text style={styles.heroEyebrow}>BARBERO</Text>
+          <Text style={styles.heroHeadline}>Look sharp,{"\n"}feel confident.</Text>
+          <Pressable
+            style={styles.heroCta}
+            onPress={() => {
+              console.log("[home] tap hero cta");
+              pushDiscovery("/(customer)/search", "hero-cta");
+            }}
+            accessibilityLabel="Book now"
+          >
+            <Text style={styles.heroCtaText}>Book now</Text>
+          </Pressable>
+        </View>
+      </AnimatedImageBackground>
+    </View>
   );
 }
 
@@ -380,6 +404,9 @@ export default function CustomerHome() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [userCoords, setUserCoords] = useState<UserCoords | null>(null);
+  const [discoveryLocation, setDiscoveryLocationState] =
+    useState<DiscoveryLocation | null>(null);
+  const [locationQuery, setLocationQuery] = useState("");
   const [stale, setStale] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [offlineFail, setOfflineFail] = useState(false);
@@ -388,11 +415,32 @@ export default function CustomerHome() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [viewed, setViewed] = useState<ViewedProvider[]>([]);
 
+  useEffect(() => {
+    logger.info("home", "customer discovery always on — providerOnboardingHome is web-only");
+    console.log("[home] customer discovery always on — providerOnboardingHome is web-only");
+  }, []);
+
   // Re-read on focus so a profile you just opened shows up when you come back.
   useFocusEffect(
     useCallback(() => {
       void listRecentSearches().then(setRecentSearches);
       void listRecentlyViewed().then(setViewed);
+      void getDiscoveryLocation().then((saved) => {
+        if (!saved) return;
+        // Reuse lat/lng saved on first place pick — do not re-hit Places autocomplete.
+        setDiscoveryLocationState(saved);
+        setUserCoords({ lat: saved.lat, lng: saved.lng });
+        setLocationQuery(saved.label);
+        logger.debug("home", "focus reload saved discovery location (no places search)", {
+          label: saved.label,
+          source: saved.source,
+        });
+        console.log(
+          "[home] focus reload saved location (no places search)",
+          saved.source,
+          saved.label,
+        );
+      });
     }, []),
   );
 
@@ -510,17 +558,48 @@ export default function CustomerHome() {
     }
   }, []);
 
-  const loadLocation = useCallback(async () => {
-    logger.debug("home", "loadLocation");
-    console.log("[home] loadLocation start");
-    const coords = await requestUserCoords();
-    setUserCoords(coords);
-    logger.debug("home", "loadLocation done", {
-      hasCoords: Boolean(coords),
-      lat: coords?.lat,
-      lng: coords?.lng,
-    });
-    console.log("[home] loadLocation done", coords ? "ok" : "none");
+  const loadLocation = useCallback(async (opts?: { refreshGps?: boolean }) => {
+    logger.debug("home", "loadLocation", { refreshGps: Boolean(opts?.refreshGps) });
+    console.log("[home] loadLocation start", opts?.refreshGps ? "refreshGps" : "saved");
+    const saved = await getDiscoveryLocation();
+    if (saved) {
+      setDiscoveryLocationState(saved);
+      setUserCoords({ lat: saved.lat, lng: saved.lng });
+      setLocationQuery(saved.label);
+      logger.debug("home", "loadLocation from saved", {
+        source: saved.source,
+        label: saved.label,
+      });
+      console.log("[home] loadLocation saved", saved.source, saved.label);
+    } else {
+      setDiscoveryLocationState(null);
+      setUserCoords(null);
+      logger.warn("home", "loadLocation — no discovery location saved");
+      console.log("[home] loadLocation none");
+    }
+
+    // Refresh GPS only when explicitly asked and the user chose GPS (avoid OS prompt spam).
+    if (opts?.refreshGps && saved?.source === "gps") {
+      const coords = await requestUserCoords();
+      if (coords) {
+        const next = await setDiscoveryLocation({
+          lat: coords.lat,
+          lng: coords.lng,
+          label: saved.label || "Current location",
+          source: "gps",
+        });
+        setDiscoveryLocationState(next);
+        setUserCoords(coords);
+        logger.debug("home", "loadLocation GPS refreshed", {
+          lat: coords.lat,
+          lng: coords.lng,
+        });
+        console.log("[home] loadLocation GPS refreshed");
+      } else {
+        logger.warn("home", "loadLocation GPS refresh failed — keeping saved");
+        console.log("[home] loadLocation GPS refresh failed — keep saved");
+      }
+    }
   }, []);
 
   // Paint the last saved Home immediately; the network load below replaces it.
@@ -545,20 +624,34 @@ export default function CustomerHome() {
 
   useEffect(() => {
     load();
-    loadLocation();
+    void loadLocation();
   }, [load, loadLocation]);
 
   useEffect(() => {
-    logger.debug("home", "map mount/coords", {
+    logger.debug("home", "discovery coords", {
       hasCoords: Boolean(userCoords),
+      source: discoveryLocation?.source,
+      label: discoveryLocation?.label,
     });
-    console.log("[home] map coords", userCoords ? "ready" : "waiting/denied");
-  }, [userCoords]);
+    console.log(
+      "[home] discovery coords",
+      userCoords ? "ready" : "missing",
+      discoveryLocation?.source ?? "",
+    );
+  }, [userCoords, discoveryLocation]);
 
   useEffect(() => {
     logger.debug("home", "header brand size", { logoSize: "hero" });
     console.log("[home] header brand size hero");
   }, []);
+
+  useEffect(() => {
+    if (!stale) return;
+    logger.debug("home", "stale badge below hero (keeps header/hero flush)", {
+      savedAt,
+    });
+    console.log("[home] stale badge below hero — header/hero stay flush");
+  }, [stale, savedAt]);
 
   const providerById = useMemo(() => {
     const map = new Map<string, ProviderListItem>();
@@ -568,6 +661,43 @@ export default function CustomerHome() {
     }
     return map;
   }, [allProviders, providers]);
+
+  const applyPlaceLocation = useCallback(async (place: PlaceDetails) => {
+    logger.info("home", "places selected → map", {
+      label: place.label,
+      placeIdPrefix: place.placeId.slice(0, 12),
+    });
+    console.log("[home] places selected → map", place.label);
+    const next = await setDiscoveryLocation({
+      lat: place.lat,
+      lng: place.lng,
+      label: place.label,
+      source: "manual",
+    });
+    setDiscoveryLocationState(next);
+    setUserCoords({ lat: place.lat, lng: place.lng });
+    setLocationQuery(place.label);
+    try {
+      await updateAccountMe({ city: place.city || place.label });
+      console.log("[home] account city updated", place.city || place.label);
+    } catch (e) {
+      logger.warn("home", "account city update failed (continuing)", e);
+      console.log("[home] account city update failed", e);
+    }
+    // Open map centered on the picked address (label shown in map search field).
+    pushDiscovery(
+      {
+        pathname: "/(customer)/map",
+        params: {
+          lat: String(place.lat),
+          lng: String(place.lng),
+          label: place.label,
+          source: "manual",
+        },
+      },
+      "places-selected-map",
+    );
+  }, [pushDiscovery]);
 
   const nextAppointment = useMemo(() => pickNextAppointment(bookings), [bookings]);
 
@@ -594,15 +724,18 @@ export default function CustomerHome() {
     return sorted;
   }, [bookAgainProviders, providers, userCoords]);
 
-  const nearby = useMemo(() => {
-    if (!userCoords) return [];
-    return allProviders
-      .filter((p) => Number.isFinite(p.location?.lat) && Number.isFinite(p.location?.lng))
-      .map((p) => ({ p, km: distanceKm(userCoords, { lat: p.location.lat, lng: p.location.lng }) }))
-      .filter((x) => x.km <= NEARBY_RADIUS_KM)
-      .sort((a, b) => a.km - b.km)
-      .slice(0, 8);
+  const nearbyResult = useMemo(() => {
+    if (!userCoords) {
+      return {
+        items: [] as Array<{ p: ProviderListItem; km: number }>,
+        effectiveRadiusKm: NEARBY_PRIMARY_RADIUS_KM,
+        fellBack: false,
+      };
+    }
+    return nearbyWithExpandRadius(allProviders, userCoords, 8);
   }, [allProviders, userCoords]);
+
+  const nearby = nearbyResult.items;
 
   const viewedItems = useMemo(
     () => viewed.map((v) => providerById.get(v._id) ?? viewedToListItem(v)),
@@ -719,41 +852,44 @@ export default function CustomerHome() {
         setRefreshing(true);
         console.log("[home] pull-to-refresh");
         load();
-        loadLocation();
+        void loadLocation({ refreshGps: true });
       }}
       contentStyle={{ ...styles.content, paddingTop: topInsetPadding }}
     >
-      <Animated.View style={styles.headerRow} entering={FadeInDown.duration(400)}>
-        <BrandLogo variant="dark" size="hero" style={styles.brandLogo} />
-        <View style={styles.headerActions}>
-          <Pressable
-            hitSlop={10}
-            accessibilityLabel="Open full map"
-            onPress={() => {
-              logger.debug("home", "header map");
-              console.log("[home] tap map pin");
-              pushDiscovery("/(customer)/map", "header-map");
-            }}
-          >
-            <MapPin color={colors.text} size={22} strokeWidth={1.75} />
-          </Pressable>
-          <Pressable
-            hitSlop={10}
-            accessibilityLabel="Messages"
-            onPress={() => {
-              logger.debug("home", "header bell → messages");
-              console.log("[home] tap bell");
-              router.push("/(customer)/messages");
-            }}
-          >
-            <Bell color={colors.text} size={22} strokeWidth={1.75} />
-          </Pressable>
-        </View>
-      </Animated.View>
+      {/* Header + hero share one block so content gap never opens a strip above the banner. */}
+      <View style={styles.headerHeroBlock}>
+        <Animated.View style={styles.headerRow} entering={FadeInDown.duration(400)}>
+          <BrandLogo variant="dark" size="hero" style={styles.brandLogo} />
+          <View style={styles.headerActions}>
+            <Pressable
+              hitSlop={10}
+              accessibilityLabel="Open full map"
+              onPress={() => {
+                logger.debug("home", "header map");
+                console.log("[home] tap map pin");
+                pushDiscovery("/(customer)/map", "header-map");
+              }}
+            >
+              <MapPin color={colors.text} size={22} strokeWidth={1.75} />
+            </Pressable>
+            <Pressable
+              hitSlop={10}
+              accessibilityLabel="Messages"
+              onPress={() => {
+                logger.debug("home", "header bell → messages");
+                console.log("[home] tap bell");
+                router.push("/(customer)/messages");
+              }}
+            >
+              <Bell color={colors.text} size={22} strokeWidth={1.75} />
+            </Pressable>
+          </View>
+        </Animated.View>
+
+        <HeroBanner scrollY={scrollY} />
+      </View>
 
       {stale ? <StaleBadge label={savedAgoLabel(savedAt)} /> : null}
-
-      <HeroBanner scrollY={scrollY} />
 
       <Pressable
         style={styles.searchBar}
@@ -812,19 +948,70 @@ export default function CustomerHome() {
         </Pressable>
       ) : null}
 
-      {nearby.length > 0 ? (
-        <View style={styles.sectionBlock}>
-          <View style={styles.sectionHead}>
-            <View style={styles.nearTitleRow}>
-              <Text style={styles.featSectionTitle}>Nearby now</Text>
-              <Text style={styles.nearRadius}>within {NEARBY_RADIUS_KM} km</Text>
-            </View>
-            <Pressable
-              onPress={() => pushDiscovery({ pathname: "/(customer)/search", params: { near: "1" } }, "nearby-see-all")}
-            >
-              <Text style={styles.seeAll}>See all</Text>
-            </Pressable>
+      <View style={styles.sectionBlock}>
+        <View style={styles.sectionHead}>
+          <View style={styles.nearTitleRow}>
+            <Text style={styles.featSectionTitle}>Nearby</Text>
+            {userCoords && nearby.length > 0 && !nearbyResult.fellBack ? (
+              <Text style={styles.nearRadius}>
+                within {nearbyResult.effectiveRadiusKm} km
+              </Text>
+            ) : null}
           </View>
+          <Pressable
+            onPress={() => {
+              logger.debug("home", "nearby open map");
+              console.log("[home] nearby open map");
+              pushDiscovery("/(customer)/map", "nearby-open-map");
+            }}
+          >
+            <Text style={styles.seeAll}>Open map</Text>
+          </Pressable>
+        </View>
+
+        <PhPlacesSearchField
+          label="Search address"
+          placeholder="Search city or area in PH"
+          value={locationQuery}
+          onChangeText={setLocationQuery}
+          onPlaceSelected={applyPlaceLocation}
+          testID="home-location-search"
+        />
+
+        {discoveryLocation?.label ? (
+          <Muted style={styles.nearLocationLabel}>
+            Showing near {discoveryLocation.label}
+          </Muted>
+        ) : (
+          <Muted style={styles.nearLocationLabel}>
+            Search an address in the Philippines to see artists nearby
+          </Muted>
+        )}
+
+        {userCoords && nearby.length > 0 && nearbyResult.fellBack ? (
+          <Muted style={styles.nearFallbackNote}>
+            No one within {NEARBY_PRIMARY_RADIUS_KM} km — showing within{" "}
+            {nearbyResult.effectiveRadiusKm} km
+          </Muted>
+        ) : null}
+
+        {!userCoords ? (
+          <Pressable
+            style={styles.nearSetLocation}
+            onPress={() => {
+              logger.debug("home", "set location CTA → GPS");
+              console.log("[home] set location CTA → permission");
+              router.push("/(auth)/location-permission");
+            }}
+          >
+            <MapPin color={colors.accent} size={18} strokeWidth={1.75} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.featSectionTitle}>Use current location</Text>
+              <Muted>Or search an address above</Muted>
+            </View>
+            <ChevronRight color={colors.textMuted} size={18} />
+          </Pressable>
+        ) : nearby.length > 0 ? (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -835,13 +1022,45 @@ export default function CustomerHome() {
                 key={p._id}
                 provider={p}
                 km={km}
-                onOpen={() => pushDiscovery(`/(customer)/provider/${p.slug}`, "nearby-card")}
-                onBook={() => pushDiscovery(`/(customer)/book/${p.slug}`, "nearby-book")}
+                onOpen={() =>
+                  pushDiscovery(`/(customer)/provider/${p.slug}`, "nearby-card")
+                }
+                onBook={() =>
+                  pushDiscovery(`/(customer)/book/${p.slug}`, "nearby-book")
+                }
               />
             ))}
           </ScrollView>
-        </View>
-      ) : null}
+        ) : (
+          <View style={styles.nearEmptyWrap}>
+            <EmptyState
+              title="No artists nearby"
+              body={`Nothing within ${nearbyResult.effectiveRadiusKm} km. Browse all artists or explore the map.`}
+              illustration={<EmptyDiscoverIllustration />}
+            />
+            <View style={styles.nearEmptyActions}>
+              <Pressable
+                style={styles.nearEmptyBtn}
+                onPress={() => {
+                  console.log("[home] nearby empty → search");
+                  pushDiscovery("/(customer)/search", "nearby-empty-browse");
+                }}
+              >
+                <Text style={styles.nearEmptyBtnText}>Browse all</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.nearEmptyBtn, styles.nearEmptyBtnSecondary]}
+                onPress={() => {
+                  console.log("[home] nearby empty → map");
+                  pushDiscovery("/(customer)/map", "nearby-empty-map");
+                }}
+              >
+                <Text style={styles.nearEmptyBtnTextSecondary}>Open map</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
 
       {viewedItems.length > 0 ? (
         <View style={styles.sectionBlock}>
@@ -913,16 +1132,6 @@ export default function CustomerHome() {
             })}
           </View>
         )}
-      </View>
-
-      <View style={styles.mapWrap}>
-        <ProvidersMapView
-          embedded
-          centerOnUser
-          showsUserLocation={Boolean(userCoords)}
-          userCoordinate={userCoords}
-          showCategoryChips={false}
-        />
       </View>
 
       {providers.length > 0 && (
@@ -1071,6 +1280,45 @@ const styles = StyleSheet.create({
   suggestRow: { paddingHorizontal: 20, gap: 8 },
   nearTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   nearRadius: { color: colors.textMuted, fontSize: 11, fontFamily: fonts.mono },
+  nearLocationLabel: { marginTop: -4, marginBottom: 4 },
+  nearFallbackNote: { marginTop: -2, marginBottom: 8 },
+  nearEmptyWrap: { gap: 12, paddingVertical: 8 },
+  nearEmptyActions: { flexDirection: "row", gap: 10 },
+  nearEmptyBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: colors.accent,
+  },
+  nearEmptyBtnSecondary: {
+    backgroundColor: colors.bgDeep,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  nearEmptyBtnText: {
+    color: colors.white,
+    fontFamily: fonts.mono,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  nearEmptyBtnTextSecondary: {
+    color: colors.text,
+    fontFamily: fonts.mono,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  nearSetLocation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgDeep,
+  },
   clearLink: { color: colors.textMuted, fontSize: 12, fontFamily: fonts.mono },
   nearCard: {
     width: 168,
@@ -1096,18 +1344,17 @@ const styles = StyleSheet.create({
   },
   nearBookText: { color: colors.text, fontSize: 12, fontFamily: fonts.monoMedium },
   content: { paddingTop: 10, gap: 18, paddingBottom: 28 },
+  /** Logo + hero flush — no parent gap strip between them. */
+  headerHeroBlock: { gap: 0 },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     minHeight: 52,
+    marginBottom: 8,
   },
   brandLogo: { alignSelf: "center" },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
-  mapWrap: {
-    height: 280,
-    width: "100%",
-  },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1271,10 +1518,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoMedium,
   },
   // ── Hero banner ──────────────────────────────────────────────────────────
-  heroBanner: {
-    height: 180,
+  // Fixed clip window — transforms live on heroBanner inside, so scroll
+  // parallax never slides a clipped rectangle over the content below.
+  // Dark fill matches the overlay so any rare flash still looks like the hero.
+  heroClip: {
+    height: HERO_HEIGHT,
     marginHorizontal: -20,
     overflow: "hidden",
+    backgroundColor: "#0A0A0A",
+  },
+  // Taller than the clip + shifted up so translateY/scale never expose a strip.
+  heroBanner: {
+    height: HERO_HEIGHT + HERO_PARALLAX_BLEED * 2,
+    width: "100%",
+    marginTop: -HERO_PARALLAX_BLEED,
   },
   heroImage: {
     borderRadius: 0,
@@ -1283,8 +1540,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(10,10,10,0.52)",
     justifyContent: "flex-end",
+    // Extra bottom padding so CTA sits in the visible clip (not in the bleed).
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 20 + HERO_PARALLAX_BLEED,
+    paddingTop: HERO_PARALLAX_BLEED,
     gap: 6,
   },
   heroEyebrow: {

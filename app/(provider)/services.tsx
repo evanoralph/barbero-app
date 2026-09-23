@@ -2,9 +2,7 @@ import { formatMoney } from '@/src/utils/format';
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,13 +10,13 @@ import {
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { listCategories } from "@/src/api/categories";
 import { getMyProvider, listMyServices, updateMyProvider } from "@/src/api/providers";
 import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import { staggeredEntering } from "@/src/components/animated/staggeredEntering";
 import { EmptyServicesIllustration } from "@/src/components/illustrations/EmptyServicesIllustration";
-import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import {
   Button,
   Chip,
@@ -53,7 +51,6 @@ function maxVisibleServices(profile: ProviderProfile | null): number | null {
 
 export default function ProviderServicesScreen() {
   const insets = useSafeAreaInsets();
-  const hidePlans = useProviderOnboardingHome();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,16 +131,23 @@ export default function ProviderServicesScreen() {
     logger.info("provider-services", "form open edit", { id: s.id });
   };
 
-  const load = useCallback(async (opts?: { refresh?: boolean; keepPage?: boolean }) => {
+  const load = useCallback(async (opts?: { refresh?: boolean }) => {
     if (opts?.refresh) setRefreshing(true);
     else setLoading(true);
     setError(null);
     try {
-      const targetPage = opts?.keepPage ? page : 1;
+      // Always use current `page` state — Next/Previous setPage, filters/search reset to 1.
+      logger.debug("provider-services", "load request", {
+        page,
+        q: query,
+        category: filterCategory,
+        refresh: Boolean(opts?.refresh),
+      });
+      console.log("[provider-services] load request", { page, q: query, category: filterCategory });
       const [me, paged, cats] = await Promise.all([
         getMyProvider(),
         listMyServices({
-          page: targetPage,
+          page,
           limit: PAGE_SIZE,
           q: query,
           category: filterCategory,
@@ -172,6 +176,7 @@ export default function ProviderServicesScreen() {
         locked,
         isPremium: me.isPremium,
         isFeatured: me.isFeatured,
+        page: paged.page,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to load services";
@@ -195,6 +200,17 @@ export default function ProviderServicesScreen() {
     }, 300);
     return () => clearTimeout(timer);
   }, [queryInput]);
+
+  // Must run every render (before early returns) — Rules of Hooks. Do not move below loading/error returns.
+  const modalVisible = formMode !== "closed";
+  useEffect(() => {
+    if (!modalVisible) return;
+    logger.debug("provider-services", "keyboard-aware modal open", {
+      formMode,
+      editingId,
+    });
+    console.log("[provider-services] keyboard-aware modal open", { formMode, editingId });
+  }, [modalVisible, formMode, editingId]);
 
   const filterOptions = useMemo(() => {
     const fromServices = new Set(services.map((s) => s.category).filter(Boolean));
@@ -257,7 +273,7 @@ export default function ProviderServicesScreen() {
       setProfile(updated);
       setOk(editingId ? "Service updated" : "Service added");
       logger.info("provider-services", "refresh after save");
-      await load({ keepPage: true });
+      await load();
       closeForm();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Save failed";
@@ -289,7 +305,7 @@ export default function ProviderServicesScreen() {
             setProfile(updated);
             setOk("Service removed");
             logger.info("provider-services", "refresh after remove", { id: s.id });
-            await load({ keepPage: true });
+            await load();
             if (editingId === s.id) closeForm();
           } catch (e) {
             const msg = e instanceof Error ? e.message : "Remove failed";
@@ -333,7 +349,7 @@ export default function ProviderServicesScreen() {
       const updated = await updateMyProvider({ visibleServiceIds: next });
       setProfile(updated);
       setOk(makeVisible ? "Service shown on profile" : "Service hidden from profile");
-      await load({ keepPage: true });
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update visibility");
       logger.error("provider-services", "toggle visibility failed", e);
@@ -345,12 +361,11 @@ export default function ProviderServicesScreen() {
   if (loading) return <LoadingState label="Loading services…" />;
   if (error && !profile) return <ErrorState message={error} onRetry={() => load()} />;
 
-  const modalVisible = formMode !== "closed";
   const locked = isProfileLocked(profile);
 
   return (
     <>
-      <Screen scroll refreshing={refreshing} onRefresh={() => load({ refresh: true, keepPage: true })}>
+      <Screen scroll refreshing={refreshing} onRefresh={() => load({ refresh: true })}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Title>Services</Title>
@@ -364,21 +379,15 @@ export default function ProviderServicesScreen() {
         {locked ? (
           <View style={styles.paywallBox}>
             <Text style={styles.paywallTitle}>Subscribe to continue</Text>
-            <Muted>
-              {hidePlans
-                ? "Service edits require an active plan. Plans will be available soon."
-                : "Service edits require an active Pro or Premium plan."}
-            </Muted>
-            {!hidePlans ? (
-              <Button
-                label="View plans"
-                onPress={() => {
-                  logger.info("provider-services", "paywall → subscription");
-                  console.log("[provider-services] paywall CTA → subscription");
-                  router.push("/(provider)/subscription");
-                }}
-              />
-            ) : null}
+            <Muted>Service edits require an active Pro or Premium plan.</Muted>
+            <Button
+              label="View plans"
+              onPress={() => {
+                logger.info("provider-services", "paywall → subscription");
+                console.log("[provider-services] paywall CTA → subscription");
+                router.push("/(provider)/subscription");
+              }}
+            />
           </View>
         ) : null}
 
@@ -429,13 +438,11 @@ export default function ProviderServicesScreen() {
             <Muted>No services yet.</Muted>
             {!locked ? (
               <Button label="Add your first service" onPress={openAdd} />
-            ) : !hidePlans ? (
+            ) : (
               <Button
                 label="Subscribe to add services"
                 onPress={() => router.push("/(provider)/subscription")}
               />
-            ) : (
-              <Muted>Plans will be available soon.</Muted>
             )}
           </View>
         ) : services.length === 0 ? (
@@ -542,10 +549,7 @@ export default function ProviderServicesScreen() {
         transparent
         onRequestClose={closeForm}
       >
-        <KeyboardAvoidingView
-          style={styles.modalRoot}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <View style={styles.modalRoot}>
           <Pressable style={styles.modalBackdrop} onPress={closeForm} />
           <View
             style={[
@@ -557,9 +561,10 @@ export default function ProviderServicesScreen() {
             <Text style={styles.modalTitle}>
               {formMode === "edit" ? "Edit service" : "Add service"}
             </Text>
-            <ScrollView
+            <KeyboardAwareScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              bottomOffset={24}
               contentContainerStyle={{ gap: 12, paddingBottom: 8 }}
             >
               <Field label="Name" value={name} onChangeText={setName} />
@@ -624,9 +629,9 @@ export default function ProviderServicesScreen() {
                 loading={saving}
               />
               <Button label="Cancel" variant="secondary" onPress={closeForm} />
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </>
   );

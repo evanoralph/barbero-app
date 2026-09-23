@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { Star, X } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -16,7 +16,6 @@ import { FilterSheet } from "@/src/components/FilterSheet";
 import {
   Button,
   Chip,
-  EmptyState,
   ErrorState,
   FilterButton,
   OfflineState,
@@ -49,17 +48,24 @@ const DEFAULT_REGION: Region = {
 };
 
 const NEARBY_DELTA = 0.06;
+/** ~15 km — used when centering on a searched address with "any distance". */
+const SEARCH_AREA_DELTA = 0.14;
 
 const FIT_PADDING = { top: 100, right: 48, bottom: 160, left: 48 };
 const EMBEDDED_FIT_PADDING = { top: 48, right: 36, bottom: 100, left: 36 };
 
-function regionForUser(coords: UserCoords): Region {
+function regionForUser(coords: UserCoords, delta = NEARBY_DELTA): Region {
   return {
     latitude: coords.lat,
     longitude: coords.lng,
-    latitudeDelta: NEARBY_DELTA * 2,
-    longitudeDelta: NEARBY_DELTA * 2,
+    latitudeDelta: delta * 2,
+    longitudeDelta: delta * 2,
   };
+}
+
+/** Approx degrees latitude for a km radius (1° ≈ 111 km). */
+function deltaForRadiusKm(km: number): number {
+  return Math.max(NEARBY_DELTA, km / 111);
 }
 
 function MapMarkerPin({
@@ -152,6 +158,7 @@ export function ProvidersMapView({
   centerOnUser = false,
   filters,
   onFiltersChange,
+  topOverlay = null,
 }: {
   /** Used when uncontrolled, or as first value before parent syncs. */
   initialCategory?: string;
@@ -172,6 +179,8 @@ export function ProvidersMapView({
    */
   filters?: ExploreFilters;
   onFiltersChange?: (filters: ExploreFilters) => void;
+  /** Optional chrome above category chips (e.g. location search on Map). */
+  topOverlay?: ReactNode;
 }) {
   const mapRef = useRef<MapView | null>(null);
   const [internalCategory, setInternalCategory] = useState(initialCategory);
@@ -184,14 +193,23 @@ export function ProvidersMapView({
 
   const [selected, setSelected] = useState<ProviderMapMarker | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  /** Compact empty banner can be dismissed so the map stays usable. */
+  const [emptyDismissed, setEmptyDismissed] = useState(false);
 
   const filterCoords =
     useUserCoords(sheetOpen || (filters?.distanceKm ?? ANY_DISTANCE_KM) < ANY_DISTANCE_KM) ??
     userCoordinate;
 
   const useUserCenter = Boolean(centerOnUser && userCoordinate);
+  const areaDelta = useMemo(() => {
+    if (!useUserCenter) return NEARBY_DELTA;
+    const filterKm = filters?.distanceKm ?? ANY_DISTANCE_KM;
+    if (filterKm < ANY_DISTANCE_KM) return deltaForRadiusKm(filterKm);
+    return SEARCH_AREA_DELTA;
+  }, [useUserCenter, filters?.distanceKm]);
+
   const initialRegion = useUserCenter
-    ? regionForUser(userCoordinate!)
+    ? regionForUser(userCoordinate!, areaDelta)
     : DEFAULT_REGION;
 
   const setCategory = useCallback(
@@ -205,7 +223,9 @@ export function ProvidersMapView({
   );
 
   const bbox =
-    centerOnUser && userCoordinate ? bboxAround(userCoordinate, NEARBY_DELTA) : undefined;
+    centerOnUser && userCoordinate
+      ? bboxAround(userCoordinate, areaDelta)
+      : undefined;
   const bboxKey = bbox
     ? [bbox.swLat, bbox.swLng, bbox.neLat, bbox.neLng].map((n) => n.toFixed(3)).join(",")
     : "all";
@@ -219,7 +239,15 @@ export function ProvidersMapView({
         category: category || undefined,
         centerOnUser,
         hasUser: Boolean(userCoordinate),
+        embedded,
         bbox,
+        areaDelta,
+      });
+      console.log("[ProvidersMapView] load markers", {
+        centerOnUser,
+        embedded,
+        bboxKey,
+        areaDelta,
       });
       const next = await listProvidersMap({
         category: category || undefined,
@@ -228,11 +256,18 @@ export function ProvidersMapView({
         neLat: bbox?.neLat,
         neLng: bbox?.neLng,
       });
-      // If nearby bbox returns nothing, fall back to all markers so Home still shows providers.
-      if (bbox && next.length === 0) {
-        logger.warn("ProvidersMapView", "nearby empty — falling back to all markers");
+      // Home embed only: if nearby is empty, show all pins so the card isn't blank.
+      // Full map must keep an honest "0 in this area" count (no global fallback).
+      if (bbox && next.length === 0 && embedded) {
+        logger.warn("ProvidersMapView", "nearby empty — embedded fallback to all markers");
+        console.log("[ProvidersMapView] nearby empty — embedded fallback");
         return listProvidersMap({ category: category || undefined });
       }
+      if (bbox && next.length === 0) {
+        logger.info("ProvidersMapView", "nearby empty — keeping empty for area count");
+        console.log("[ProvidersMapView] nearby empty — count stays 0");
+      }
+      console.log("[ProvidersMapView] markers loaded", next.length);
       return next;
     },
   });
@@ -248,15 +283,22 @@ export function ProvidersMapView({
   const updating = query.loading || query.refetching;
   const pinDim = updating ? 0.4 : query.stale ? 0.72 : 1;
 
+  // Re-show the empty banner when category/filters change so a new search isn't silently empty.
+  useEffect(() => {
+    logger.debug("ProvidersMapView", "empty banner reset", { category: category || "all" });
+    setEmptyDismissed(false);
+  }, [category, filters?.distanceKm, filters?.priceMin, filters?.priceMax]);
+
   const applyCamera = useCallback(
     (items: ProviderMapMarker[]) => {
       if (!mapRef.current) return;
       if (useUserCenter && userCoordinate) {
-        const region = regionForUser(userCoordinate);
+        const region = regionForUser(userCoordinate, areaDelta);
         logger.debug("ProvidersMapView", "centerOnUser", {
           lat: userCoordinate.lat,
           lng: userCoordinate.lng,
           markerCount: items.length,
+          areaDelta,
         });
         mapRef.current.animateToRegion(region, 400);
         return;
@@ -272,7 +314,7 @@ export function ProvidersMapView({
         animated: true,
       });
     },
-    [embedded, useUserCenter, userCoordinate],
+    [areaDelta, embedded, useUserCenter, userCoordinate],
   );
 
   const load = query.refetch;
@@ -284,6 +326,25 @@ export function ProvidersMapView({
     const id = requestAnimationFrame(() => applyCamera(markersRef.current));
     return () => cancelAnimationFrame(id);
   }, [updating, error, query.data, filters?.distanceKm, applyCamera, useUserCenter]);
+
+  // Instant recenter when discovery/search coords change (home → map, or map place pick).
+  useEffect(() => {
+    if (!useUserCenter || !userCoordinate || !mapRef.current) return;
+    const region = regionForUser(userCoordinate, areaDelta);
+    logger.debug("ProvidersMapView", "recenter on userCoordinate change", {
+      lat: userCoordinate.lat,
+      lng: userCoordinate.lng,
+      areaDelta,
+    });
+    console.log(
+      "[ProvidersMapView] recenter",
+      userCoordinate.lat,
+      userCoordinate.lng,
+      "delta",
+      areaDelta,
+    );
+    mapRef.current.animateToRegion(region, 400);
+  }, [useUserCenter, userCoordinate?.lat, userCoordinate?.lng, areaDelta]);
 
   useEffect(() => {
     setSelected((cur) => (cur && markers.some((m) => m._id === cur._id) ? cur : null));
@@ -351,36 +412,52 @@ export function ProvidersMapView({
         ))}
       </MapView>
 
-      {showCategoryChips ? (
-        <View style={styles.chipsOverlay} pointerEvents="box-none">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-            style={styles.chipsScroll}
-          >
-            {CATEGORIES.map((c) => (
-              <Chip
-                key={c || "all"}
-                label={c || "All"}
-                active={category === c}
-                onPress={() => setCategory(c)}
-              />
-            ))}
-          </ScrollView>
-          {filters && onFiltersChange ? (
-            <FilterButton round count={filterCount} onPress={() => setSheetOpen(true)} />
+      {(topOverlay || showCategoryChips) ? (
+        <View style={styles.topChrome} pointerEvents="box-none">
+          {topOverlay ? (
+            <View style={styles.topOverlay} pointerEvents="box-none">
+              {topOverlay}
+            </View>
+          ) : null}
+
+          {showCategoryChips ? (
+            <View style={styles.chipsOverlay} pointerEvents="box-none">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.chipsRow}
+                style={styles.chipsScroll}
+              >
+                {CATEGORIES.map((c) => (
+                  <Chip
+                    key={c || "all"}
+                    label={c || "All"}
+                    active={category === c}
+                    onPress={() => setCategory(c)}
+                  />
+                ))}
+              </ScrollView>
+              {filters && onFiltersChange ? (
+                <FilterButton round count={filterCount} onPress={() => setSheetOpen(true)} />
+              ) : null}
+            </View>
           ) : null}
         </View>
       ) : null}
 
       {updating ? (
-        <View style={styles.updatingPill} pointerEvents="none">
+        <View
+          style={[styles.updatingPill, topOverlay ? styles.pillBelowSearch : null]}
+          pointerEvents="none"
+        >
           <ActivityIndicator size="small" color={colors.accent} />
           <Text style={styles.updatingText}>Updating this area…</Text>
         </View>
       ) : query.stale && markers.length > 0 ? (
-        <View style={styles.stalePill} pointerEvents="none">
+        <View
+          style={[styles.stalePill, topOverlay ? styles.pillBelowSearch : null]}
+          pointerEvents="none"
+        >
           <StaleBadge label={savedAgoLabel(query.savedAt)} />
         </View>
       ) : null}
@@ -393,8 +470,12 @@ export function ProvidersMapView({
           <Text style={styles.countText}>Counting providers…</Text>
         ) : (
           <Text style={styles.countText}>
-            <Text style={styles.countBold}>{markers.length}</Text>
-            {" providers in this area"}
+            <Text style={styles.countBold}>
+              {markers.length === 1 ? "1" : String(markers.length)}
+            </Text>
+            {markers.length === 1
+              ? " provider in this area"
+              : " providers in this area"}
           </Text>
         )}
         {error ? <Text style={styles.countError}>{error}</Text> : null}
@@ -410,9 +491,29 @@ export function ProvidersMapView({
         </View>
       ) : null}
 
-      {!loading && !error && markers.length === 0 ? (
-        <View style={styles.emptyOverlay} pointerEvents="box-none">
-          <EmptyState title="No providers on the map" body="Try another category." />
+      {!loading && !error && markers.length === 0 && !emptyDismissed ? (
+        <View
+          style={[styles.emptyBanner, embedded && styles.emptyBannerEmbedded]}
+          pointerEvents="box-none"
+        >
+          <View style={styles.emptyBannerInner}>
+            <View style={styles.emptyBannerText}>
+              <Text style={styles.emptyBannerTitle}>No providers here</Text>
+              <Text style={styles.emptyBannerBody}>Try another category or pan the map.</Text>
+            </View>
+            <Pressable
+              onPress={() => {
+                logger.debug("ProvidersMapView", "dismiss empty banner");
+                setEmptyDismissed(true);
+              }}
+              hitSlop={12}
+              style={styles.dismissBtn}
+              accessibilityLabel="Dismiss"
+              accessibilityRole="button"
+            >
+              <X size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
         </View>
       ) : null}
 
@@ -520,11 +621,18 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFill,
   },
-  chipsOverlay: {
+  topChrome: {
     position: "absolute",
     top: 12,
     left: 12,
     right: 12,
+    zIndex: 30,
+    gap: 12,
+  },
+  topOverlay: {
+    zIndex: 40,
+  },
+  chipsOverlay: {
     zIndex: 20,
     flexDirection: "row",
     alignItems: "center",
@@ -546,6 +654,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 14,
+  },
+  pillBelowSearch: {
+    // search (~56) + gap (12) + chips (~44) + gap (10) + topChrome inset (12)
+    top: 134,
   },
   updatingText: { color: colors.white, fontSize: 11, fontFamily: fonts.mono },
   stalePill: { position: "absolute", top: 70, left: 12, zIndex: 20 },
@@ -613,13 +725,50 @@ const styles = StyleSheet.create({
     zIndex: 30,
     backgroundColor: colors.bg,
   },
-  emptyOverlay: {
-    ...StyleSheet.absoluteFill,
+  emptyBanner: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 72,
     zIndex: 25,
-    justifyContent: "center",
+  },
+  emptyBannerEmbedded: {
+    bottom: 56,
+    left: 10,
+    right: 10,
+  },
+  emptyBannerInner: {
+    flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.overlay,
-    padding: 24,
+    gap: 10,
+    backgroundColor: colors.bg,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 10,
+    paddingLeft: 14,
+    paddingRight: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  emptyBannerText: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  emptyBannerTitle: {
+    fontSize: 14,
+    color: colors.text,
+    fontFamily: fonts.serifMedium,
+  },
+  emptyBannerBody: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.textMuted,
+    fontFamily: fonts.mono,
   },
   pinWrap: {
     alignItems: "center",

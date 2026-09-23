@@ -1,24 +1,33 @@
 # App screenshot capture
 
-Drives the iOS Simulator with [Maestro](https://maestro.mobile.dev) to walk
-every screen in the app and save a screenshot of each one.
+Drives the iOS Simulator and/or Android Emulator with
+[Maestro](https://maestro.mobile.dev) to walk every screen in the app and save
+a screenshot of each one.
 
 ## Usage
 
 ```bash
 # One-time setup:
-#   1. Boot an iOS Simulator and run `npm run ios` so the dev client is installed.
-#   2. Install Maestro: curl -Ls "https://get.maestro.mobile.dev" | bash
+#   1. Install Maestro: curl -Ls "https://get.maestro.mobile.dev" | bash
+#   2. Boot a device and install the dev client:
+#        iOS:     npm run ios
+#        Android: npm run android  (needs adb / Android SDK platform-tools)
 
-scripts/screenshots/capture.sh                # check routes, then capture
-scripts/screenshots/capture.sh --skip-checks   # capture without the route check
-scripts/screenshots/capture.sh --strict        # fail instead of warn on route drift
-scripts/screenshots/capture.sh --device <UDID> # target a specific simulator
+scripts/screenshots/capture.sh                       # iOS (default)
+scripts/screenshots/capture.sh --platform android    # Android only
+scripts/screenshots/capture.sh --platform ios        # iOS only
+scripts/screenshots/capture.sh --platform both       # iOS then Android
+npm run screenshots:android                          # same as --platform android
+
+scripts/screenshots/capture.sh --skip-checks         # capture without the route check
+scripts/screenshots/capture.sh --strict              # fail instead of warn on route drift
+scripts/screenshots/capture.sh --device <ID>         # target a specific simulator/emulator
 ```
 
 Screenshots are written to `~/Documents/barbero-app-screenshots/<timestamp>/`
 (override with `SCREENSHOT_OUTPUT_DIR`), one PNG per screen, prefixed by
-which flow captured it (`provider__07_profile.png`, etc.).
+which flow captured it (`provider__07_profile.png`, etc.). With
+`--platform both`, files land under `ios/` and `android/` subfolders.
 
 ## App Store Connect 6.5" Display
 
@@ -48,16 +57,25 @@ provider profile, book flow, map. Upload those PNGs into App Store Connect
 ## Layout
 
 - `flows/auth.yaml`, `flows/provider.yaml`, `flows/customer.yaml` — one
-  Maestro flow per role, each logging in via the `__DEV__`-only "Dev quick
-  fill" button and walking every screen for that role.
+  Maestro flow per role. Auth covers login/forgot/reset plus register,
+  verify-email, provider apply steps, and server-down (deep-linked where
+  needed). Provider/customer use shared login libs and prefer `tab-*`
+  testIDs (with `.*Label, tab.*` fallback) so the same flows work on
+  iOS and Android.
 - `flows/lib/ensure_logged_out.yaml` — shared preamble that relaunches the
   app and signs out if needed. **Don't use `launchApp: { clearState: true }`
   here** — on this dev-client build it wipes the client's stored bundler URL
-  along with app storage, dropping the simulator into the native Expo
+  along with app storage, dropping the device into the native Expo
   launcher screen instead of the app.
+- `flows/lib/login_customer.yaml` / `login_provider.yaml` — `__DEV__` quick
+  fill + assert landing content (`Book now` / `Quick actions`).
 - `routes.snapshot.txt` — the route list (`app/**/*.tsx`, minus `_layout`,
   `+html`, `+not-found`) as of the last time someone reviewed the flows
   against it.
+
+Messages / Inbox and Map are **not** tab-bar destinations (`href: null`).
+Flows open them from Home / Dashboard controls (`Messages`, `Inbox`,
+`Open full map`), matching `.maestro` E2E.
 
 ## When routes change
 

@@ -24,6 +24,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createBooking } from "@/src/api/bookings";
 import { getLoyaltyCard } from "@/src/api/loyalty";
@@ -42,7 +43,6 @@ import {
   MonoLabel,
   Muted,
 } from "@/src/components/ui";
-import { useDiscoveryDisabledRedirect } from "@/src/hooks/useDiscoveryDisabledRedirect";
 import type { LoyaltyCardView, ProviderProfile, ProviderService } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
@@ -135,7 +135,6 @@ function groupTimes(times: string[]): TimeBucket[] {
 const STICKY_BAR_BASE = 72;
 
 export default function BookScreen() {
-  const discoveryDisabled = useDiscoveryDisabledRedirect("book");
   const { slug, serviceId } = useLocalSearchParams<{ slug: string; serviceId?: string }>();
   const { user } = useSession();
   const insets = useSafeAreaInsets();
@@ -151,7 +150,6 @@ export default function BookScreen() {
   const [slot, setSlot] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
-  const [notesKeyboardHeight, setNotesKeyboardHeight] = useState(0);
   const [loading, setLoading] = useState(true);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -165,7 +163,6 @@ export default function BookScreen() {
   const stickyPad = STICKY_BAR_BASE + Math.max(insets.bottom, 12);
 
   const loadProvider = useCallback(async () => {
-    if (discoveryDisabled) return;
     if (!slug) return;
     setLoading(true);
     setError(null);
@@ -197,7 +194,7 @@ export default function BookScreen() {
     } finally {
       setLoading(false);
     }
-  }, [slug, serviceId, discoveryDisabled]);
+  }, [slug, serviceId]);
 
   useEffect(() => {
     loadProvider();
@@ -324,7 +321,7 @@ export default function BookScreen() {
 
   const openNotesModal = () => {
     logger.debug("book", "open notes modal", { platform: Platform.OS });
-    console.log("[book] open notes — keyboard lift enabled");
+    console.log("[book] open notes — keyboard sticky sheet enabled");
     setDraftNotes(notes);
     setShowNotesModal(true);
   };
@@ -342,24 +339,19 @@ export default function BookScreen() {
     setShowNotesModal(false);
   };
 
-  // Lift the notes sheet above the keyboard (Android pan mode won't resize the window).
+  // Log keyboard events while notes sheet is open (lift handled by KeyboardStickyView).
   useEffect(() => {
-    if (!showNotesModal) {
-      setNotesKeyboardHeight(0);
-      return;
-    }
+    if (!showNotesModal) return;
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const showSub = Keyboard.addListener(showEvent, (e) => {
       const height = e.endCoordinates?.height ?? 0;
       logger.debug("book", "notes keyboard show", { height, platform: Platform.OS });
       console.log("[book] notes keyboard show", height);
-      setNotesKeyboardHeight(height);
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
       logger.debug("book", "notes keyboard hide");
       console.log("[book] notes keyboard hide");
-      setNotesKeyboardHeight(0);
     });
     return () => {
       showSub.remove();
@@ -444,7 +436,6 @@ export default function BookScreen() {
     }
   };
 
-  if (discoveryDisabled) return <LoadingState />;
   if (loading) return <LoadingState />;
   if (error && !provider) return <ErrorState message={error} onRetry={loadProvider} />;
   if (!provider) return <ErrorState message="Provider not found" />;
@@ -723,46 +714,46 @@ export default function BookScreen() {
             style={StyleSheet.absoluteFill}
             onPress={closeNotesModal}
           />
-          <View
-            style={[
-              styles.sheet,
-              {
-                paddingBottom: Math.max(insets.bottom, 20),
-                // Push the whole sheet up so the input/actions stay above the keyboard.
-                marginBottom: notesKeyboardHeight,
-              },
-            ]}
-          >
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Add a note</Text>
-            <Muted>Optional — anything the artist should know.</Muted>
-            <TextInput
-              style={styles.notesInput}
-              value={draftNotes}
-              onChangeText={setDraftNotes}
-              placeholder="e.g. prefer shorter on the sides"
-              placeholderTextColor={colors.textMuted}
-              multiline
-              autoFocus
-              maxLength={500}
-              onFocus={() => {
-                logger.debug("book", "notes input focus");
-                console.log("[book] notes input focus");
-              }}
-            />
-            <View style={styles.sheetActions}>
-              <View style={styles.sheetActionFlex}>
-                <Button
-                  label="Cancel"
-                  variant="secondary"
-                  onPress={closeNotesModal}
-                />
-              </View>
-              <View style={styles.sheetActionFlex}>
-                <Button label="Done" onPress={confirmNotes} />
+          <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
+            <View
+              style={[
+                styles.sheet,
+                {
+                  paddingBottom: Math.max(insets.bottom, 20),
+                },
+              ]}
+            >
+              <View style={styles.sheetHandle} />
+              <Text style={styles.sheetTitle}>Add a note</Text>
+              <Muted>Optional — anything the artist should know.</Muted>
+              <TextInput
+                style={styles.notesInput}
+                value={draftNotes}
+                onChangeText={setDraftNotes}
+                placeholder="e.g. prefer shorter on the sides"
+                placeholderTextColor={colors.textMuted}
+                multiline
+                autoFocus
+                maxLength={500}
+                onFocus={() => {
+                  logger.debug("book", "notes input focus");
+                  console.log("[book] notes input focus");
+                }}
+              />
+              <View style={styles.sheetActions}>
+                <View style={styles.sheetActionFlex}>
+                  <Button
+                    label="Cancel"
+                    variant="secondary"
+                    onPress={closeNotesModal}
+                  />
+                </View>
+                <View style={styles.sheetActionFlex}>
+                  <Button label="Done" onPress={confirmNotes} />
+                </View>
               </View>
             </View>
-          </View>
+          </KeyboardStickyView>
         </View>
       </Modal>
     </View>

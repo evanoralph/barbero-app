@@ -1,13 +1,13 @@
 import { Redirect, Tabs } from "expo-router";
 import { CalendarDays, Home, Search, UserRound } from "lucide-react-native";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "@/src/auth/session";
 import { e2eTabBarButton } from "@/src/components/E2eTabBarButton";
 import { LoadingState } from "@/src/components/ui";
 import { TabIcon } from "@/src/components/TabIcon";
-import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
+import { hasDiscoveryLocation } from "@/src/utils/discoveryLocation";
 import { logger } from "@/src/utils/logger";
 
 const headerOptions = {
@@ -23,23 +23,43 @@ const headerOptions = {
 
 export default function CustomerLayout() {
   const { ready, user, role } = useSession();
-  const discoveryDisabled = useProviderOnboardingHome();
+  const [locationReady, setLocationReady] = useState(false);
+  const [hasLocation, setHasLocation] = useState(false);
 
   useEffect(() => {
-    if (!discoveryDisabled) return;
-    logger.info("CustomerTabs", "providerOnboardingHome on — hiding Explore tab");
-    console.log("[CustomerTabs] providerOnboardingHome on — hiding Explore tab");
-  }, [discoveryDisabled]);
+    if (!ready || !user || role === "provider") {
+      setLocationReady(false);
+      setHasLocation(false);
+      return;
+    }
+    let cancelled = false;
+    setLocationReady(false);
+    void hasDiscoveryLocation().then((ok) => {
+      if (cancelled) return;
+      setHasLocation(ok);
+      setLocationReady(true);
+      logger.debug("CustomerTabs", "discovery location gate", { hasLocation: ok });
+      console.log("[CustomerTabs] discovery location", ok ? "ok" : "missing → gate");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, user, role]);
 
   if (!ready) return <LoadingState />;
   if (!user) return <Redirect href="/(auth)/login" />;
   if (role === "provider") return <Redirect href="/(provider)" />;
+  if (!locationReady) return <LoadingState label="Loading…" />;
+  if (!hasLocation) {
+    return <Redirect href="/(auth)/location-permission" />;
+  }
 
   logger.debug("CustomerTabs", "mount lucide tab icons (figma chrome)", {
     tabBarHideOnKeyboard: true,
     messagesTabHidden: true,
-    discoveryDisabled,
+    providerOnboardingHome: "web-only — Explore always shown",
   });
+  console.log("[CustomerTabs] Explore tab always shown — providerOnboardingHome is web-only");
 
   return (
     <Tabs
@@ -84,12 +104,11 @@ export default function CustomerLayout() {
         name="search"
         options={{
           title: "Explore",
-          href: discoveryDisabled ? null : undefined,
+          tabBarButton: e2eTabBarButton("tab-explore"),
           ...headerOptions,
           tabBarIcon: ({ color, focused }) => (
             <TabIcon icon={Search} color={color} focused={focused} name="customer.search" />
           ),
-          tabBarButton: e2eTabBarButton("tab-explore"),
         }}
       />
       <Tabs.Screen

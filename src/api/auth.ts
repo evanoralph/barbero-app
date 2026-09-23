@@ -1,14 +1,42 @@
 import { apiRequest } from "@/src/api/client";
-import type { AuthMe, LoginResponse } from "@/src/types/api";
+import type { AuthMe, LoginResponse, LoginStartResult } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(email: string, password: string): Promise<LoginStartResult> {
   logger.info("auth-api", "login attempt", { email });
-  return apiRequest<LoginResponse>("/auth/login", {
+  return apiRequest<LoginStartResult>("/auth/login", {
     method: "POST",
     auth: false,
     body: { email, password },
   });
+}
+
+export async function loginVerify(input: {
+  email: string;
+  code: string;
+  challengeId: string;
+}): Promise<LoginResponse> {
+  logger.info("auth-api", "loginVerify", { email: input.email });
+  return apiRequest<LoginResponse>("/auth/login/verify", {
+    method: "POST",
+    auth: false,
+    body: input,
+  });
+}
+
+export async function loginResend(input: {
+  email: string;
+  challengeId: string;
+}): Promise<{ message: string; challengeId: string; devCode?: string }> {
+  logger.info("auth-api", "loginResend", { email: input.email });
+  return apiRequest<{ message: string; challengeId: string; devCode?: string }>(
+    "/auth/login/resend",
+    {
+      method: "POST",
+      auth: false,
+      body: input,
+    },
+  );
 }
 
 export async function authMe(): Promise<AuthMe> {
@@ -81,3 +109,4 @@ export async function registerResend(email: string): Promise<{ message: string }
     body: { email },
   });
 }
+

@@ -1,14 +1,16 @@
 # Screens: (provider)/index.tsx, bookings/index.tsx, bookings/[id].tsx,
 # availability.tsx, messages/index.tsx, messages/[threadId].tsx, profile.tsx,
-# services.tsx, portfolio.tsx, subscription.tsx, public-profile.tsx
+# services.tsx, portfolio.tsx, subscription.tsx, subscription-payments.tsx,
+# payout-settings.tsx, public-profile.tsx
 #
 # Uses the "Dev quick fill" button (__DEV__ only, see app/(auth)/login.tsx) to
 # log in, so this only works against a dev build, not a production build.
 #
-# Note on tab-bar taps: React Navigation's tab bar exposes each tab's
-# accessibility text as "<Label>, tab, N of M" — a plain tapOn: "Bookings" can
-# match a same-named Quick Action button elsewhere on screen instead, so every
-# tab tap here uses a ".*<Label>, tab.*" regex to target the tab bar specifically.
+# Tab taps prefer testID (tab-*) — same on iOS and Android. Regex
+# ".*<Label>, tab.*" is a fallback for older builds without testIDs.
+#
+# Messages / Inbox is NOT a tab (href: null) — open it from Dashboard Quick
+# actions ("Inbox"), matching .maestro/flows/provider/inbox.yaml.
 #
 # Note on nav-stack resets: relaunching the app (launchApp) resets React
 # Navigation's in-memory stack to its initial route without logging the user
@@ -18,19 +20,18 @@
 appId: com.beruapp.ai
 ---
 - runFlow: lib/ensure_logged_out.yaml
-- tapOn: "Provider"
-- tapOn:
-    text: "Sign in"
-    index: 1
-- extendedWaitUntil:
-    notVisible: "Dev quick fill"
-    timeout: 15000
+- runFlow: lib/login_provider.yaml
 
 # Dashboard
 - takeScreenshot: 01_dashboard
 
 # Bookings — list, then best-effort into a detail
-- tapOn: ".*Bookings, tab.*"
+- tapOn:
+    id: "tab-bookings"
+    optional: true
+- tapOn:
+    text: ".*Bookings, tab.*"
+    optional: true
 - takeScreenshot: 02_bookings_list
 - tapOn: ".*Pending.*"
 - tapOn:
@@ -41,11 +42,30 @@ appId: com.beruapp.ai
     clearState: false
 
 # Hours
-- tapOn: ".*Hours, tab.*"
+- tapOn:
+    id: "tab-hours"
+    optional: true
+- tapOn:
+    text: ".*Hours, tab.*"
+    optional: true
 - takeScreenshot: 04_hours
 
-# Inbox — list, then best-effort into a thread
-- tapOn: ".*Inbox, tab.*"
+# Inbox — Quick action on Dashboard (messages tab is hidden)
+- tapOn:
+    id: "tab-dashboard"
+    optional: true
+- tapOn:
+    text: ".*Dashboard, tab.*"
+    optional: true
+- scrollUntilVisible:
+    element: "Inbox"
+    direction: DOWN
+    centerElement: true
+    timeout: 15000
+    optional: true
+- tapOn:
+    text: "Inbox"
+    optional: true
 - takeScreenshot: 05_inbox_list
 - tapOn:
     point: "50%,25%"
@@ -55,7 +75,12 @@ appId: com.beruapp.ai
     clearState: false
 
 # Profile
-- tapOn: ".*Profile, tab.*"
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- tapOn:
+    text: ".*Profile, tab.*"
+    optional: true
 - takeScreenshot: 07_profile
 
 # Public profile preview (pushed from Profile)
@@ -65,7 +90,12 @@ appId: com.beruapp.ai
     clearState: false
 
 # Services (pushed from Profile, below the fold)
-- tapOn: ".*Profile, tab.*"
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- tapOn:
+    text: ".*Profile, tab.*"
+    optional: true
 - scrollUntilVisible:
     element: "Manage services"
     direction: DOWN
@@ -81,7 +111,12 @@ appId: com.beruapp.ai
     clearState: false
 
 # Portfolio (pushed from Profile, below the fold)
-- tapOn: ".*Profile, tab.*"
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- tapOn:
+    text: ".*Profile, tab.*"
+    optional: true
 - scrollUntilVisible:
     element: "Manage portfolio"
     direction: DOWN
@@ -97,7 +132,12 @@ appId: com.beruapp.ai
     clearState: false
 
 # Subscription plan (pushed from Profile, below the fold)
-- tapOn: ".*Profile, tab.*"
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- tapOn:
+    text: ".*Profile, tab.*"
+    optional: true
 - scrollUntilVisible:
     element: "Subscription plan"
     direction: DOWN
@@ -109,3 +149,37 @@ appId: com.beruapp.ai
     text: "Subscription plan"
     optional: true
 - takeScreenshot: 10_subscription
+
+# Billing history (pushed from subscription)
+- scrollUntilVisible:
+    element: "View all billing history"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 15000
+    optional: true
+- tapOn:
+    text: "View all billing history"
+    optional: true
+- takeScreenshot: 13_billing_history
+- launchApp:
+    clearState: false
+
+# Payout settings (pushed from Profile)
+- tapOn:
+    id: "tab-profile"
+    optional: true
+- tapOn:
+    text: ".*Profile, tab.*"
+    optional: true
+- scrollUntilVisible:
+    element: "Manage payout settings"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 90
+    timeout: 25000
+    optional: true
+- tapOn:
+    text: "Manage payout settings"
+    optional: true
+- takeScreenshot: 12_payout_settings

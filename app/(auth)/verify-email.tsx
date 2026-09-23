@@ -6,6 +6,7 @@ import { ApiError } from "@/src/api/client";
 import { useSession } from "@/src/auth/session";
 import { Button, Field, Muted, Screen, Title } from "@/src/components/ui";
 import { colors } from "@/src/theme/colors";
+import { resolveCustomerEntryHref } from "@/src/utils/customerRoute";
 import { logger } from "@/src/utils/logger";
 
 export default function VerifyEmailScreen() {
@@ -26,7 +27,10 @@ export default function VerifyEmailScreen() {
       const result = await registerVerify({ email, code: code.trim() });
       await completeSignUp(result);
       logger.info("verify-email", "ok");
-      router.replace("/(customer)");
+      const href = await resolveCustomerEntryHref();
+      logger.info("verify-email", "customer post-signup route", { href });
+      console.log("[verify-email] customer post-signup", href);
+      router.replace(href);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Invalid or expired code");
       logger.warn("verify-email", "failed", e);

@@ -2,8 +2,36 @@ import { apiRequest } from "@/src/api/client";
 import type { Message } from "@/src/types/api";
 import { logger } from "@/src/utils/logger";
 
-export function listMessages(threadId: string) {
-  return apiRequest<Message[]>("/messages", { query: { threadId } });
+export const MESSAGES_PAGE_SIZE = 40;
+
+export type ListMessagesPage = {
+  items: Message[];
+  hasMore: boolean;
+};
+
+export function listMessages(
+  threadId: string,
+  opts?: { limit?: number; beforeCreatedAt?: string },
+) {
+  const limit = opts?.limit ?? MESSAGES_PAGE_SIZE;
+  const beforeCreatedAt = opts?.beforeCreatedAt;
+  logger.info("messages-api", "listMessages", {
+    threadId,
+    limit,
+    beforeCreatedAt: beforeCreatedAt ?? null,
+  });
+  console.log("[messages-api] listMessages", {
+    threadId,
+    limit,
+    beforeCreatedAt: beforeCreatedAt ?? null,
+  });
+  return apiRequest<ListMessagesPage>("/messages", {
+    query: {
+      threadId,
+      limit,
+      ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
+    },
+  });
 }
 
 export function sendMessage(input: {

@@ -15,6 +15,23 @@ export type LoginResponse = {
   roles: string[];
 };
 
+/** Password OK but session not issued until OTP is verified. */
+export type LoginOtpChallenge = {
+  requiresOtp: true;
+  email: string;
+  challengeId: string;
+  /** Present only when outbound mail is not configured (local/dev). */
+  devCode?: string;
+};
+
+export type LoginStartResult = LoginResponse | LoginOtpChallenge;
+
+export function isLoginOtpChallenge(
+  result: LoginStartResult,
+): result is LoginOtpChallenge {
+  return "requiresOtp" in result && result.requiresOtp === true;
+}
+
 export type AuthMe = {
   userId: string;
   email: string;
@@ -323,6 +340,8 @@ export type Booking = {
   amountBeforeDiscount?: number;
   /** Optional customer note / special request at booking time. */
   notes?: string;
+  /** Set when the customer leaves a review for this booking. */
+  reviewId?: string;
   createdAt: string;
   updatedAt: string;
   customer?: { userId: string; name: string; avatar?: string };

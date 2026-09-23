@@ -8,10 +8,13 @@ import React, {
 } from "react";
 import { authMe, login as apiLogin, logout as apiLogout } from "@/src/api/auth";
 import { setApiTokenGetter } from "@/src/api/client";
+import { setLoginOtpChallenge } from "@/src/auth/login-otp-challenge";
 import { clearToken, loadToken, saveToken } from "@/src/auth/token";
 import { resumeMobileDdp, signOutMobileDdp } from "@/src/meteor/session";
 import { clearCache } from "@/src/offline/cache";
-import type { AuthMe, LoginResponse } from "@/src/types/api";
+import type { AuthMe, LoginResponse, LoginStartResult } from "@/src/types/api";
+import { isLoginOtpChallenge } from "@/src/types/api";
+import { clearDiscoveryLocation } from "@/src/utils/discoveryLocation";
 import { logger } from "@/src/utils/logger";
 import { registerPushToken } from "@/src/utils/push";
 
@@ -22,7 +25,11 @@ type SessionState = {
   token: string | null;
   user: AuthMe | null;
   role: AppRole;
-  signIn: (email: string, password: string) => Promise<LoginResponse>;
+  /** True after DDP resume login succeeds — required for live typing/chat pubs. */
+  ddpAuthed: boolean;
+  /** Password step — may return OTP challenge instead of a session. */
+  signIn: (email: string, password: string) => Promise<LoginStartResult>;
+  /** Persist session after register verify or login OTP verify. */
   completeSignUp: (result: LoginResponse) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -41,18 +48,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthMe | null>(null);
+  const [ddpAuthed, setDdpAuthed] = useState(false);
 
   useEffect(() => {
     setApiTokenGetter(() => token);
   }, [token]);
 
   useEffect(() => {
+    let cancelled = false;
     if (!token) {
+      setDdpAuthed(false);
+      console.log("[session] ddpAuthed cleared (no token)");
+      logger.info("session", "ddpAuthed cleared (no token)");
       void signOutMobileDdp();
       return;
     }
     logger.info("session", "resuming DDP for live chat");
-    void resumeMobileDdp(token);
+    void (async () => {
+      const ok = await resumeMobileDdp(token);
+      if (cancelled) return;
+      setDdpAuthed(ok);
+      console.log("[session] ddp resume result", { ok });
+      logger.info("session", ok ? "ddp resume ok" : "ddp resume fail", { ddpAuthed: ok });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const refresh = useCallback(async () => {
@@ -110,6 +131,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await apiLogin(email.trim().toLowerCase(), password);
+    if (isLoginOtpChallenge(result)) {
+      setLoginOtpChallenge(result.email, result.challengeId, result.devCode);
+      logger.info("session", "password ok — OTP required", {
+        email: result.email,
+        hasDevCode: Boolean(result.devCode),
+      });
+      return result;
+    }
     await saveToken(result.token);
     setToken(result.token);
     setApiTokenGetter(() => result.token);
@@ -134,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       roles: result.roles,
       expiresAt: result.expiresAt,
     });
-    logger.info("session", "signed up", { roles: result.roles });
+    logger.info("session", "signed up / login OTP complete", { roles: result.roles });
     void registerPushToken(result.userId);
   }, []);
 
@@ -146,9 +175,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     await clearToken();
     await clearCache();
+    await clearDiscoveryLocation();
     setToken(null);
     setUser(null);
+    setDdpAuthed(false);
     await signOutMobileDdp();
+    console.log("[session] signed out — ddpAuthed cleared, discovery location cleared");
     logger.info("session", "signed out");
   }, [token]);
 
@@ -158,12 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token,
       user,
       role: user ? pickRole(user.roles) : "unknown",
+      ddpAuthed,
       signIn,
       completeSignUp,
       signOut,
       refresh,
     }),
-    [ready, token, user, signIn, completeSignUp, signOut, refresh],
+    [ready, token, user, ddpAuthed, signIn, completeSignUp, signOut, refresh],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

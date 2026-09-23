@@ -1,4 +1,11 @@
-# Screens: (auth)/login.tsx, (auth)/forgot-password.tsx, (auth)/reset-password.tsx
+# Screens: (auth)/login.tsx, (auth)/forgot-password.tsx, (auth)/reset-password.tsx,
+# (auth)/register.tsx, (auth)/verify-email.tsx,
+# (auth)/apply/{account,verify-email,business,location,proofs,done}.tsx,
+# server-down.tsx
+#
+# Deep-link screens that have no in-app entry: reset-password, verify-email,
+# apply/* after account, server-down. After each deep link, press Back toward
+# login — avoid openLink to login (Android remounts the RN activity).
 appId: com.beruapp.ai
 ---
 - runFlow: lib/ensure_logged_out.yaml
@@ -6,8 +13,67 @@ appId: com.beruapp.ai
 
 - tapOn: "Forgot password?"
 - takeScreenshot: 01_forgot_password
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Dev quick fill"
+    timeout: 10000
 
-# reset-password.tsx takes its token from a deep-link query param (email link in
-# real usage) — there's no in-app button that opens it, so we jump straight there.
-- openLink: "barbero://(auth)/reset-password"
+- openLink:
+    link: "barbero://(auth)/reset-password"
+    optional: true
 - takeScreenshot: 02_reset_password
+- pressKey: Back
+- pressKey: Back
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Dev quick fill"
+    timeout: 15000
+
+# Customer register
+- tapOn: "Sign up"
+- takeScreenshot: 03_register
+
+- openLink:
+    link: "barbero://(auth)/verify-email"
+    optional: true
+- takeScreenshot: 04_verify_email
+- pressKey: Back
+- pressKey: Back
+- pressKey: Back
+- extendedWaitUntil:
+    visible: "Dev quick fill"
+    timeout: 15000
+
+# Provider apply entry (reachable from login footer)
+- tapOn: "Become a provider"
+- takeScreenshot: 05_apply_account
+
+- openLink:
+    link: "barbero://(auth)/apply/verify-email"
+    optional: true
+- takeScreenshot: 06_apply_verify_email
+
+- openLink:
+    link: "barbero://(auth)/apply/business"
+    optional: true
+- takeScreenshot: 07_apply_business
+
+- openLink:
+    link: "barbero://(auth)/apply/location"
+    optional: true
+- takeScreenshot: 08_apply_location
+
+- openLink:
+    link: "barbero://(auth)/apply/proofs"
+    optional: true
+- takeScreenshot: 09_apply_proofs
+
+- openLink:
+    link: "barbero://(auth)/apply/done"
+    optional: true
+- takeScreenshot: 10_apply_done
+
+- openLink:
+    link: "barbero://server-down"
+    optional: true
+- takeScreenshot: 11_server_down

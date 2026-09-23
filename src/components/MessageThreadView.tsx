@@ -1,20 +1,21 @@
 import { formatMoney } from '@/src/utils/format';
 import * as ImagePicker from "expo-image-picker";
-import { CheckCheck, ChevronLeft, ChevronRight, ImagePlus, Phone, Send, X } from "lucide-react-native";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckCheck, ChevronLeft, ChevronRight, ImagePlus, Send, X } from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,6 +27,10 @@ import { compressImageForUpload } from "@/src/utils/compressImage";
 import { isBookingChatOpen } from "@/src/utils/bookingDisplay";
 import { logger } from "@/src/utils/logger";
 import { isOwnMessageSeen, lastSeenOwnMessageId } from "@/src/utils/messagesSeen";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export type ThreadBookingCard = {
   bookingId: string;
@@ -53,17 +58,21 @@ type Props = {
   sending: boolean;
   error?: string | null;
   emptyLabel?: string;
+  /** Older history available above the loaded window. */
+  hasMore?: boolean;
+  loadingOlder?: boolean;
+  onLoadOlder?: () => void | Promise<void>;
   participantName?: string;
   participantAvatar?: string;
   booking?: ThreadBookingCard | null;
   onBack?: () => void;
   onOpenBooking?: () => void;
-  onPhonePress?: () => void;
   peerTyping?: boolean;
   peerLastReadAt?: string;
 };
 
 const QUICK_CHIPS = ["On my way", "Running late", "Reschedule"] as const;
+const NEAR_BOTTOM_PX = 96;
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -114,24 +123,60 @@ export function MessageThreadView({
   sending,
   error,
   emptyLabel = "No messages yet — say hello.",
+  hasMore = false,
+  loadingOlder = false,
+  onLoadOlder,
   participantName = "Chat",
   participantAvatar,
   booking,
   onBack,
   onOpenBooking,
-  onPhonePress,
   peerTyping = false,
   peerLastReadAt,
 }: Props) {
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ListRow>>(null);
-  const keyboardVerticalOffset = Platform.OS === "ios" ? insets.top : 0;
+  const inputRef = useRef<TextInput>(null);
+  const nearBottomRef = useRef(true);
+  const initialScrolledRef = useRef(false);
+  const prevRowCountRef = useRef(0);
+  const skipAutoScrollRef = useRef(false);
+  const scrollTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  /** Enable after first scroll-to-latest so MVCP does not block the open jump. */
+  const [historyAnchoring, setHistoryAnchoring] = useState(false);
   const [pickingImage, setPickingImage] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  /**
+   * Lift list + composer with real keyboard height (RN events).
+   * KeyboardStickyView/reanimated height was not moving the composer on device.
+   */
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const busy = sending || pickingImage;
   const chatOpen = isBookingChatOpen(booking?.status);
+  const keyboardOpen = keyboardHeight > 0;
+  const composerPadBottom = keyboardOpen ? 10 : Math.max(insets.bottom, 12);
   const closedReason =
     (booking?.status || "").toLowerCase() === "cancelled" ? "cancelled" : "completed";
+
+  /** Keep keyboard open after send — never disable TextInput for `sending`. */
+  const keepComposerFocused = useCallback(
+    (reason: string) => {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        console.log("[MessageThreadView] keep keyboard — refocus", { threadId, reason });
+        logger.debug("MessageThreadView", "keep keyboard — refocus", { threadId, reason });
+      });
+    },
+    [threadId],
+  );
+
+  const handleSend = useCallback(
+    (text?: string) => {
+      onSend(text);
+      keepComposerFocused(text ? "quick-chip" : "send");
+    },
+    [onSend, keepComposerFocused],
+  );
 
   useEffect(() => {
     if (!chatOpen && booking?.status) {
@@ -145,6 +190,19 @@ export function MessageThreadView({
       });
     }
   }, [chatOpen, booking?.status, threadId]);
+
+  // Reset scroll gates when switching threads.
+  useEffect(() => {
+    nearBottomRef.current = true;
+    initialScrolledRef.current = false;
+    prevRowCountRef.current = 0;
+    skipAutoScrollRef.current = false;
+    setHistoryAnchoring(false);
+    for (const t of scrollTimersRef.current) clearTimeout(t);
+    scrollTimersRef.current = [];
+    console.log("[MessageThreadView] scroll gates reset", { threadId });
+    logger.debug("MessageThreadView", "scroll gates reset", { threadId });
+  }, [threadId]);
 
   const seenOwnId = useMemo(
     () => lastSeenOwnMessageId(messages, userId, peerLastReadAt),
@@ -172,17 +230,152 @@ export function MessageThreadView({
     }
   }, [peerTyping, threadId, participantName]);
 
-  useEffect(() => {
+  const clearScrollTimers = () => {
+    for (const t of scrollTimersRef.current) clearTimeout(t);
+    scrollTimersRef.current = [];
+  };
+
+  const scrollToLatest = (animated: boolean, reason: string, retries = false) => {
+    const lastIndex = rows.length - 1;
+    if (lastIndex < 0) return;
+
+    const run = (pass: number) => {
+      const list = listRef.current;
+      if (!list) return;
+      // scrollToIndex is more reliable than scrollToEnd on iOS when list is long.
+      try {
+        list.scrollToIndex({
+          index: lastIndex,
+          animated: animated && pass === 0,
+          viewPosition: 1,
+        });
+      } catch (error) {
+        logger.debug("MessageThreadView", "scrollToIndex threw — fallback scrollToEnd", {
+          threadId,
+          error,
+        });
+      }
+      list.scrollToEnd({ animated: animated && pass === 0 });
+      console.log("[MessageThreadView] scrollToLatest", {
+        threadId,
+        reason,
+        pass,
+        lastIndex,
+        animated: animated && pass === 0,
+      });
+      logger.info("MessageThreadView", "scrollToLatest", {
+        threadId,
+        reason,
+        pass,
+        lastIndex,
+        animated: animated && pass === 0,
+      });
+    };
+
+    requestAnimationFrame(() => {
+      run(0);
+      if (!retries) return;
+      // Layout settles in waves (booking card, images, keyboard). Re-pin to latest.
+      for (const [pass, delay] of [
+        [1, 50],
+        [2, 150],
+        [3, 350],
+      ] as const) {
+        const timer = setTimeout(() => run(pass), delay);
+        scrollTimersRef.current.push(timer);
+      }
+    });
+  };
+
+  const markInitialScrolled = () => {
+    if (initialScrolledRef.current) return;
+    initialScrolledRef.current = true;
+    // Defer MVCP so it cannot cancel the open jump to latest.
+    const timer = setTimeout(() => {
+      setHistoryAnchoring(true);
+      logger.debug("MessageThreadView", "history anchoring enabled", { threadId });
+    }, 400);
+    scrollTimersRef.current.push(timer);
+  };
+
+  const handleContentSizeChange = () => {
     if (rows.length === 0) return;
-    const id = requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
-      logger.debug("MessageThreadView", "scrollToEnd", {
+
+    // Prepending older history must not yank the viewport to the latest.
+    if (skipAutoScrollRef.current) {
+      skipAutoScrollRef.current = false;
+      prevRowCountRef.current = rows.length;
+      logger.debug("MessageThreadView", "skip auto-scroll — load older", {
         threadId,
         rowCount: rows.length,
       });
+      return;
+    }
+
+    if (!initialScrolledRef.current) {
+      scrollToLatest(false, "initial", true);
+      markInitialScrolled();
+      prevRowCountRef.current = rows.length;
+      return;
+    }
+
+    if (rows.length > prevRowCountRef.current) {
+      const newest = messages[messages.length - 1];
+      const ownSend = Boolean(newest && userId && newest.senderId === userId);
+      if (nearBottomRef.current || ownSend) {
+        scrollToLatest(true, ownSend ? "own-send" : "near-bottom", false);
+      } else {
+        logger.debug("MessageThreadView", "skip auto-scroll — user reading history", {
+          threadId,
+          rowCount: rows.length,
+        });
+      }
+    }
+    prevRowCountRef.current = rows.length;
+  };
+
+  // If data arrives before FlatList mounts content, still pin to latest once rows exist.
+  useEffect(() => {
+    if (rows.length === 0 || initialScrolledRef.current) return;
+    console.log("[MessageThreadView] rows ready — force scroll to latest", {
+      threadId,
+      rowCount: rows.length,
     });
-    return () => cancelAnimationFrame(id);
+    scrollToLatest(false, "rows-ready", true);
+    markInitialScrolled();
+    prevRowCountRef.current = rows.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when rows first populate / grow from empty
   }, [rows.length, threadId]);
+
+  // Booking card above the list shrinks viewport — re-pin if we were following latest.
+  useEffect(() => {
+    if (!booking || !initialScrolledRef.current || rows.length === 0) return;
+    if (!nearBottomRef.current) return;
+    console.log("[MessageThreadView] booking card layout — re-pin latest", { threadId });
+    scrollToLatest(false, "booking-card", true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking?.bookingId, threadId]);
+
+  const handleScroll = (event: {
+    nativeEvent: {
+      contentOffset: { y: number };
+      contentSize: { height: number };
+      layoutMeasurement: { height: number };
+    };
+  }) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromEnd =
+      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    nearBottomRef.current = distanceFromEnd <= NEAR_BOTTOM_PX;
+  };
+
+  const handleLoadOlder = () => {
+    if (!hasMore || loadingOlder || !onLoadOlder) return;
+    skipAutoScrollRef.current = true;
+    console.log("[MessageThreadView] load earlier pressed", { threadId });
+    logger.info("MessageThreadView", "load earlier pressed", { threadId });
+    void onLoadOlder();
+  };
 
   useEffect(() => {
     console.log("[MessageThreadView] mount", {
@@ -190,30 +383,72 @@ export function MessageThreadView({
       platform: Platform.OS,
       hasBooking: Boolean(booking),
       messageCount: messages.length,
+      keyboard: "paddingBottom-from-Keyboard-events",
+      safeBottom: insets.bottom,
     });
     logger.debug("MessageThreadView", "mount", {
       threadId,
       platform: Platform.OS,
-      keyboardVerticalOffset,
+      keyboard: "paddingBottom-from-Keyboard-events",
       hasBooking: Boolean(booking),
+      safeBottom: insets.bottom,
     });
 
-    const showSub = Keyboard.addListener("keyboardDidShow", (e) => {
-      logger.debug("MessageThreadView", "keyboardDidShow", {
-        height: e.endCoordinates?.height,
-        threadId,
+    const animateKeyboard = (duration?: number) => {
+      const ms = typeof duration === "number" && duration > 0 ? duration : 250;
+      LayoutAnimation.configureNext({
+        duration: ms,
+        update: {
+          type:
+            Platform.OS === "ios"
+              ? LayoutAnimation.Types.keyboard
+              : LayoutAnimation.Types.easeInEaseOut,
+        },
       });
-    });
-    const hideSub = Keyboard.addListener("keyboardDidHide", () => {
-      logger.debug("MessageThreadView", "keyboardDidHide", { threadId });
-    });
+    };
+
+    // iOS: will* so padding lifts with the keyboard animation.
+    const willShow = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        const height = e.endCoordinates?.height ?? 0;
+        animateKeyboard(e.duration);
+        setKeyboardHeight(height);
+        console.log("[MessageThreadView] keyboard show — pad chat body", {
+          threadId,
+          height,
+          platform: Platform.OS,
+          duration: e.duration,
+        });
+        logger.debug("MessageThreadView", "keyboard show — pad chat body", {
+          height,
+          threadId,
+          platform: Platform.OS,
+        });
+        if (nearBottomRef.current) {
+          requestAnimationFrame(() => {
+            listRef.current?.scrollToEnd({ animated: false });
+          });
+        }
+      },
+    );
+    const willHide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      (e) => {
+        animateKeyboard(e.duration);
+        setKeyboardHeight(0);
+        console.log("[MessageThreadView] keyboard hide", { threadId });
+        logger.debug("MessageThreadView", "keyboard hide", { threadId });
+      },
+    );
 
     return () => {
-      showSub.remove();
-      hideSub.remove();
+      willShow.remove();
+      willHide.remove();
+      clearScrollTimers();
       logger.debug("MessageThreadView", "unmount", { threadId });
     };
-  }, [threadId, keyboardVerticalOffset, booking, messages.length]);
+  }, [threadId, insets.bottom]);
 
   const avatar = (participantAvatar || "").trim();
   const month = booking?.startsAt
@@ -233,11 +468,7 @@ export function MessageThreadView({
     typeof booking?.price === "number" && booking.price > 0 ? ` · ${formatMoney(booking.price)}` : "";
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={keyboardVerticalOffset}
-    >
+    <View style={styles.root}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 8) }]}>
         <Pressable
           hitSlop={10}
@@ -263,17 +494,6 @@ export function MessageThreadView({
           </Text>
           <Text style={styles.headerSub}>USUALLY REPLIES IN AN HOUR</Text>
         </View>
-        <Pressable
-          hitSlop={10}
-          onPress={() => {
-            console.log("[MessageThreadView] phone tap (noop)", { threadId });
-            logger.debug("MessageThreadView", "phone tap", { threadId });
-            onPhonePress?.();
-          }}
-          style={styles.iconBtn}
-        >
-          <Phone size={19} color={colors.text} />
-        </Pressable>
       </View>
 
       {booking ? (
@@ -309,195 +529,256 @@ export function MessageThreadView({
         </Pressable>
       ) : null}
 
-      <FlatList
-        ref={listRef}
-        data={rows}
-        keyExtractor={(item) => item.id}
-        style={styles.list}
-        contentContainerStyle={styles.listContent}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="interactive"
-        ListEmptyComponent={
-          <Muted style={styles.empty}>{emptyLabel}</Muted>
-        }
-        renderItem={({ item }) => {
-          if (item.kind === "sep") {
-            return <Text style={styles.daySep}>{item.label}</Text>;
+      <View
+        style={[
+          styles.chatBody,
+          keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
+        ]}
+      >
+        <FlatList
+          ref={listRef}
+          data={rows}
+          keyExtractor={(item) => item.id}
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          // Only after open jump — MVCP on iOS often cancels scrollToEnd/scrollToIndex.
+          maintainVisibleContentPosition={
+            historyAnchoring ? { minIndexForVisible: 0 } : undefined
           }
-          const mine = item.message.senderId === userId;
-          const seen = isOwnMessageSeen(item.message, userId, peerLastReadAt);
-          const showSeenTag = mine && item.message._id === seenOwnId;
-          const time = new Date(item.message.createdAt).toLocaleTimeString(undefined, {
-            hour: "numeric",
-            minute: "2-digit",
-          });
-          const imageUrl = (item.message.imageUrl || "").trim();
-          const textBody = (item.message.body || "").trim();
-          return (
-            <View style={[styles.bubbleWrap, mine ? styles.bubbleWrapMine : styles.bubbleWrapOther]}>
-              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther, imageUrl ? styles.bubbleImagePad : null]}>
-                {imageUrl ? (
-                  <Pressable
-                    onPress={() => {
-                      console.log("[MessageThreadView] open lightbox", { threadId, messageId: item.message._id });
-                      logger.debug("MessageThreadView", "open lightbox", { threadId });
-                      setLightboxUrl(imageUrl);
-                    }}
-                  >
-                    <Image source={{ uri: imageUrl }} style={styles.bubbleImage} />
-                  </Pressable>
-                ) : null}
-                {textBody ? (
-                  <Text
-                    style={[
-                      styles.bubbleText,
-                      mine && styles.bubbleTextMine,
-                      imageUrl ? styles.bubbleCaption : null,
-                    ]}
-                  >
-                    {textBody}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={[styles.metaRow, mine && styles.metaRowMine]}>
-                <Text style={styles.metaTime}>{time}</Text>
-                {mine ? (
-                  <CheckCheck
-                    size={12}
-                    color={seen ? colors.accent : colors.textMuted}
-                  />
-                ) : null}
-              </View>
-              {showSeenTag ? <Text style={styles.seenTag}>Seen</Text> : null}
-            </View>
-          );
-        }}
-      />
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {peerTyping && chatOpen ? (
-        <Text style={styles.typing}>
-          {participantName ? `${participantName} is typing…` : "Typing…"}
-        </Text>
-      ) : null}
-
-      {chatOpen ? (
-        <View style={styles.chips}>
-          {QUICK_CHIPS.map((chip) => (
-            <Pressable
-              key={chip}
-              disabled={busy}
-              onPress={() => {
-                console.log("[MessageThreadView] quick chip", { threadId, chip });
-                logger.debug("MessageThreadView", "quick chip", { threadId, chip });
-                onSend(chip);
-              }}
-              style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
-            >
-              <Text style={styles.chipText}>{chip}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {chatOpen ? (
-      <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <Pressable
-          hitSlop={8}
-          disabled={busy || !onSendImage}
-          onPress={async () => {
-            if (!onSendImage || busy) return;
-            try {
-              setPickingImage(true);
-              console.log("[MessageThreadView] image pick start", { threadId });
-              logger.debug("MessageThreadView", "image pick start", { threadId });
-              const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              if (!permission.granted) {
-                Alert.alert("Permission needed", "Allow photo library access to send images.");
-                return;
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onContentSizeChange={handleContentSizeChange}
+          onScrollToIndexFailed={(info) => {
+            console.log("[MessageThreadView] scrollToIndexFailed — retry", {
+              threadId,
+              index: info.index,
+              averageLength: info.averageItemLength,
+            });
+            logger.warn("MessageThreadView", "scrollToIndexFailed — retry", {
+              threadId,
+              index: info.index,
+            });
+            const timer = setTimeout(() => {
+              listRef.current?.scrollToEnd({ animated: false });
+              try {
+                listRef.current?.scrollToIndex({
+                  index: info.index,
+                  animated: false,
+                  viewPosition: 1,
+                });
+              } catch {
+                // ignore
               }
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ["images"],
-                quality: 1,
-              });
-              if (result.canceled || !result.assets?.[0]) {
-                console.log("[MessageThreadView] image pick cancelled", { threadId });
-                logger.debug("MessageThreadView", "image pick cancelled", { threadId });
-                return;
-              }
-              const asset = result.assets[0];
-              console.log("[MessageThreadView] image picked", {
-                threadId,
-                width: asset.width,
-                height: asset.height,
-              });
-              const compressed = await compressImageForUpload(asset.uri);
-              const caption = body.trim() || undefined;
-              await onSendImage({
-                uri: compressed.uri,
-                mimeType: compressed.mimeType,
-                caption,
-                byteSize: compressed.afterBytes,
-              });
-              if (caption) onChangeBody("");
-            } catch (e) {
-              const msg = e instanceof Error ? e.message : "Could not send image";
-              console.log("[MessageThreadView] image pick/send failed", { threadId, msg });
-              logger.error("MessageThreadView", "image pick/send failed", { threadId, msg, e });
-              Alert.alert("Image failed", msg);
-            } finally {
-              setPickingImage(false);
+            }, 80);
+            scrollTimersRef.current.push(timer);
+          }}
+          ListHeaderComponent={
+            hasMore ? (
+              <Pressable
+                onPress={handleLoadOlder}
+                disabled={loadingOlder}
+                style={({ pressed }) => [
+                  styles.loadEarlier,
+                  pressed && styles.loadEarlierPressed,
+                ]}
+              >
+                {loadingOlder ? (
+                  <ActivityIndicator size="small" color={colors.accent} />
+                ) : (
+                  <Text style={styles.loadEarlierText}>Load earlier messages</Text>
+                )}
+              </Pressable>
+            ) : null
+          }
+          ListEmptyComponent={
+            <Muted style={styles.empty}>{emptyLabel}</Muted>
+          }
+          renderItem={({ item }) => {
+            if (item.kind === "sep") {
+              return <Text style={styles.daySep}>{item.label}</Text>;
             }
+            const mine = item.message.senderId === userId;
+            const seen = isOwnMessageSeen(item.message, userId, peerLastReadAt);
+            const showSeenTag = mine && item.message._id === seenOwnId;
+            const time = new Date(item.message.createdAt).toLocaleTimeString(undefined, {
+              hour: "numeric",
+              minute: "2-digit",
+            });
+            const imageUrl = (item.message.imageUrl || "").trim();
+            const textBody = (item.message.body || "").trim();
+            return (
+              <View style={[styles.bubbleWrap, mine ? styles.bubbleWrapMine : styles.bubbleWrapOther]}>
+                <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther, imageUrl ? styles.bubbleImagePad : null]}>
+                  {imageUrl ? (
+                    <Pressable
+                      onPress={() => {
+                        console.log("[MessageThreadView] open lightbox", { threadId, messageId: item.message._id });
+                        logger.debug("MessageThreadView", "open lightbox", { threadId });
+                        setLightboxUrl(imageUrl);
+                      }}
+                    >
+                      <Image source={{ uri: imageUrl }} style={styles.bubbleImage} />
+                    </Pressable>
+                  ) : null}
+                  {textBody ? (
+                    <Text
+                      style={[
+                        styles.bubbleText,
+                        mine && styles.bubbleTextMine,
+                        imageUrl ? styles.bubbleCaption : null,
+                      ]}
+                    >
+                      {textBody}
+                    </Text>
+                  ) : null}
+                </View>
+                <View style={[styles.metaRow, mine && styles.metaRowMine]}>
+                  <Text style={styles.metaTime}>{time}</Text>
+                  {mine ? (
+                    <CheckCheck
+                      size={12}
+                      color={seen ? colors.accent : colors.textMuted}
+                    />
+                  ) : null}
+                </View>
+                {showSeenTag ? <Text style={styles.seenTag}>Seen</Text> : null}
+              </View>
+            );
           }}
-        >
-          {pickingImage ? (
-            <ActivityIndicator size="small" color={colors.textMuted} />
-          ) : (
-            <ImagePlus size={22} color={busy ? colors.border : colors.textMuted} />
-          )}
-        </Pressable>
-        <TextInput
-          value={body}
-          onChangeText={onChangeBody}
-          placeholder="Message"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-          editable={!busy}
-          onSubmitEditing={() => {
-            if (body.trim()) onSend();
-          }}
-          returnKeyType="send"
         />
-        <Pressable
-          disabled={busy || !body.trim()}
-          onPress={() => {
-            console.log("[MessageThreadView] send", { threadId, len: body.trim().length });
-            logger.debug("MessageThreadView", "send press", { threadId });
-            onSend();
-          }}
-          style={({ pressed }) => [
-            styles.sendBtn,
-            (!body.trim() || busy) && styles.sendBtnDisabled,
-            pressed && { opacity: 0.9 },
-          ]}
-        >
-          {sending ? (
-            <ActivityIndicator color={colors.text} size="small" />
-          ) : (
-            <Send size={16} color={colors.text} />
-          )}
-        </Pressable>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        {peerTyping && chatOpen ? (
+          <Text style={styles.typing}>
+            {participantName ? `${participantName} is typing…` : "Typing…"}
+          </Text>
+        ) : null}
+
+        {chatOpen ? (
+          <View>
+            <View style={styles.chips}>
+              {QUICK_CHIPS.map((chip) => (
+                <Pressable
+                  key={chip}
+                  disabled={busy}
+                  onPress={() => {
+                    console.log("[MessageThreadView] quick chip", { threadId, chip });
+                    logger.debug("MessageThreadView", "quick chip", { threadId, chip });
+                    handleSend(chip);
+                  }}
+                  style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
+                >
+                  <Text style={styles.chipText}>{chip}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={[styles.composer, { paddingBottom: composerPadBottom }]}>
+              <Pressable
+                hitSlop={8}
+                disabled={busy || !onSendImage}
+                onPress={async () => {
+                  if (!onSendImage || busy) return;
+                  try {
+                    setPickingImage(true);
+                    console.log("[MessageThreadView] image pick start", { threadId });
+                    logger.debug("MessageThreadView", "image pick start", { threadId });
+                    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                    if (!permission.granted) {
+                      Alert.alert("Permission needed", "Allow photo library access to send images.");
+                      return;
+                    }
+                    const result = await ImagePicker.launchImageLibraryAsync({
+                      mediaTypes: ["images"],
+                      quality: 1,
+                    });
+                    if (result.canceled || !result.assets?.[0]) {
+                      console.log("[MessageThreadView] image pick cancelled", { threadId });
+                      logger.debug("MessageThreadView", "image pick cancelled", { threadId });
+                      return;
+                    }
+                    const asset = result.assets[0];
+                    console.log("[MessageThreadView] image picked", {
+                      threadId,
+                      width: asset.width,
+                      height: asset.height,
+                    });
+                    const compressed = await compressImageForUpload(asset.uri);
+                    const caption = body.trim() || undefined;
+                    await onSendImage({
+                      uri: compressed.uri,
+                      mimeType: compressed.mimeType,
+                      caption,
+                      byteSize: compressed.afterBytes,
+                    });
+                    if (caption) onChangeBody("");
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : "Could not send image";
+                    console.log("[MessageThreadView] image pick/send failed", { threadId, msg });
+                    logger.error("MessageThreadView", "image pick/send failed", { threadId, msg, e });
+                    Alert.alert("Image failed", msg);
+                  } finally {
+                    setPickingImage(false);
+                  }
+                }}
+              >
+                {pickingImage ? (
+                  <ActivityIndicator size="small" color={colors.textMuted} />
+                ) : (
+                  <ImagePlus size={22} color={busy ? colors.border : colors.textMuted} />
+                )}
+              </Pressable>
+              <TextInput
+                ref={inputRef}
+                nativeID="chat-input"
+                value={body}
+                onChangeText={onChangeBody}
+                placeholder="Message"
+                placeholderTextColor={colors.textMuted}
+                style={styles.input}
+                editable={!pickingImage}
+                blurOnSubmit={false}
+                onSubmitEditing={() => {
+                  if (!body.trim()) return;
+                  console.log("[MessageThreadView] send submit", { threadId, len: body.trim().length });
+                  logger.debug("MessageThreadView", "send submit", { threadId });
+                  handleSend();
+                }}
+                returnKeyType="send"
+              />
+              <Pressable
+                disabled={busy || !body.trim()}
+                onPress={() => {
+                  console.log("[MessageThreadView] send", { threadId, len: body.trim().length });
+                  logger.debug("MessageThreadView", "send press", { threadId });
+                  handleSend();
+                }}
+                style={({ pressed }) => [
+                  styles.sendBtn,
+                  (!body.trim() || busy) && styles.sendBtnDisabled,
+                  pressed && { opacity: 0.9 },
+                ]}
+              >
+                {sending ? (
+                  <ActivityIndicator color={colors.text} size="small" />
+                ) : (
+                  <Send size={16} color={colors.text} />
+                )}
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={[styles.closedBanner, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <Muted style={styles.closedText}>
+              {closedReason === "cancelled"
+                ? "Chat closed — this booking was cancelled."
+                : "Chat closed — this booking is completed."}
+            </Muted>
+          </View>
+        )}
       </View>
-      ) : (
-        <View style={[styles.closedBanner, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <Muted style={styles.closedText}>
-            {closedReason === "cancelled"
-              ? "Chat closed — this booking was cancelled."
-              : "Chat closed — this booking is completed."}
-          </Muted>
-        </View>
-      )}
 
       <Modal
         visible={Boolean(lightboxUrl)}
@@ -518,12 +799,13 @@ export function MessageThreadView({
           ) : null}
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  chatBody: { flex: 1 },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -703,6 +985,21 @@ const styles = StyleSheet.create({
   metaRowMine: {
     marginLeft: 0,
     marginRight: 4,
+  },
+  loadEarlier: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    marginBottom: 4,
+  },
+  loadEarlierPressed: {
+    opacity: 0.7,
+  },
+  loadEarlierText: {
+    fontFamily: fonts.mono,
+    fontSize: 11,
+    color: colors.accent,
+    letterSpacing: 0.3,
   },
   metaTime: {
     fontFamily: fonts.mono,

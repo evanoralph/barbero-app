@@ -32,7 +32,6 @@ import {
   subscriptionStatusLabel,
   trialDaysLeft,
 } from "@/src/utils/subscriptionDisplay";
-import { useProviderOnboardingHome } from "@/src/hooks/useProviderOnboardingHome";
 
 type BillingPeriod = "monthly" | "yearly";
 type SellablePlanId = "pro" | "premium";
@@ -97,7 +96,6 @@ export default function SubscriptionScreen() {
     ? params.subscription[0]
     : params.subscription;
   const handledReturnRef = useRef<string | null>(null);
-  const hidePlans = useProviderOnboardingHome();
 
   const [data, setData] = useState<SubscriptionPlansResponse | null>(null);
   const [payments, setPayments] = useState<SubscriptionPayment[]>([]);
@@ -109,13 +107,10 @@ export default function SubscriptionScreen() {
   const [ok, setOk] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Provider-onboarding mode: plans not in use yet — bounce away.
   useEffect(() => {
-    if (!hidePlans) return;
-    logger.info("subscription", "providerOnboardingHome on — redirecting away from plans");
-    console.log("[subscription] providerOnboardingHome on — redirect away");
-    router.replace("/(provider)");
-  }, [hidePlans]);
+    logger.info("subscription", "plans screen available — providerOnboardingHome is web-only");
+    console.log("[subscription] plans screen available — providerOnboardingHome is web-only");
+  }, []);
 
   const load = useCallback(async (): Promise<SubscriptionPlansResponse | null> => {
     setError(null);
@@ -282,7 +277,6 @@ export default function SubscriptionScreen() {
     }
   };
 
-  if (hidePlans) return <LoadingState />;
   if (loading) return <LoadingState />;
   if (error && !data) return <ErrorState message={error} onRetry={load} />;
   if (!data) return <ErrorState message="No plans" />;

@@ -67,3 +67,76 @@ export function bboxAround(
     neLng: coords.lng + delta,
   };
 }
+
+export type GeocodedPlace = UserCoords & { label: string };
+
+/**
+ * Resolve a city/area string to lat/lng via the OS geocoder.
+ * Returns null when nothing matches so the UI can show a clear error.
+ */
+export async function geocodePlace(query: string): Promise<GeocodedPlace | null> {
+  const trimmed = query.trim();
+  logger.debug("location", "geocodePlace start", { query: trimmed });
+  console.log("[location] geocodePlace start", trimmed);
+  if (!trimmed) {
+    logger.warn("location", "geocodePlace empty query");
+    return null;
+  }
+  try {
+    const results = await Location.geocodeAsync(trimmed);
+    const first = results[0];
+    if (
+      !first ||
+      !Number.isFinite(first.latitude) ||
+      !Number.isFinite(first.longitude)
+    ) {
+      logger.warn("location", "geocodePlace no results", { query: trimmed });
+      console.log("[location] geocodePlace no results", trimmed);
+      return null;
+    }
+    const place: GeocodedPlace = {
+      lat: first.latitude,
+      lng: first.longitude,
+      label: trimmed,
+    };
+    logger.debug("location", "geocodePlace ok", {
+      lat: place.lat,
+      lng: place.lng,
+      label: place.label,
+    });
+    console.log("[location] geocodePlace ok", place.lat, place.lng);
+    return place;
+  } catch (e) {
+    logger.warn("location", "geocodePlace failed", e);
+    console.log("[location] geocodePlace failed", e);
+    return null;
+  }
+}
+
+/** Best-effort human label for GPS coords (city / district). */
+export async function reverseGeocodeLabel(coords: UserCoords): Promise<string> {
+  logger.debug("location", "reverseGeocodeLabel start", coords);
+  console.log("[location] reverseGeocodeLabel start", coords.lat, coords.lng);
+  try {
+    const results = await Location.reverseGeocodeAsync({
+      latitude: coords.lat,
+      longitude: coords.lng,
+    });
+    const first = results[0];
+    if (!first) {
+      logger.debug("location", "reverseGeocodeLabel empty — using default");
+      return "Current location";
+    }
+    const label =
+      [first.city || first.subregion, first.region].filter(Boolean).join(", ") ||
+      first.name ||
+      "Current location";
+    logger.debug("location", "reverseGeocodeLabel ok", { label });
+    console.log("[location] reverseGeocodeLabel ok", label);
+    return label;
+  } catch (e) {
+    logger.warn("location", "reverseGeocodeLabel failed", e);
+    console.log("[location] reverseGeocodeLabel failed", e);
+    return "Current location";
+  }
+}

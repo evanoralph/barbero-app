@@ -88,7 +88,7 @@ Open signup, real payments, real notifications, store submission.
 - [x] EAS: production build-on-tag + iOS/Android submit workflows — `.eas/workflows/production.yml`
 - [ ] Notification preference toggles in Settings
 - [ ] Wire booking notes from UI → `createBooking` API + types
-- [ ] Customer write-review after completed booking
+- [x] Customer write-review after completed booking
 - [ ] Chat image attach (today logs only) — `MessageThreadView`
 - [ ] Deep-link password reset via `barbero://` scheme
 - [ ] Guest discovery without login **or** update roadmap claim

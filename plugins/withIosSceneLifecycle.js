@@ -138,21 +138,31 @@ function patchAppDelegate(contents) {
     );
   }
 
+  // Allow optional injected lines (e.g. FirebaseApp.configure() from RNFB plugin)
+  // between window creation and startReactNative.
   const startupBlockPattern =
-    /#if os\(iOS\) \|\| os\(tvOS\)\n\s*window = UIWindow\(frame: UIScreen\.main\.bounds\)\n\s*factory\.startReactNative\(\n\s*withModuleName: "main",\n\s*in: window,\n\s*launchOptions: launchOptions\)\n#endif/;
+    /#if os\(iOS\) \|\| os\(tvOS\)\n\s*window = UIWindow\(frame: UIScreen\.main\.bounds\)\n([\s\S]*?)\s*factory\.startReactNative\(\n\s*withModuleName: "main",\n\s*in: window,\n\s*launchOptions: launchOptions\)\n#endif/;
 
-  if (!startupBlockPattern.test(nextContents)) {
+  const startupMatch = nextContents.match(startupBlockPattern);
+  if (!startupMatch) {
     throw new Error(
       `${LOG} Could not find the Expo AppDelegate React Native startup block to patch for UIScene lifecycle.`,
     );
   }
 
-  console.log(`${LOG} moving window + startReactNative to SceneDelegate`);
+  // Keep plugin-injected setup (Firebase configure, etc.) in didFinishLaunching.
+  const injectedSetup = (startupMatch[1] || "").trimEnd();
+  const injectedBlock = injectedSetup.length > 0 ? `${injectedSetup}\n` : "";
+
+  console.log(
+    `${LOG} moving window + startReactNative to SceneDelegate` +
+      (injectedSetup ? " (preserving injected AppDelegate setup)" : ""),
+  );
   nextContents = nextContents.replace(
     startupBlockPattern,
     `// Window + startReactNative are owned by SceneDelegate (Xcode 27 / iOS 27 UIScene)
 #if os(iOS) || os(tvOS)
-    if #unavailable(iOS 13.0) {
+${injectedBlock}    if #unavailable(iOS 13.0) {
       window = UIWindow(frame: UIScreen.main.bounds)
       factory.startReactNative(
         withModuleName: "main",

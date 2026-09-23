@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { listProviders } from "@/src/api/providers";
 import { FilterSheet } from "@/src/components/FilterSheet";
@@ -11,7 +11,6 @@ import {
   EmptyState,
   ErrorState,
   FilterButton,
-  LoadingState,
   Muted,
   OfflineState,
   Screen,
@@ -21,7 +20,6 @@ import {
   StaleBadge,
   Title,
 } from "@/src/components/ui";
-import { useDiscoveryDisabledRedirect } from "@/src/hooks/useDiscoveryDisabledRedirect";
 import { useUserCoords } from "@/src/hooks/useUserCoords";
 import { savedAgoLabel, updatedAgoLabel } from "@/src/offline/cache";
 import { useCachedQuery } from "@/src/offline/useCachedQuery";
@@ -29,6 +27,7 @@ import type { ProviderListItem } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
 import {
+  ANY_DISTANCE_KM,
   DEFAULT_FILTERS,
   activeFilterCount,
   appliedChips,
@@ -36,6 +35,11 @@ import {
   filterProviders,
   type ExploreFilters,
 } from "@/src/utils/exploreFilters";
+import {
+  getDiscoveryLocation,
+  type DiscoveryLocation,
+} from "@/src/utils/discoveryLocation";
+import { distanceKm, type UserCoords } from "@/src/utils/location";
 import { logger } from "@/src/utils/logger";
 import { recordSearch } from "@/src/utils/recentlyViewed";
 
@@ -43,9 +47,10 @@ type ViewMode = "list" | "map";
 
 const PAGE_SIZE = 10;
 const MAX_APPLIED_CHIPS = 2;
+/** Default Explore radius when the user has a saved discovery location. */
+const EXPLORE_NEAR_KM = 15;
 
 export default function SearchScreen() {
-  const discoveryDisabled = useDiscoveryDisabledRedirect("search");
   const params = useLocalSearchParams<{
     category?: string;
     q?: string;
@@ -58,20 +63,62 @@ export default function SearchScreen() {
   const [filters, setFilters] = useState<ExploreFilters>({
     ...DEFAULT_FILTERS,
     category: typeof params.category === "string" ? params.category : "",
-    distanceKm: params.near === "1" ? 5 : DEFAULT_FILTERS.distanceKm,
+    // Prefer nearby by default so Explore matches the user's saved area (not global).
+    distanceKm:
+      params.near === "1"
+        ? 5
+        : EXPLORE_NEAR_KM,
     availability: params.avail === "today" || params.avail === "week" ? params.avail : "any",
   });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [discovery, setDiscovery] = useState<DiscoveryLocation | null>(null);
+  const [locationReady, setLocationReady] = useState(false);
+  const discoveryLoggedRef = useRef(false);
 
-  const coords = useUserCoords(sheetOpen || filters.distanceKm < DEFAULT_FILTERS.distanceKm);
+  const needsGps =
+    sheetOpen ||
+    (filters.distanceKm < ANY_DISTANCE_KM && !discovery);
+  const gpsCoords = useUserCoords(needsGps);
+  const coords: UserCoords | null = discovery
+    ? { lat: discovery.lat, lng: discovery.lng }
+    : gpsCoords;
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void getDiscoveryLocation().then((saved) => {
+        if (cancelled) return;
+        setDiscovery(saved);
+        setLocationReady(true);
+        if (saved && !discoveryLoggedRef.current) {
+          discoveryLoggedRef.current = true;
+          logger.debug("search", "using saved discovery location", {
+            label: saved.label,
+            source: saved.source,
+            distanceKm: EXPLORE_NEAR_KM,
+          });
+          console.log(
+            "[search] discovery location → filter near",
+            saved.label,
+            `${EXPLORE_NEAR_KM}km`,
+          );
+        } else if (!saved) {
+          console.log("[search] no discovery location — distance filter needs GPS");
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
 
   // One cached result set per query text; category, price and distance narrow it locally so
   // the sheet can show live counts without a request (only "Show" commits).
   const availability = filters.availability === "any" ? undefined : filters.availability;
   const query = useCachedQuery<ProviderListItem[]>({
-    key: discoveryDisabled ? null : `providers:list:${q.trim().toLowerCase()}:${availability ?? "any"}`,
+    key: `providers:list:${q.trim().toLowerCase()}:${availability ?? "any"}`,
     debounceMs: 250,
     fetcher: () => {
       logger.debug("search", "load", { q, availability });
@@ -79,10 +126,33 @@ export default function SearchScreen() {
     },
   });
 
-  const results = useMemo(
-    () => (query.data ? filterProviders(query.data, filters, coords) : []),
-    [query.data, filters, coords],
-  );
+  const results = useMemo(() => {
+    // Don't flash the global list while we still need coords for a near filter.
+    if (filters.distanceKm < ANY_DISTANCE_KM && !coords) {
+      if (locationReady) {
+        console.log("[search] near filter active but no coords yet");
+      }
+      return [];
+    }
+    const filtered = query.data ? filterProviders(query.data, filters, coords) : [];
+    if (!coords) {
+      console.log("[search] results (no coords filter)", filtered.length);
+      return filtered;
+    }
+    const sorted = [...filtered].sort(
+      (a, b) =>
+        distanceKm(coords, { lat: a.location.lat, lng: a.location.lng }) -
+        distanceKm(coords, { lat: b.location.lat, lng: b.location.lng }),
+    );
+    console.log("[search] results near location", {
+      label: discovery?.label,
+      distanceKm: filters.distanceKm,
+      count: sorted.length,
+      totalUnfiltered: query.data?.length ?? 0,
+    });
+    return sorted;
+  }, [query.data, filters, coords, discovery?.label, locationReady]);
+
   const shown = results.slice(0, visibleCount);
   const filterCount = activeFilterCount(filters);
   const chips = appliedChips(filters);
@@ -113,6 +183,7 @@ export default function SearchScreen() {
 
   const applyFilters = useCallback((next: ExploreFilters) => {
     logger.debug("search", "apply filters", next);
+    console.log("[search] apply filters", next);
     setFilters(next);
     setSheetOpen(false);
   }, []);
@@ -120,14 +191,11 @@ export default function SearchScreen() {
   const switchMode = useCallback(
     (mode: ViewMode) => {
       logger.debug("search", "viewMode", { mode, category: filters.category });
+      console.log("[search] viewMode", mode);
       setViewMode(mode);
     },
     [filters.category],
   );
-
-  if (discoveryDisabled) {
-    return <LoadingState />;
-  }
 
   if (viewMode === "map") {
     return (
@@ -137,9 +205,18 @@ export default function SearchScreen() {
             <Title>Explore</Title>
             <ViewModeToggle mode={viewMode} onChange={switchMode} />
           </View>
+          {discovery?.label ? (
+            <Muted style={styles.nearHint}>Near {discovery.label}</Muted>
+          ) : null}
         </View>
         <View style={styles.mapBody}>
-          <ProvidersMapView filters={filters} onFiltersChange={setFilters} />
+          <ProvidersMapView
+            filters={filters}
+            onFiltersChange={setFilters}
+            centerOnUser={Boolean(coords)}
+            userCoordinate={coords}
+            showsUserLocation={discovery?.source === "gps"}
+          />
         </View>
       </View>
     );
@@ -166,7 +243,11 @@ export default function SearchScreen() {
       <View style={styles.listHeader}>
         <View style={styles.titleBlock}>
           <Title>Explore</Title>
-          <Muted>Browse artists by style, category, or name.</Muted>
+          <Muted>
+            {discovery?.label
+              ? `Artists near ${discovery.label}`
+              : "Browse artists by style, category, or name."}
+          </Muted>
         </View>
         <ViewModeToggle mode={viewMode} onChange={switchMode} />
       </View>
@@ -197,7 +278,18 @@ export default function SearchScreen() {
           {query.data ? `${results.length} artist${results.length === 1 ? "" : "s"}` : "Searching…"}
         </Text>
         {filterCount > 0 ? (
-          <Pressable hitSlop={10} onPress={() => setFilters(DEFAULT_FILTERS)}>
+          <Pressable
+            hitSlop={10}
+            onPress={() => {
+              const next = {
+                ...DEFAULT_FILTERS,
+                // Keep exploring near the saved area after clearing other filters.
+                distanceKm: discovery ? EXPLORE_NEAR_KM : DEFAULT_FILTERS.distanceKm,
+              };
+              console.log("[search] clear all filters", next);
+              setFilters(next);
+            }}
+          >
             <Text style={styles.clearAll}>Clear all</Text>
           </Pressable>
         ) : (
@@ -208,7 +300,7 @@ export default function SearchScreen() {
 
       {query.refetching ? <SpinnerRow label="Refining results…" /> : null}
 
-      {query.loading ? (
+      {query.loading || (!locationReady && filters.distanceKm < ANY_DISTANCE_KM) ? (
         <View style={styles.list}>
           {[0, 1, 2].map((i) => (
             <Skeleton key={i} style={styles.skeletonCard} />
@@ -219,10 +311,16 @@ export default function SearchScreen() {
       {query.error && query.offline ? <OfflineState onRetry={query.refetch} /> : null}
       {query.error && !query.offline ? <ErrorState message={query.error} onRetry={query.refetch} /> : null}
 
-      {query.data && results.length === 0 ? (
+      {query.data && locationReady && results.length === 0 ? (
         <EmptyState
-          title="No results found"
-          body={filterCount > 0 ? "Try loosening a filter." : "Try another category or query."}
+          title="No artists nearby"
+          body={
+            discovery?.label
+              ? `Nothing within ${filters.distanceKm < ANY_DISTANCE_KM ? `${filters.distanceKm} km` : "range"} of ${discovery.label}. Try a larger distance in Filters, or search another area from Home.`
+              : filterCount > 0
+                ? "Try loosening a filter."
+                : "Try another category or query."
+          }
         />
       ) : null}
 
@@ -295,6 +393,7 @@ const styles = StyleSheet.create({
   content: { gap: 12 },
   listHeader: { gap: 12 },
   titleBlock: { gap: 6 },
+  nearHint: { marginTop: 4 },
   searchRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   appliedRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   countRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

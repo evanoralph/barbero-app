@@ -1,0 +1,26 @@
+# Log in as seed customer via __DEV__ quick-fill buttons, then login OTP.
+# Asserts home content ("Book now") — more reliable than tab a11y labels
+# right after redirect (especially on Android).
+#
+# Prefer testIDs. Do NOT add a "when notVisible: sign-in-button → tap Sign in"
+# fallback — after a successful id tap the button disappears and that branch
+# incorrectly fires on the post-login screen.
+appId: com.beruapp.ai
+---
+- tapOn:
+    id: "dev-fill-customer"
+- tapOn:
+    id: "sign-in-button"
+- extendedWaitUntil:
+    visible: "Enter login code"
+    timeout: 20000
+- tapOn:
+    id: "login-otp-dev-fill"
+- tapOn:
+    id: "login-otp-verify"
+- extendedWaitUntil:
+    notVisible: "Dev quick fill"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Book now"
+    timeout: 20000

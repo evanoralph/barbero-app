@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { Text } from "react-native";
 import { getAccountMe, updateAccountMe } from "@/src/api/account";
+import { NotificationPreferencesSection } from "@/src/components/NotificationPreferencesSection";
+import { PhPlacesSearchField } from "@/src/components/PhPlacesSearchField";
 import { Button, ErrorState, Field, LoadingState, Screen, Title } from "@/src/components/ui";
 import { LegalLinks } from "@/src/components/LegalLinks";
 import type { AccountProfile } from "@/src/types/api";
 import { colors } from "@/src/theme/colors";
+import { setDiscoveryLocation } from "@/src/utils/discoveryLocation";
 import { logger } from "@/src/utils/logger";
 import {
   normalizePhMobile,
@@ -31,7 +34,11 @@ export default function SettingsScreen() {
       setName(me.name);
       setPhone(me.phone ?? "");
       setCity(me.city ?? "");
-      logger.info("settings", "loaded", { hasPhone: Boolean(me.phone) });
+      logger.info("settings", "loaded", {
+        hasPhone: Boolean(me.phone),
+        prefsPush: me.notificationPreferences.push,
+        prefsEmail: me.notificationPreferences.email,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -82,7 +89,11 @@ export default function SettingsScreen() {
   return (
     <Screen scroll>
       <Title>Settings</Title>
-      <Field label="Name" value={name} onChangeText={setName} />
+      <Field
+        label="Name"
+        value={name}
+        onChangeText={setName}
+      />
       <Field
         label="Phone"
         value={phone}
@@ -94,10 +105,42 @@ export default function SettingsScreen() {
       {phoneInvalid ? (
         <Text style={{ color: colors.danger, fontSize: 12 }}>{PH_MOBILE_ERROR}</Text>
       ) : null}
-      <Field label="City" value={city} onChangeText={setCity} />
+      <PhPlacesSearchField
+        label="City / area (PH)"
+        placeholder="Search address in the Philippines"
+        value={city}
+        onChangeText={setCity}
+        onPlaceSelected={async (place) => {
+          setCity(place.city || place.label);
+          logger.info("settings", "places selected", { label: place.label });
+          console.log("[settings] places selected", place.label);
+          try {
+            await setDiscoveryLocation({
+              lat: place.lat,
+              lng: place.lng,
+              label: place.label,
+              source: "manual",
+            });
+            console.log("[settings] discovery location updated");
+          } catch (e) {
+            logger.warn("settings", "discovery location update failed", e);
+          }
+        }}
+      />
       {error ? <Text style={{ color: colors.danger }}>{error}</Text> : null}
       {ok ? <Text style={{ color: colors.success }}>{ok}</Text> : null}
       <Button label="Save" onPress={save} loading={saving} disabled={phoneInvalid} />
+
+      {profile ? (
+        <NotificationPreferencesSection
+          preferences={profile.notificationPreferences}
+          onUpdated={(notificationPreferences) => {
+            setProfile((prev) => (prev ? { ...prev, notificationPreferences } : prev));
+            logger.info("settings", "notification prefs updated in state");
+          }}
+        />
+      ) : null}
+
       <LegalLinks />
     </Screen>
   );

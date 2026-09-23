@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
 import {
   ActivityIndicator,
+  Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,6 +12,10 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
+import {
+  KeyboardAwareScrollView,
+  KeyboardToolbar,
+} from "react-native-keyboard-controller";
 import { History, Search, SlidersHorizontal, X } from "lucide-react-native";
 import Animated, {
   Easing,
@@ -27,6 +31,10 @@ import { AnimatedPressable } from "@/src/components/animated/AnimatedPressable";
 import { LottieView } from "@/src/components/animated/LottieView";
 import { colors } from "@/src/theme/colors";
 import { fonts } from "@/src/theme/fonts";
+import { logger } from "@/src/utils/logger";
+
+/** Extra space so focused field + primary CTA stay above the keyboard. */
+const KEYBOARD_BOTTOM_OFFSET = 62;
 
 export function Screen({
   children,
@@ -43,21 +51,33 @@ export function Screen({
   onRefresh?: () => void;
   contentStyle?: ViewStyle;
 }) {
+  useEffect(() => {
+    if (!scroll) return;
+    logger.debug("ui.Screen", "keyboard-aware scroll enabled", {
+      platform: Platform.OS,
+      bottomOffset: KEYBOARD_BOTTOM_OFFSET,
+    });
+  }, [scroll]);
+
   if (scroll) {
     return (
-      <ScrollView
-        style={[styles.screen, style]}
-        contentContainerStyle={[styles.screenContent, contentStyle]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} tintColor={colors.accent} />
-          ) : undefined
-        }
-      >
-        {children}
-      </ScrollView>
+      <>
+        <KeyboardAwareScrollView
+          style={[styles.screen, style]}
+          contentContainerStyle={[styles.screenContent, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bottomOffset={KEYBOARD_BOTTOM_OFFSET}
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} tintColor={colors.accent} />
+            ) : undefined
+          }
+        >
+          {children}
+        </KeyboardAwareScrollView>
+        <KeyboardToolbar />
+      </>
     );
   }
   return <View style={[styles.screen, styles.screenContent, style, contentStyle]}>{children}</View>;

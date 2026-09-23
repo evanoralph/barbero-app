@@ -3,21 +3,23 @@
 # Do NOT use `launchApp: { clearState: true }` on dev-client builds — it wipes
 # the stored bundler URL and drops the simulator into the Expo launcher screen.
 #
-# Wait for boot to finish, then sign out based on role-specific home content
-# (Book now = customer, Quick actions = provider). Account/Profile take a moment
-# to load before "Sign out" is rendered — wait for it, don't race LoadingState.
+# Do NOT openLink to login while a session may exist — on Android that remounts
+# the RN activity.
+#
+# Sign out sits just above the tab bar on small Android viewports — use
+# id: sign-out-button with visibilityPercentage 40 (not text + 80%).
 appId: com.beruapp.ai
 ---
 - launchApp:
     clearState: false
 - waitForAnimationToEnd:
     timeout: 6000
+
 - extendedWaitUntil:
     visible:
-      text: "Dev quick fill|Book now|Quick actions"
-    timeout: 25000
+      text: "Dev quick fill|Book now|Quick actions|View public profile|Saved providers|Sign out"
+    timeout: 45000
 
-# Customer session → Account → Sign out (testID first, then tab label)
 - runFlow:
     when:
       visible: "Book now"
@@ -29,11 +31,19 @@ appId: com.beruapp.ai
           text: ".*Account, tab.*"
           optional: true
       - extendedWaitUntil:
-          visible: "Sign out"
-          timeout: 20000
-      - tapOn: "Sign out"
+          visible: "Saved providers|Sign out|Settings"
+          timeout: 15000
+      - scrollUntilVisible:
+          element:
+            id: "sign-out-button"
+          direction: DOWN
+          centerElement: false
+          visibilityPercentage: 40
+          speed: 60
+          timeout: 25000
+      - tapOn:
+          id: "sign-out-button"
 
-# Provider session → Profile → Sign out
 - runFlow:
     when:
       visible: "Quick actions"
@@ -45,10 +55,49 @@ appId: com.beruapp.ai
           text: ".*Profile, tab.*"
           optional: true
       - extendedWaitUntil:
-          visible: "Sign out"
+          visible: "View public profile|Manage services|Sign out"
+          timeout: 15000
+      - scrollUntilVisible:
+          element:
+            id: "sign-out-button"
+          direction: DOWN
+          centerElement: false
+          visibilityPercentage: 40
+          speed: 60
+          timeout: 25000
+      - tapOn:
+          id: "sign-out-button"
+
+- runFlow:
+    when:
+      visible: "View public profile"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "sign-out-button"
+          direction: DOWN
+          centerElement: false
+          visibilityPercentage: 40
+          speed: 60
+          timeout: 25000
+      - tapOn:
+          id: "sign-out-button"
+
+- runFlow:
+    when:
+      visible: "Saved providers"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "sign-out-button"
+          direction: DOWN
+          centerElement: false
+          visibilityPercentage: 40
+          speed: 60
           timeout: 20000
-      - tapOn: "Sign out"
+      - tapOn:
+          id: "sign-out-button"
 
 - extendedWaitUntil:
     visible: "Dev quick fill"
-    timeout: 15000
+    timeout: 20000

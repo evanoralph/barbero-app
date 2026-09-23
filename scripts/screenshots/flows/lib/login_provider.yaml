@@ -1,0 +1,24 @@
+# Log in as seed provider via __DEV__ quick-fill buttons, then login OTP.
+#
+# Prefer testIDs. Do NOT add a "when notVisible: sign-in-button → tap Sign in"
+# fallback — after a successful id tap the button disappears and that branch
+# incorrectly fires on the post-login screen.
+appId: com.beruapp.ai
+---
+- tapOn:
+    id: "dev-fill-provider"
+- tapOn:
+    id: "sign-in-button"
+- extendedWaitUntil:
+    visible: "Enter login code"
+    timeout: 20000
+- tapOn:
+    id: "login-otp-dev-fill"
+- tapOn:
+    id: "login-otp-verify"
+- extendedWaitUntil:
+    notVisible: "Dev quick fill"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Quick actions"
+    timeout: 20000
