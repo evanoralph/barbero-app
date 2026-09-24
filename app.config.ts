@@ -29,13 +29,45 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const allowCleartext = !production;
 
   const projectRoot = process.cwd();
-  // Keep config files under service-account/ (gitignored); googleServicesFile paths must match.
+  // Local copies live under service-account/ (gitignored). EAS Build must use
+  // file env vars (GOOGLE_SERVICES_JSON / GOOGLE_SERVICES_PLIST) because those
+  // files are not uploaded from git.
   const androidGoogleServicesRel = "./service-account/google-services.json";
   const iosGoogleServicesRel = "./service-account/GoogleService-Info.plist";
-  const androidGoogleServices = path.join(projectRoot, "service-account", "google-services.json");
-  const iosGoogleServices = path.join(projectRoot, "service-account", "GoogleService-Info.plist");
-  const hasAndroidFirebase = fs.existsSync(androidGoogleServices);
-  const hasIosFirebase = fs.existsSync(iosGoogleServices);
+  const androidGoogleServicesLocal = path.join(
+    projectRoot,
+    "service-account",
+    "google-services.json",
+  );
+  const iosGoogleServicesLocal = path.join(
+    projectRoot,
+    "service-account",
+    "GoogleService-Info.plist",
+  );
+
+  const androidGoogleServicesFromEnv = process.env.GOOGLE_SERVICES_JSON?.trim() ?? "";
+  const iosGoogleServicesFromEnv = process.env.GOOGLE_SERVICES_PLIST?.trim() ?? "";
+  const hasAndroidFirebaseLocal = fs.existsSync(androidGoogleServicesLocal);
+  const hasIosFirebaseLocal = fs.existsSync(iosGoogleServicesLocal);
+  const hasAndroidFirebaseEnv =
+    Boolean(androidGoogleServicesFromEnv) && fs.existsSync(androidGoogleServicesFromEnv);
+  const hasIosFirebaseEnv =
+    Boolean(iosGoogleServicesFromEnv) && fs.existsSync(iosGoogleServicesFromEnv);
+
+  // Prefer EAS file-env paths (absolute) when present; otherwise local relative paths.
+  const androidGoogleServicesFile = hasAndroidFirebaseEnv
+    ? androidGoogleServicesFromEnv
+    : hasAndroidFirebaseLocal
+      ? androidGoogleServicesRel
+      : undefined;
+  const iosGoogleServicesFile = hasIosFirebaseEnv
+    ? iosGoogleServicesFromEnv
+    : hasIosFirebaseLocal
+      ? iosGoogleServicesRel
+      : undefined;
+
+  const hasAndroidFirebase = Boolean(androidGoogleServicesFile);
+  const hasIosFirebase = Boolean(iosGoogleServicesFile);
   const firebaseReady = hasAndroidFirebase && hasIosFirebase;
 
   console.log("[app.config] building expo config", {
@@ -47,6 +79,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     firebaseReady,
     hasAndroidFirebase,
     hasIosFirebase,
+    androidGoogleServicesSource: hasAndroidFirebaseEnv
+      ? "env:GOOGLE_SERVICES_JSON"
+      : hasAndroidFirebaseLocal
+        ? "local:service-account"
+        : "missing",
+    iosGoogleServicesSource: hasIosFirebaseEnv
+      ? "env:GOOGLE_SERVICES_PLIST"
+      : hasIosFirebaseLocal
+        ? "local:service-account"
+        : "missing",
     androidGoogleServicesRel,
     iosGoogleServicesRel,
     node: process.version,
@@ -68,11 +110,19 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   if (!firebaseReady) {
     console.warn(
-      "[app.config] Firebase FCM not fully configured. Add google-services.json (Android) and " +
-        "GoogleService-Info.plist (iOS) under service-account/ from Firebase Console " +
-        `(package/bundle ${androidPackage}). Then rebuild native.`,
+      "[app.config] Firebase FCM credentials missing. Locally: put google-services.json + " +
+        "GoogleService-Info.plist under service-account/. For EAS Build: create file env vars " +
+        "GOOGLE_SERVICES_JSON and GOOGLE_SERVICES_PLIST (secret) — gitignored files are not uploaded. " +
+        `(package/bundle ${androidPackage}).`,
     );
   }
+
+  // RNFB is always a dependency. Always use CocoaPods + static frameworks so EAS
+  // prebuild never hits "SPM + static linkage is not supported" when credentials
+  // are missing from the upload (gitignored service-account/).
+  console.log(
+    "[app.config] iOS RNFB: always disableSPM + useFrameworks static (Expo precompiled modules)",
+  );
 
   const plugins: ExpoConfig["plugins"] = [
     ...(production ? [] : (["expo-dev-client"] as const)),
@@ -114,24 +164,21 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         android: {
           usesCleartextTraffic: allowCleartext,
         },
-        // RNFB v26 defaults to SPM, which cannot combine with static frameworks.
-        // Opt out of SPM (via @react-native-firebase/app plugin) and keep static
-        // linkage for Expo precompiled modules (RN 0.84+ / Expo 54+).
-        ios: firebaseReady
-          ? {
-              useFrameworks: "static",
-              forceStaticLinking: ["RNFBApp", "RNFBMessaging"],
-            }
-          : {},
+        ios: {
+          useFrameworks: "static",
+          forceStaticLinking: ["RNFBApp", "RNFBMessaging"],
+        },
       },
     ],
+    // Survives missing GoogleService files on EAS (unlike gating @react-native-firebase/app).
+    "./plugins/withRnfirebaseDisableSpm",
     // Xcode 27 / iOS 27 requires UIScene; Expo SDK 57.0.x template still uses AppDelegate window.
     // Remove once Expo prebuild ships SceneDelegate by default.
     "./plugins/withIosSceneLifecycle",
   ];
 
   if (firebaseReady) {
-    // disableSPM: true → $RNFirebaseDisableSPM in Podfile (required with useFrameworks: static).
+    // Also set disableSPM on the official plugin (belt + suspenders with our local plugin).
     plugins.push(
       [
         "@react-native-firebase/app",
@@ -144,7 +191,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       "@react-native-firebase/messaging",
     );
     console.log(
-      "[app.config] React Native Firebase plugins enabled (FCM, disableSPM + static frameworks)",
+      "[app.config] React Native Firebase plugins enabled (FCM + googleServicesFile present)",
     );
   }
 
@@ -160,6 +207,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
   ]);
 
+  // Must run AFTER expo-notifications + RNFB messaging: both declare the same
+  // FCM default_notification_* meta-data and Android Manifest merger fails
+  // without tools:replace (processDebugMainManifest).
+  plugins.push("./plugins/withAndroidFirebaseMessagingManifestFix");
+  console.log(
+    "[app.config] Android FCM notification Manifest merger fix plugin enabled",
+  );
+
   return {
     ...config,
     name: "Beru",
@@ -173,7 +228,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       supportsTablet: true,
       bundleIdentifier: iosBundleId,
       buildNumber: "1",
-      ...(hasIosFirebase ? { googleServicesFile: iosGoogleServicesRel } : {}),
+      ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : {}),
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           "Beru uses your location to show nearby artists on the map.",
@@ -207,7 +262,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       predictiveBackGestureEnabled: false,
       softwareKeyboardLayoutMode: "pan",
       versionCode: 2,
-      ...(hasAndroidFirebase ? { googleServicesFile: androidGoogleServicesRel } : {}),
+      ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {}),
     },
     web: {
       bundler: "metro",

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Keyboard,
+  LayoutAnimation,
   Modal,
   Platform,
   Pressable,
@@ -24,7 +25,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createBooking } from "@/src/api/bookings";
 import { getLoyaltyCard } from "@/src/api/loyalty";
@@ -150,6 +150,8 @@ export default function BookScreen() {
   const [slot, setSlot] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [draftNotes, setDraftNotes] = useState("");
+  /** Lift notes sheet with real keyboard height — KeyboardStickyView left a gap in Modal. */
+  const [notesKeyboardHeight, setNotesKeyboardHeight] = useState(0);
   const [loading, setLoading] = useState(true);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -321,35 +323,67 @@ export default function BookScreen() {
 
   const openNotesModal = () => {
     logger.debug("book", "open notes modal", { platform: Platform.OS });
-    console.log("[book] open notes — keyboard sticky sheet enabled");
+    console.log("[book] open notes — pad sheet with keyboard height");
     setDraftNotes(notes);
+    setNotesKeyboardHeight(0);
     setShowNotesModal(true);
   };
 
   const confirmNotes = () => {
     logger.debug("book", "confirm notes", { length: draftNotes.trim().length });
     console.log("[book] confirm notes");
+    Keyboard.dismiss();
     setNotes(draftNotes);
+    setNotesKeyboardHeight(0);
     setShowNotesModal(false);
   };
 
   const closeNotesModal = () => {
     logger.debug("book", "close notes modal");
     console.log("[book] close notes");
+    Keyboard.dismiss();
+    setNotesKeyboardHeight(0);
     setShowNotesModal(false);
   };
 
-  // Log keyboard events while notes sheet is open (lift handled by KeyboardStickyView).
+  const notesKeyboardOpen = notesKeyboardHeight > 0;
+  const notesSheetPadBottom = notesKeyboardOpen ? 12 : Math.max(insets.bottom, 20);
+
+  // Lift notes sheet flush to keyboard (same approach as MessageThreadView).
   useEffect(() => {
     if (!showNotesModal) return;
+
+    const animateKeyboard = (duration?: number) => {
+      const ms = typeof duration === "number" && duration > 0 ? duration : 250;
+      LayoutAnimation.configureNext({
+        duration: ms,
+        update: {
+          type:
+            Platform.OS === "ios"
+              ? LayoutAnimation.Types.keyboard
+              : LayoutAnimation.Types.easeInEaseOut,
+        },
+      });
+    };
+
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
     const showSub = Keyboard.addListener(showEvent, (e) => {
       const height = e.endCoordinates?.height ?? 0;
-      logger.debug("book", "notes keyboard show", { height, platform: Platform.OS });
-      console.log("[book] notes keyboard show", height);
+      animateKeyboard(e.duration);
+      setNotesKeyboardHeight(height);
+      logger.debug("book", "notes keyboard show — pad sheet", {
+        height,
+        platform: Platform.OS,
+        safeBottom: insets.bottom,
+      });
+      console.log("[book] notes keyboard show — pad sheet", height, {
+        safeBottom: insets.bottom,
+      });
     });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      animateKeyboard(e.duration);
+      setNotesKeyboardHeight(0);
       logger.debug("book", "notes keyboard hide");
       console.log("[book] notes keyboard hide");
     });
@@ -357,7 +391,7 @@ export default function BookScreen() {
       showSub.remove();
       hideSub.remove();
     };
-  }, [showNotesModal]);
+  }, [showNotesModal, insets.bottom]);
 
   const onConfirm = async () => {
     if (!user || !provider || !service || !slot) return;
@@ -714,46 +748,46 @@ export default function BookScreen() {
             style={StyleSheet.absoluteFill}
             onPress={closeNotesModal}
           />
-          <KeyboardStickyView offset={{ closed: 0, opened: 0 }}>
-            <View
-              style={[
-                styles.sheet,
-                {
-                  paddingBottom: Math.max(insets.bottom, 20),
-                },
-              ]}
-            >
-              <View style={styles.sheetHandle} />
-              <Text style={styles.sheetTitle}>Add a note</Text>
-              <Muted>Optional — anything the artist should know.</Muted>
-              <TextInput
-                style={styles.notesInput}
-                value={draftNotes}
-                onChangeText={setDraftNotes}
-                placeholder="e.g. prefer shorter on the sides"
-                placeholderTextColor={colors.textMuted}
-                multiline
-                autoFocus
-                maxLength={500}
-                onFocus={() => {
-                  logger.debug("book", "notes input focus");
-                  console.log("[book] notes input focus");
-                }}
-              />
-              <View style={styles.sheetActions}>
-                <View style={styles.sheetActionFlex}>
-                  <Button
-                    label="Cancel"
-                    variant="secondary"
-                    onPress={closeNotesModal}
-                  />
-                </View>
-                <View style={styles.sheetActionFlex}>
-                  <Button label="Done" onPress={confirmNotes} />
-                </View>
+          <View
+            style={[
+              styles.sheet,
+              {
+                // Sit flush on keyboard; drop home-indicator pad while open.
+                paddingBottom: notesSheetPadBottom,
+                marginBottom: notesKeyboardHeight,
+              },
+            ]}
+          >
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Add a note</Text>
+            <Muted>Optional — anything the artist should know.</Muted>
+            <TextInput
+              style={styles.notesInput}
+              value={draftNotes}
+              onChangeText={setDraftNotes}
+              placeholder="e.g. prefer shorter on the sides"
+              placeholderTextColor={colors.textMuted}
+              multiline
+              autoFocus
+              maxLength={500}
+              onFocus={() => {
+                logger.debug("book", "notes input focus");
+                console.log("[book] notes input focus");
+              }}
+            />
+            <View style={styles.sheetActions}>
+              <View style={styles.sheetActionFlex}>
+                <Button
+                  label="Cancel"
+                  variant="secondary"
+                  onPress={closeNotesModal}
+                />
+              </View>
+              <View style={styles.sheetActionFlex}>
+                <Button label="Done" onPress={confirmNotes} />
               </View>
             </View>
-          </KeyboardStickyView>
+          </View>
         </View>
       </Modal>
     </View>

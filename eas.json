@@ -7,6 +7,8 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
+      "node": "22.22.3",
       "android": {
         "buildType": "apk"
       }
@@ -14,6 +16,8 @@
     "development-simulator": {
       "developmentClient": true,
       "distribution": "internal",
+      "environment": "development",
+      "node": "22.22.3",
       "ios": {
         "simulator": true
       }
